@@ -89,14 +89,11 @@ export namespace main {
 	    }
 	}
 	export class LLMProcessResult {
-	    business_id: string;
 	    sql: string;
+	    business_id: string;
 	    definition: string;
 	    description: string;
 	    confidence: number;
-	    raw_response: string;
-	    retry_count: number;
-	    process_time_ms: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new LLMProcessResult(source);
@@ -104,14 +101,11 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.business_id = source["business_id"];
 	        this.sql = source["sql"];
+	        this.business_id = source["business_id"];
 	        this.definition = source["definition"];
 	        this.description = source["description"];
 	        this.confidence = source["confidence"];
-	        this.raw_response = source["raw_response"];
-	        this.retry_count = source["retry_count"];
-	        this.process_time_ms = source["process_time_ms"];
 	    }
 	}
 	export class QueryHistory {

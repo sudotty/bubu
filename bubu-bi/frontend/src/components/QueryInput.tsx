@@ -90,18 +90,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
 	};
 	return (
 		<div className="space-y-4">
-			{/* AI助手欢迎信息 */}
-			<div className="bg-base-200 rounded-lg p-4">
-				<div className="flex items-start space-x-3">
-					<div className="text-2xl">🤖</div>
-					<div>
-						<h3 className="font-semibold text-base-content">AI分析助手</h3>
-						<p className="text-sm text-base-content/70 mt-1">
-							您好！我是您的Excel分析助手。请用自然语言描述您想要分析的数据，我会帮您完成分析任务。
-						</p>
-					</div>
-				</div>
-			</div>
+
 
 			{/* 高级模式切换（隐藏在设置中） */}
 			<div className="collapse collapse-arrow bg-base-200">

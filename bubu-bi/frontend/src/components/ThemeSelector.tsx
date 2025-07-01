@@ -121,7 +121,7 @@ const ThemeSelector = memo<ThemeSelectorProps>(({ className = '' }) => {
 			{/* 主题选择弹窗 */}
 			{isModalOpen && (
 				<div className="modal modal-open">
-					<div className="modal-box w-11/12 max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+				<div className="modal-box w-11/12 max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
 						{/* 弹窗头部 */}
 						<div className="flex items-center justify-between mb-4">
 							<div>

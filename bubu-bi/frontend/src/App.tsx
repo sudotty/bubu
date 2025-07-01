@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
-import { GetTableList, GetUploadedFiles } from '../wailsjs/go/main/App';
+import React, { useState, useEffect, useCallback } from 'react';
+import { GetUploadedFiles } from '../wailsjs/go/main/App';
 import FilePanel from './components/FilePanel';
-import QueryPanel from './components/QueryPanel';
 import EnhancedQueryPanel from './components/EnhancedQueryPanel';
-import SettingsPanel from './components/SettingsPanel';
-import TopToolbar from './components/TopToolbar';
+import AppSettingsModal from './components/AppSettingsModal';
+
+import { NotificationProvider, useNotificationMethods } from './components/NotificationSystem';
 import type { File } from './types';
 
 // 扩展Window接口以包含go对象
@@ -18,124 +18,130 @@ declare global {
 	}
 }
 
-function App() {
+const AppContent = () => {
 	const [files, setFiles] = useState<File[]>([]);
-	const [tables, setTables] = useState<string[]>([]);
-	const [selectedTable, setSelectedTable] = useState<string>('');
-	const [viewMode, setViewMode] = useState<'files' | 'tables'>('files');
-	const [searchTerm, setSearchTerm] = useState<string>('');
-	const [showSettings, setShowSettings] = useState(false);
+	const [showAppSettings, setShowAppSettings] = useState(false);
 	const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
-	const [useEnhancedMode, setUseEnhancedMode] = useState(true);
+	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+	const [isProcessingFile, setIsProcessingFile] = useState(false);
+	const { success, error, info } = useNotificationMethods();
+
 
 	// 加载文件和表列表
-	const loadData = useCallback(async () => {
+	const loadData = useCallback(async (showNotification = false) => {
 		try {
 			// 检查wails运行时是否已初始化
 			if (!window.go || !window.go.main || !window.go.main.App) {
 				console.warn('Wails运行时尚未初始化，跳过加载数据');
 				return;
 			}
-			const [filesResult, tablesResult] = await Promise.all([
-				GetUploadedFiles(),
-				GetTableList(),
-			]);
+			const filesResult = await GetUploadedFiles();
 			setFiles(filesResult || []);
-			setTables(tablesResult || []);
-		} catch (error) {
-			console.error('加载数据失败:', error);
+			
+			if (showNotification) {
+				success('数据刷新成功', `已加载 ${(filesResult || []).length} 个文件`);
+			}
+		} catch (err) {
+			console.error('加载数据失败:', err);
+			if (showNotification) {
+				error('数据刷新失败', '请检查网络连接或稍后重试');
+			}
 		}
-	}, []);
+	}, [success, error]);
 
 	useEffect(() => {
 		loadData();
 	}, [loadData]);
 
+	// 全局刷新函数
+	const handleGlobalRefresh = useCallback(async () => {
+		if (isRefreshing) return;
+		
+		setIsRefreshing(true);
+		info('正在刷新数据', '正在重新加载文件列表和数据表...');
+		
+		try {
+			// 延迟一点时间让用户看到刷新效果
+			await new Promise(resolve => setTimeout(resolve, 500));
+			await loadData(true);
+		} finally {
+			setIsRefreshing(false);
+		}
+	}, [isRefreshing, loadData, info]);
+
 	const handleFileUploaded = useCallback(() => {
-		loadData(); // 重新加载数据
+		loadData(true); // 重新加载数据并显示通知
 	}, [loadData]);
 
-	const handleTableSelect = useCallback((tableName: string) => {
-		setSelectedTable(tableName);
-	}, []);
+
 
 	return (
-		<div className="h-screen bg-base-100 flex flex-col">
-			{/* 顶部工具栏 */}
-			<TopToolbar
-				onRefresh={loadData}
-				onOpenSettings={() => setShowSettings(true)}
-			/>
-
-			{/* 模式切换按钮 */}
-			<div className="px-4 py-2 bg-base-100 border-b border-base-300">
-				<div className="flex items-center justify-between">
-					<h1 className="text-lg font-semibold text-base-content">数据分析助手</h1>
-					<div className="flex items-center space-x-2">
-						<span className="text-sm text-base-content/70">界面模式:</span>
-						<div className="flex bg-base-200 rounded-lg p-1">
-							<button
-								onClick={() => setUseEnhancedMode(false)}
-								className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-									!useEnhancedMode
-										? 'bg-primary text-primary-content shadow-sm'
-										: 'text-base-content/70 hover:text-base-content'
-								}`}
-							>
-								传统模式
-							</button>
-							<button
-								onClick={() => setUseEnhancedMode(true)}
-								className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-									useEnhancedMode
-										? 'bg-primary text-primary-content shadow-sm'
-										: 'text-base-content/70 hover:text-base-content'
-								}`}
-							>
-								增强模式
-							</button>
-						</div>
+		<div className="h-screen bg-base-100 flex overflow-hidden">
+			{/* 左侧区域 - 包含标题和文件面板 */}
+			<div className="w-80 bg-base-200 border-r border-base-300 flex-shrink-0 flex flex-col">
+				{/* 左上角标题区域 */}
+				<div className="bg-base-300 border-b border-base-content/20 px-4 py-3">
+					<button 
+						className="flex items-center space-x-2 hover:bg-base-200 px-3 py-2 rounded-lg transition-colors duration-200 group w-full"
+						onClick={() => setShowAppSettings(true)}
+						title="点击打开设置和主题选择"
+					>
+						<div className="text-2xl group-hover:scale-110 transition-transform duration-200">📊</div>
+						<h1 className="text-xl font-bold text-primary group-hover:text-primary-focus">BuBu</h1>
+						<div className="badge badge-primary badge-sm group-hover:badge-primary-focus">Excel AI助手</div>
+					</button>
+					<div className="mt-2 text-xs text-base-content/60">
+						一句话处理Excel🤖 ，Make Excel Easy Again 👊
 					</div>
 				</div>
-			</div>
-
-			{/* 主体区域 - Excel AI助手界面 */}
-			<div className="flex-1 flex overflow-hidden">
-				{/* 左侧文件和历史管理面板 */}
-				<div className="w-80 bg-base-200 border-r border-base-300 flex-shrink-0">
+				
+				{/* 文件面板 */}
+				<div className="flex-1 overflow-hidden">
 					<FilePanel
 						files={files}
-						tables={tables}
-						selectedTable={selectedTable}
-						onTableSelect={handleTableSelect}
-						onRefresh={handleFileUploaded}
+						onRefresh={handleGlobalRefresh}
 						analysisHistory={analysisHistory}
+						isRefreshing={isRefreshing}
+						selectedFiles={selectedFiles}
+						onFileSelect={(file) => {
+						if (!file) return;
+						if (selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)) {
+							// 如果文件已选中，则取消选择
+							setSelectedFiles(prev => prev.filter(f => !(f.filename === file.filename && f.file_path === file.file_path)));
+						} else {
+							// 如果文件未选中，则添加到选择列表
+							setSelectedFiles(prev => [...prev, file]);
+						}
+					}}
+						isProcessingFile={isProcessingFile}
 					/>
-				</div>
-
-				{/* 右侧AI对话和分析区域 */}
-				<div className="flex-1 flex flex-col overflow-hidden">
-					{useEnhancedMode ? (
-						<EnhancedQueryPanel
-							selectedTable={selectedTable}
-							onTableDataChange={loadData}
-							files={files}
-							onAnalysisComplete={(analysis) => setAnalysisHistory(prev => [analysis, ...prev])}
-						/>
-					) : (
-						<QueryPanel
-							selectedTable={selectedTable}
-							onTableDataChange={loadData}
-							files={files}
-							onAnalysisComplete={(analysis) => setAnalysisHistory(prev => [analysis, ...prev])}
-						/>
-					)}
 				</div>
 			</div>
 
-			{/* 设置面板 */}
-			{showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+			{/* 右侧AI对话和分析区域 */}
+			<div className="flex-1 flex flex-col overflow-hidden">
+				<EnhancedQueryPanel
+					onTableDataChange={loadData}
+					files={files}
+					selectedFiles={selectedFiles}
+					onAnalysisComplete={(analysis) => setAnalysisHistory(prev => [analysis, ...prev])}
+					onProcessingStart={() => setIsProcessingFile(true)}
+					onProcessingEnd={() => setIsProcessingFile(false)}
+				/>
+			</div>
+
+			{/* 应用设置弹窗 */}
+			{showAppSettings && <AppSettingsModal onClose={() => setShowAppSettings(false)} />}
 		</div>
+	);
+};
+
+function App() {
+	return (
+		<NotificationProvider>
+			<AppContent />
+		</NotificationProvider>
 	);
 }
 

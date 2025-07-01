@@ -1,14 +1,12 @@
-import { memo } from 'react';
+import React, { memo } from 'react';
 import FileCard from './FileCard';
-import { groupFilesByDate } from '../utils/fileUtils';
 import type { File } from '../types';
 
 interface FileListProps {
   files: File[];
-  tables: string[];
-  favorites: Set<number>;
-  onToggleFavorite: (fileId: number) => void;
-  onViewTable: (tableName: string) => void;
+  selectedFiles?: File[];
+  onFileSelect?: (file: File | null) => void;
+  isProcessingFile?: boolean;
 }
 
 interface FileGroupSectionProps {
@@ -16,21 +14,13 @@ interface FileGroupSectionProps {
   files: File[];
   keyPrefix: string;
   badge?: number;
-  tables: string[];
-  favorites: Set<number>;
-  onToggleFavorite: (fileId: number) => void;
-  onViewTable: (tableName: string) => void;
 }
 
 const FileGroupSection = memo(({
   title,
   files,
   keyPrefix,
-  badge,
-  tables,
-  favorites,
-  onToggleFavorite,
-  onViewTable
+  badge
 }: FileGroupSectionProps) => {
   if (files.length === 0) return null;
 
@@ -47,10 +37,6 @@ const FileGroupSection = memo(({
           <FileCard
             key={`${keyPrefix}-${file.id}`}
             file={file}
-            tables={tables}
-            favorites={favorites}
-            onToggleFavorite={onToggleFavorite}
-            onViewTable={onViewTable}
           />
         ))}
       </div>
@@ -62,10 +48,9 @@ FileGroupSection.displayName = 'FileGroupSection';
 
 const FileList = memo(({
   files,
-  tables,
-  favorites,
-  onToggleFavorite,
-  onViewTable
+  selectedFiles = [],
+  onFileSelect,
+  isProcessingFile
 }: FileListProps) => {
   if (files.length === 0) {
     return (
@@ -77,66 +62,19 @@ const FileList = memo(({
     );
   }
 
-  const groups = groupFilesByDate(files, true, favorites);
-  const favoriteFiles = files.filter(f => favorites.has(f.id));
-
   return (
-    <div className="space-y-6">
-      <FileGroupSection
-        title="⭐ 收藏"
-        files={favoriteFiles}
-        keyPrefix="favorite"
-        badge={favoriteFiles.length}
-        tables={tables}
-        favorites={favorites}
-        onToggleFavorite={onToggleFavorite}
-        onViewTable={onViewTable}
-      />
-      <FileGroupSection
-        title="今天"
-        files={groups.today}
-        keyPrefix="today"
-        tables={tables}
-        favorites={favorites}
-        onToggleFavorite={onToggleFavorite}
-        onViewTable={onViewTable}
-      />
-      <FileGroupSection
-        title="昨天"
-        files={groups.yesterday}
-        keyPrefix="yesterday"
-        tables={tables}
-        favorites={favorites}
-        onToggleFavorite={onToggleFavorite}
-        onViewTable={onViewTable}
-      />
-      <FileGroupSection
-        title="本周"
-        files={groups.thisWeek}
-        keyPrefix="week"
-        tables={tables}
-        favorites={favorites}
-        onToggleFavorite={onToggleFavorite}
-        onViewTable={onViewTable}
-      />
-      <FileGroupSection
-        title="本月"
-        files={groups.thisMonth}
-        keyPrefix="month"
-        tables={tables}
-        favorites={favorites}
-        onToggleFavorite={onToggleFavorite}
-        onViewTable={onViewTable}
-      />
-      <FileGroupSection
-        title="更早"
-        files={groups.older}
-        keyPrefix="older"
-        tables={tables}
-        favorites={favorites}
-        onToggleFavorite={onToggleFavorite}
-        onViewTable={onViewTable}
-      />
+    <div className="space-y-2">
+      {files.map((file) => (
+        <FileCard
+          key={`file-${file.filename}-${file.file_path}`}
+          file={file}
+          isSelected={selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)}
+          onSelect={() => {
+            onFileSelect?.(file);
+          }}
+          isProcessing={isProcessingFile && selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)}
+        />
+      ))}
     </div>
   );
 });

@@ -16,6 +16,11 @@ import (
 var assets embed.FS
 
 func main() {
+	// 初始化配置
+	if err := InitConfig(""); err != nil {
+		log.Fatalf("初始化配置失败: %v", err)
+	}
+
 	// 创建实例管理器
 	instanceManager, err := NewInstanceManager()
 	if err != nil {

@@ -20,3 +20,42 @@ body {
 	background-color: oklch(var(--color-base-100));
 	color: oklch(var(--color-base-content));
 }
+
+/* 全局按钮和可点击元素的鼠标指针样式 */
+button,
+.btn,
+[role="button"],
+.modal-backdrop,
+[data-theme] .btn,
+[data-theme] button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.cursor-pointer,
+[onclick],
+.clickable {
+	cursor: pointer !important;
+}
+
+/* Modal相关的可点击元素 */
+.modal .btn,
+.modal button,
+.modal [role="button"],
+.modal-action button,
+.modal-action .btn {
+	cursor: pointer !important;
+}
+
+/* 禁用状态的按钮 */
+button:disabled,
+.btn:disabled,
+.btn-disabled,
+[disabled] {
+	cursor: not-allowed !important;
+}
+
+/* 加载状态的按钮 */
+.loading,
+.btn.loading {
+	cursor: wait !important;
+}

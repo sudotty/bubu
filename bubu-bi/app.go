@@ -33,7 +33,7 @@ func NewApp() *App {
 	if err != nil {
 		log.Printf("Failed to load config: %v", err)
 	}
-	
+
 	return &App{
 		config: GetConfig(),
 	}
@@ -230,7 +230,7 @@ func (a *App) SetLLMTimeout(timeoutSeconds int) error {
 	if timeoutSeconds > 300 {
 		return fmt.Errorf("超时时间不能超过300秒")
 	}
-	
+
 	a.config.LLM.TimeoutSeconds = timeoutSeconds
 	// 保存配置到文件
 	return SaveConfig("config.yaml")

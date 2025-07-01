@@ -1,61 +1,74 @@
-import { memo } from 'react';
+import React, { memo } from 'react';
 import type { File } from '../types';
 import { formatFileSize, formatDate } from '../utils/fileUtils';
 
 interface FileCardProps {
   file: File;
-  tables: string[];
-  favorites: Set<number>;
-  onToggleFavorite: (fileId: number) => void;
-  onViewTable: (tableName: string) => void;
+  isSelected?: boolean;
+  onSelect?: () => void;
+  isProcessing?: boolean;
 }
 
 const FileCard = memo(({
   file,
-  tables,
-  favorites,
-  onToggleFavorite,
-  onViewTable
+  isSelected = false,
+  onSelect,
+  isProcessing = false
 }: FileCardProps) => {
-  const tableName = file.filename.replace(/\.[^/\.]+$/, '');
-  const hasCorrespondingTable = tables.includes(tableName);
-  const isFavorite = favorites.has(file.id);
+
+  const handleClick = () => {
+    onSelect?.();
+  };
 
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-300 p-3 hover:shadow-md transition-shadow">
+    <div 
+      className={`card p-3 cursor-pointer transition-all duration-200 ${
+        isSelected 
+          ? 'bg-primary/10 border-primary shadow-md ring-2 ring-primary/20' 
+          : 'bg-base-100 border-base-300 hover:shadow-md hover:border-primary/30'
+      } ${
+        isProcessing 
+          ? 'animate-pulse bg-primary/5 border-primary/50' 
+          : ''
+      } shadow-sm border`}
+      onClick={handleClick}
+      title="点击选择/取消选择文件"
+    >
       <div className="flex items-center space-x-3">
-        <div className="text-2xl">
+        <div className={`text-2xl transition-transform duration-200 ${
+          isSelected ? 'scale-110' : ''
+        }`}>
           {file.file_type === 'xlsx' ? '📊' : '📄'}
         </div>
         <div className="flex-1">
-          <div className="font-medium text-sm">{file.filename}</div>
+          <div className={`font-medium text-sm transition-colors duration-200 ${
+            isSelected ? 'text-primary' : ''
+          }`}>
+            {file.filename}
+          </div>
           <div className="text-xs text-base-content/60">
             {formatFileSize(file.file_size)} • {formatDate(file.upload_time)}
           </div>
         </div>
-        <div className="flex items-center space-x-1">
-          {hasCorrespondingTable && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-xs text-primary"
-              onClick={() => onViewTable(tableName)}
-              title="查看对应表"
-            >
-              📋
-            </button>
-          )}
-          <button
-            type="button"
-            className={`btn btn-ghost btn-xs ${
-              isFavorite ? 'text-warning' : 'text-base-content/50'
-            }`}
-            onClick={() => onToggleFavorite(file.id)}
-            title={isFavorite ? '取消收藏' : '收藏'}
-          >
-            {isFavorite ? '⭐' : '☆'}
-          </button>
-        </div>
+        
+        {/* 选中状态指示器 */}
+        {isSelected && (
+          <div className="flex items-center space-x-1">
+            {isProcessing && (
+              <div className="loading loading-spinner loading-xs text-primary"></div>
+            )}
+            <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+          </div>
+        )}
       </div>
+      
+      {/* 处理状态提示 */}
+      {isProcessing && (
+        <div className="mt-2 text-xs text-primary font-medium flex items-center space-x-1">
+          <span>🔄</span>
+          <span>正在处理此文件数据...</span>
+        </div>
+      )}
     </div>
   );
 });

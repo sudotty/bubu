@@ -46,7 +46,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
 			{/* SQL预览模态框 */}
 			{showSqlPreview && llmResult && (
 				<div className="modal modal-open">
-					<div className="modal-box max-w-4xl">
+				<div className="modal-box max-w-2xl">
 						<h3 className="font-bold text-lg mb-4">LLM处理结果</h3>
 
 						{/* 生成的SQL */}
@@ -141,7 +141,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
 			{/* Prompt查看模态框 */}
 			{showPromptModal && (
 				<div className="modal modal-open">
-					<div className="modal-box max-w-4xl">
+				<div className="modal-box max-w-2xl">
 						<h3 className="font-bold text-lg mb-4">系统Prompt</h3>
 						<div className="space-y-4">
 							<div className="flex justify-between items-center">
