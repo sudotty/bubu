@@ -23,11 +23,20 @@ type App struct {
 	fileService     *FileService
 	llmService      *LLMService
 	instanceManager *InstanceManager
+	config          *Config
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	// 初始化配置
+	err := InitConfig("config.yaml")
+	if err != nil {
+		log.Printf("Failed to load config: %v", err)
+	}
+	
+	return &App{
+		config: GetConfig(),
+	}
 }
 
 // SetInstanceManager 设置实例管理器
@@ -50,10 +59,8 @@ func (a *App) startup(ctx context.Context) {
 	// 初始化文件服务
 	a.fileService = NewFileService(db)
 
-	// 初始化LLM服务并设置默认API密钥
-	a.llmService = NewLLMService()
-	// 硬编码火山引擎API密钥
-	a.llmService.SetAPIKey("767a21c1-f1c4-446a-b34b-67cdf1cd9a7a")
+	// 初始化LLM服务
+	a.llmService = NewLLMService(&a.config.LLM)
 }
 
 // Greet returns a greeting for the given name
@@ -187,10 +194,61 @@ func (a *App) ExecuteNaturalLanguageQuery(sql string) (*QueryResult, error) {
 	return a.dbService.ExecuteQuery(sql)
 }
 
-// SetLLMAPIKey 设置LLM API密钥（保留接口但不再使用）
-func (a *App) SetLLMAPIKey(apiKey string) {
-	// 不再允许用户设置API密钥，使用硬编码的密钥
-	// a.llmService.SetAPIKey(apiKey)
+// SetLLMAPIKey 设置LLM API密钥
+func (a *App) SetLLMAPIKey(apiKey string) error {
+	a.llmService.SetAPIKey(apiKey)
+	// 保存配置到文件
+	return SaveConfig("config.yaml")
+}
+
+// SetLLMModel 设置LLM模型
+func (a *App) SetLLMModel(modelID string) error {
+	a.config.LLM.ModelID = modelID
+	// 重新初始化客户端
+	a.llmService.initClient()
+	// 保存配置到文件
+	return SaveConfig("config.yaml")
+}
+
+// ReloadConfig 重新加载配置
+func (a *App) ReloadConfig() error {
+	config, err := LoadConfig("config.yaml")
+	if err != nil {
+		return err
+	}
+	a.config = config
+	// 重新初始化LLM服务
+	a.llmService = NewLLMService(&config.LLM)
+	return nil
+}
+
+// SetLLMTimeout 设置LLM请求超时时间（秒）
+func (a *App) SetLLMTimeout(timeoutSeconds int) error {
+	if timeoutSeconds <= 0 {
+		return fmt.Errorf("超时时间必须大于0")
+	}
+	if timeoutSeconds > 300 {
+		return fmt.Errorf("超时时间不能超过300秒")
+	}
+	
+	a.config.LLM.TimeoutSeconds = timeoutSeconds
+	// 保存配置到文件
+	return SaveConfig("config.yaml")
+}
+
+// GetLLMTimeout 获取当前LLM请求超时时间（秒）
+func (a *App) GetLLMTimeout() int {
+	return a.config.LLM.TimeoutSeconds
+}
+
+// GetLLMConfig 获取LLM配置信息
+func (a *App) GetLLMConfig() map[string]interface{} {
+	return map[string]interface{}{
+		"model":           a.config.LLM.ModelID,
+		"timeout_seconds": a.config.LLM.TimeoutSeconds,
+		"api_key_set":     a.config.LLM.APIKey != "",
+		"base_url":        a.config.LLM.BaseURL,
+	}
 }
 
 // GetTableColumns 获取表的列信息
@@ -237,9 +295,9 @@ func (a *App) GetSystemInfo() (*SystemInfo, error) {
 	}
 
 	// 上传目录路径
-	uploadPath := filepath.Join(wd, "uploads")
-	// 数据库文件路径
-	databasePath := filepath.Join(wd, "bubu.db")
+	uploadPath := filepath.Join(wd, GlobalConfig.Storage.Paths.UploadsDir)
+
+	databasePath := filepath.Join(wd, GlobalConfig.Storage.Paths.DatabaseFile)
 
 	// 获取上传目录大小
 	uploadSize, err := getDirSize(uploadPath)
@@ -373,13 +431,13 @@ func (a *App) ExportToExcel(query string) (string, error) {
 	downloadsDir := filepath.Join(homeDir, "Downloads")
 
 	// 确保下载目录存在
-	if err := os.MkdirAll(downloadsDir, 0755); err != nil {
+	if err := os.MkdirAll(downloadsDir, os.FileMode(GlobalConfig.System.FilePermissions)); err != nil {
 		return "", fmt.Errorf("创建下载目录失败: %v", err)
 	}
 
 	// 生成文件名（包含时间戳）
-	timestamp := time.Now().Format("20060102_150405")
-	filename := fmt.Sprintf("查询结果_%s.xlsx", timestamp)
+	timestamp := time.Now().Format(GlobalConfig.Export.TimestampFormat)
+	filename := fmt.Sprintf(GlobalConfig.Export.FilenameTemplate, timestamp)
 	filePath := filepath.Join(downloadsDir, filename)
 
 	// 保存文件

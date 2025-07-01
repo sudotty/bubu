@@ -36,7 +36,7 @@ func NewInstanceManager() (*InstanceManager, error) {
 	}
 
 	// 确保目录存在
-	if err := os.MkdirAll(appDataDir, 0755); err != nil {
+	if err := os.MkdirAll(appDataDir, os.FileMode(GlobalConfig.System.FilePermissions)); err != nil {
 		return nil, fmt.Errorf("创建应用数据目录失败: %v", err)
 	}
 
@@ -87,7 +87,7 @@ func (im *InstanceManager) createLockFile() error {
 
 	// 创建新的锁文件，写入当前进程ID
 	pid := os.Getpid()
-	return os.WriteFile(im.lockFile, []byte(strconv.Itoa(pid)), 0644)
+	return os.WriteFile(im.lockFile, []byte(strconv.Itoa(pid)), os.FileMode(GlobalConfig.System.ConfigPermissions))
 }
 
 // isProcessRunning 检查锁文件中的进程是否还在运行
@@ -156,7 +156,7 @@ func (im *InstanceManager) CheckInstallation() (*InstallationInfo, error) {
 func (im *InstanceManager) MarkAsInstalled() error {
 	markerFile := filepath.Join(im.appDataDir, INSTALL_MARKER)
 	installTime := time.Now().Format(time.RFC3339)
-	return os.WriteFile(markerFile, []byte(installTime), 0644)
+	return os.WriteFile(markerFile, []byte(installTime), os.FileMode(GlobalConfig.System.ConfigPermissions))
 }
 
 // Cleanup 清理资源
@@ -214,5 +214,8 @@ func GetAppVersion() string {
 	// 这里可以从编译时注入的变量或配置文件中读取版本号
 	// 示例：通过ldflags在编译时注入版本号
 	// go build -ldflags "-X main.Version=1.0.0"
+	if GlobalConfig != nil {
+		return GlobalConfig.App.Version
+	}
 	return "1.0.0" // 默认版本
 }

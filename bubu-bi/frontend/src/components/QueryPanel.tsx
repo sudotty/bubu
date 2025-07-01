@@ -7,9 +7,11 @@ import { PromptModal } from './PromptModal';
 interface QueryPanelProps {
 	selectedTable: string;
 	onTableDataChange: () => Promise<void>;
+	files?: any[];
+	onAnalysisComplete?: (analysis: any) => void;
 }
 
-export const QueryPanel: React.FC<QueryPanelProps> = ({ selectedTable, onTableDataChange }) => {
+export const QueryPanel: React.FC<QueryPanelProps> = ({ selectedTable, onTableDataChange, files = [], onAnalysisComplete }) => {
 	const {
 		query,
 		setQuery,
@@ -47,6 +49,7 @@ export const QueryPanel: React.FC<QueryPanelProps> = ({ selectedTable, onTableDa
 					onExecute={executeQuery}
 					onProcessNaturalLanguage={processNaturalLanguage}
 					showSqlPreview={showSqlPreview}
+					selectedFile={selectedTable}
 				/>
 
 				{/* 查询结果组件 */}

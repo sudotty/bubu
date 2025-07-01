@@ -9,7 +9,7 @@ export interface File {
   is_favorite?: boolean;
 }
 
-export type ViewType = 'files' | 'tables';
+export type ViewType = 'files' | 'tables' | 'history';
 
 export interface FileGroups {
   today: File[];

@@ -11,9 +11,10 @@ interface FilePanelProps {
   selectedTable: string;
   onTableSelect: (tableName: string) => void;
   onRefresh: () => void;
+  analysisHistory?: any[];
 }
 
-const FilePanel = ({ files, tables, selectedTable, onTableSelect, onRefresh }: FilePanelProps) => {
+const FilePanel = ({ files, tables, selectedTable, onTableSelect, onRefresh, analysisHistory = [] }: FilePanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState<ViewType>('files');
@@ -89,13 +90,16 @@ const FilePanel = ({ files, tables, selectedTable, onTableSelect, onRefresh }: F
       {/* 头部 */}
       <div className="flex-shrink-0 p-4 border-b border-base-300">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-base-content">数据管理</h2>
+          <h2 className="text-lg font-semibold text-base-content flex items-center space-x-2">
+            <span>📁</span>
+            <span>我的Excel文件</span>
+          </h2>
           <button
             type="button"
             className="btn btn-primary btn-sm"
             onClick={handleUploadClick}
           >
-            📤 上传文件
+            📤 上传数据
           </button>
         </div>
         
@@ -114,24 +118,33 @@ const FilePanel = ({ files, tables, selectedTable, onTableSelect, onRefresh }: F
         </div>
         
         {/* 视图切换 */}
-        <div className="flex space-x-2">
+        <div className="flex space-x-1">
           <button
             type="button"
-            className={`btn btn-sm ${
+            className={`btn btn-sm flex-1 ${
               currentView === 'files' ? 'btn-primary' : 'btn-ghost'
             }`}
             onClick={() => setCurrentView('files')}
           >
-            📁 文件
+            📁 数据文件
           </button>
           <button
             type="button"
-            className={`btn btn-sm ${
+            className={`btn btn-sm flex-1 ${
               currentView === 'tables' ? 'btn-primary' : 'btn-ghost'
             }`}
             onClick={() => setCurrentView('tables')}
           >
-            📊 表
+            📊 数据表
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm flex-1 ${
+              currentView === 'history' ? 'btn-primary' : 'btn-ghost'
+            }`}
+            onClick={() => setCurrentView('history')}
+          >
+            📈 分析历史
           </button>
         </div>
       </div>
@@ -146,7 +159,7 @@ const FilePanel = ({ files, tables, selectedTable, onTableSelect, onRefresh }: F
             onToggleFavorite={toggleFavorite}
             onViewTable={handleViewTable}
           />
-        ) : (
+        ) : currentView === 'tables' ? (
           <TableList
             tables={tables}
             files={files}
@@ -155,6 +168,39 @@ const FilePanel = ({ files, tables, selectedTable, onTableSelect, onRefresh }: F
             onTableSelect={onTableSelect}
             onViewFiles={handleViewFiles}
           />
+        ) : (
+          /* 分析历史视图 */
+          <div className="space-y-3">
+            <div className="text-sm text-base-content/70 mb-4">
+              📈 最近的数据分析记录
+            </div>
+            {analysisHistory.length === 0 ? (
+              <div className="text-center py-8 text-base-content/50">
+                <div className="text-4xl mb-2">📊</div>
+                <p>还没有分析记录</p>
+                <p className="text-xs mt-1">开始使用AI助手分析数据吧！</p>
+              </div>
+            ) : (
+              analysisHistory.map((analysis, index) => (
+                <div key={index} className="bg-base-100 rounded-lg p-3 border border-base-300 hover:bg-base-200 transition-colors cursor-pointer">
+                  <div className="flex items-start space-x-2">
+                    <div className="text-lg">📊</div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium truncate">
+                        {analysis.title || '数据分析'}
+                      </div>
+                      <div className="text-xs text-base-content/60 mt-1">
+                        🕒 {analysis.timestamp || '刚刚'}
+                      </div>
+                      <div className="text-xs text-base-content/70 mt-1 truncate">
+                        {analysis.description || '分析完成'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
       

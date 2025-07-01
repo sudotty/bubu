@@ -16,8 +16,8 @@ const TopToolbar = memo<TopToolbarProps>(({ onRefresh, onOpenSettings }) => {
 				<div className="flex items-center space-x-6">
 					<div className="flex items-center space-x-2">
 						<div className="text-2xl">📊</div>
-						<h1 className="text-xl font-bold text-primary">bubu</h1>
-						<div className="badge badge-primary badge-sm">Excel智能小助理</div>
+						<h1 className="text-xl font-bold text-primary">Excel AI助手</h1>
+						<div className="badge badge-primary badge-sm">让数据分析变得简单</div>
 					</div>
 				</div>
 
@@ -50,9 +50,7 @@ const TopToolbar = memo<TopToolbarProps>(({ onRefresh, onOpenSettings }) => {
 			<div className="mt-2 flex items-center justify-between text-xs text-base-content/60">
 				<div className="flex items-center space-x-4">
 					<span>
-						<span className="text-primary font-semibold">bu</span>怕复杂，
-						<span className="text-primary font-semibold">bu</span>
-						想等待
+						🤖 用自然语言描述需求，AI智能完成Excel数据分析
 					</span>
 				</div>
 				<div className="flex items-center space-x-2">

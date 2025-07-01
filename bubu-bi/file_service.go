@@ -21,7 +21,7 @@ type FileService struct {
 // NewFileService 创建文件服务
 func NewFileService(db *DatabaseService) *FileService {
 	uploadDir := "./uploads"
-	os.MkdirAll(uploadDir, 0755)
+	os.MkdirAll(uploadDir, os.FileMode(GlobalConfig.System.FilePermissions))
 	return &FileService{
 		db:        db,
 		uploadDir: uploadDir,
@@ -33,18 +33,32 @@ func (fs *FileService) UploadFile(filename string, content []byte) (*File, error
 	// 检查文件类型
 	ext := strings.ToLower(filepath.Ext(filename))
 	var fileType string
+	
+	// 检查是否为支持的扩展名
+	supported := false
+	for _, supportedExt := range GlobalConfig.FileHandling.Processing.SupportedExtensions {
+		if ext == supportedExt {
+			supported = true
+			break
+		}
+	}
+	
+	if !supported {
+		return nil, fmt.Errorf("不支持的文件类型: %s", ext)
+	}
+	
 	switch ext {
 	case ".xlsx", ".xls":
 		fileType = "xlsx"
 	case ".csv":
 		fileType = "csv"
 	default:
-		return nil, fmt.Errorf("不支持的文件类型: %s", ext)
+		fileType = "unknown"
 	}
 
 	// 保存文件
 	filePath := filepath.Join(fs.uploadDir, filename)
-	err := os.WriteFile(filePath, content, 0644)
+	err := os.WriteFile(filePath, content, os.FileMode(GlobalConfig.System.ConfigPermissions))
 	if err != nil {
 		return nil, err
 	}
@@ -276,13 +290,27 @@ func (fs *FileService) GetUploadedFiles() ([]File, error) {
 
 		ext := strings.ToLower(filepath.Ext(file.Name()))
 		var fileType string
+		
+		// 检查是否为支持的扩展名
+		supported := false
+		for _, supportedExt := range GlobalConfig.FileHandling.Processing.SupportedExtensions {
+			if ext == supportedExt {
+				supported = true
+				break
+			}
+		}
+		
+		if !supported {
+			continue
+		}
+		
 		switch ext {
 		case ".xlsx", ".xls":
 			fileType = "xlsx"
 		case ".csv":
 			fileType = "csv"
 		default:
-			continue
+			fileType = "unknown"
 		}
 
 		result = append(result, File{

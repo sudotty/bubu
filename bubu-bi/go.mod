@@ -9,6 +9,7 @@ require (
 	github.com/volcengine/volcengine-go-sdk v1.1.19
 	github.com/wailsapp/wails/v2 v2.10.1
 	github.com/xuri/excelize/v2 v2.9.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
