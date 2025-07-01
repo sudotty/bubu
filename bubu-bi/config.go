@@ -11,12 +11,12 @@ import (
 
 // Config 应用配置结构体
 type Config struct {
-	App         AppConfig         `yaml:"app"`
-	LLM         LLMConfig         `yaml:"llm"`
-	Storage     StorageConfig     `yaml:"storage"`
+	App          AppConfig          `yaml:"app"`
+	LLM          LLMConfig          `yaml:"llm"`
+	Storage      StorageConfig      `yaml:"storage"`
 	FileHandling FileHandlingConfig `yaml:"file_handling"`
-	Export      ExportConfig      `yaml:"export"`
-	System      SystemConfig      `yaml:"system"`
+	Export       ExportConfig       `yaml:"export"`
+	System       SystemConfig       `yaml:"system"`
 }
 
 // AppConfig 应用配置
@@ -159,7 +159,7 @@ func createDefaultConfig(configPath string) (*Config, error) {
 		FileHandling: FileHandlingConfig{
 			Upload: UploadConfig{
 				UploadDir:         getEnvOrDefault("BUBU_FILE_UPLOAD_DIR", "uploads"),
-				MaxFileSizeMB:     getEnvIntOrDefault("BUBU_FILE_MAX_SIZE_MB", 100),
+				MaxFileSizeMB:     getEnvIntOrDefault("BUBU_FILE_MAX_SIZE_MB", 300),
 				AllowedExtensions: getEnvSliceOrDefault("BUBU_FILE_ALLOWED_EXTENSIONS", SupportedFileExtensions),
 			},
 			Processing: ProcessingConfig{
@@ -235,8 +235,6 @@ func validateConfig(config *Config) error {
 func (c *LLMConfig) GetTimeout() time.Duration {
 	return time.Duration(c.TimeoutSeconds) * time.Second
 }
-
-
 
 // GetMaxFileSizeBytes 获取最大文件大小（字节）
 func (c *UploadConfig) GetMaxFileSizeBytes() int64 {

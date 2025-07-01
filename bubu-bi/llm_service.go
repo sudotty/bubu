@@ -12,23 +12,26 @@ import (
 
 // LLMService LLM服务结构体
 type LLMService struct {
-	client *arkruntime.Client
-	config *LLMConfig
+	client  *arkruntime.Client
+	config  *LLMConfig
+	prompts *PromptTemplates
 }
 
 // LLMProcessResult LLM处理结果
 type LLMProcessResult struct {
-	SQL         string  `json:"sql"`
-	BusinessID  string  `json:"business_id"`
-	Definition  string  `json:"definition"`
-	Description string  `json:"description"`
-	Confidence  float64 `json:"confidence"`
+	SQL         string   `json:"sql"`
+	BusinessID  string   `json:"business_id"`
+	Definition  string   `json:"definition"`
+	Description string   `json:"description"`
+	Confidence  float64  `json:"confidence"`
+	Suggestions []string `json:"suggestions"`
 }
 
 // NewLLMService 创建新的LLM服务实例
 func NewLLMService(config *LLMConfig) *LLMService {
 	service := &LLMService{
-		config: config,
+		config:  config,
+		prompts: NewPromptTemplates(),
 	}
 	service.initClient()
 	return service
@@ -71,7 +74,7 @@ func (llm *LLMService) ProcessNaturalLanguage(input string, tableSchema string, 
 // callLLMAPI 调用火山引擎LLM API
 func (llm *LLMService) callLLMAPI(ctx context.Context, input, tableSchema string, availableTables []string) (*LLMProcessResult, error) {
 	// 构建系统提示词
-	systemPrompt := llm.buildSystemPrompt(tableSchema, strings.Join(availableTables, ", "))
+	systemPrompt := llm.prompts.BuildSQLGenerationPrompt(tableSchema, strings.Join(availableTables, ", "))
 
 	// 构建请求
 	req := model.ChatCompletionRequest{
@@ -102,31 +105,10 @@ func (llm *LLMService) callLLMAPI(ctx context.Context, input, tableSchema string
 	return llm.parseResponse(&response, input)
 }
 
-// buildSystemPrompt 构建系统提示词
+// buildSystemPrompt 构建系统提示词 (已废弃，使用PromptTemplates代替)
+// 保留此方法以确保向后兼容性
 func (llm *LLMService) buildSystemPrompt(tableSchema, availableTables string) string {
-	return fmt.Sprintf(`你是一个专业的SQL生成助手，专门将自然语言需求转换为SQL查询语句。
-
-可用表格：%s
-
-表结构信息：
-%s
-
-请根据用户的自然语言需求，生成对应的SQL查询语句。你的回复必须严格按照以下JSON格式：
-
-{
-  "business_id": "业务唯一标识符（英文，如sales_ranking_analysis）",
-  "sql": "SELECT语句",
-  "definition": "业务定义（中文，简洁描述）",
-  "description": "详细说明（中文，解释查询目的和结果）",
-  "confidence": 0.95
-}
-
-要求：
-1. 只生成SELECT查询语句
-2. 确保SQL语法正确
-3. 使用提供的表名和字段名
-4. confidence表示生成结果的置信度（0-1之间）
-5. 严格按照JSON格式回复，不要添加其他内容`, availableTables, tableSchema)
+	return llm.prompts.BuildSQLGenerationPrompt(tableSchema, availableTables)
 }
 
 // parseResponse 解析LLM响应
@@ -145,11 +127,12 @@ func (llm *LLMService) parseResponse(response *model.ChatCompletionResponse, ori
 
 	// 解析JSON
 	var result struct {
-		BusinessID  string  `json:"business_id"`
-		SQL         string  `json:"sql"`
-		Definition  string  `json:"definition"`
-		Description string  `json:"description"`
-		Confidence  float64 `json:"confidence"`
+		BusinessID  string   `json:"business_id"`
+		SQL         string   `json:"sql"`
+		Definition  string   `json:"definition"`
+		Description string   `json:"description"`
+		Confidence  float64  `json:"confidence"`
+		Suggestions []string `json:"suggestions"`
 	}
 
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
@@ -172,6 +155,7 @@ func (llm *LLMService) parseResponse(response *model.ChatCompletionResponse, ori
 		Definition:  result.Definition,
 		Description: result.Description,
 		Confidence:  result.Confidence,
+		Suggestions: result.Suggestions,
 	}, nil
 }
 
@@ -190,19 +174,20 @@ func (llm *LLMService) extractJSON(content string) string {
 	return content[startIdx : endIdx+1]
 }
 
-// validateSQL 基本的SQL语法验证
+// validateSQL 验证SQL语句的安全性
 func (llm *LLMService) validateSQL(sql string) error {
-	sql = strings.TrimSpace(strings.ToUpper(sql))
+	// 转换为小写进行检查
+	sqlLower := strings.ToLower(strings.TrimSpace(sql))
 
-	// 检查是否是查询语句
-	if !strings.HasPrefix(sql, "SELECT") {
+	// 只允许SELECT语句
+	if !strings.HasPrefix(sqlLower, "select") {
 		return fmt.Errorf("只支持SELECT查询语句")
 	}
 
-	// 检查危险操作
-	dangerousKeywords := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE"}
+	// 检查危险关键词
+	dangerousKeywords := []string{"drop", "delete", "update", "insert", "alter", "create", "truncate"}
 	for _, keyword := range dangerousKeywords {
-		if strings.Contains(sql, keyword) {
+		if strings.Contains(sqlLower, keyword) {
 			return fmt.Errorf("SQL包含危险操作: %s", keyword)
 		}
 	}

@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/xuri/excelize/v2"
 )
 
 // FileService 文件处理服务
@@ -128,20 +126,19 @@ func (fs *FileService) importFileToDatabase(file *File) error {
 
 // parseExcelFile 解析Excel文件
 func (fs *FileService) parseExcelFile(filePath string) ([][]string, error) {
-	f, err := excelize.OpenFile(filePath)
-	if err != nil {
-		return nil, err
+	// 使用新的Excel服务进行解析
+	excelService := NewExcelService(GlobalConfig)
+	
+	// 验证Excel文件
+	if err := excelService.ValidateExcelFile(filePath); err != nil {
+		return nil, fmt.Errorf("Excel文件验证失败: %v", err)
 	}
-	defer f.Close()
-
-	// 获取第一个工作表
-	sheetName := f.GetSheetName(0)
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		return nil, err
-	}
-
-	return rows, nil
+	
+	// 使用流式解析，支持大文件
+	options := DefaultExcelOptions()
+	options.MaxRows = 0 // 读取所有行
+	
+	return excelService.ParseExcelFileStream(filePath, options)
 }
 
 // parseCSVFile 解析CSV文件

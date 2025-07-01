@@ -7,6 +7,7 @@ import { AIConversation } from './AIConversation';
 import { ProcessingVisualization } from './ProcessingVisualization';
 import { PromptModal } from './PromptModal';
 
+
 // 使用简单的文本图标替代
 const ChatIcon = () => <span>💬</span>;
 const CommandIcon = () => <span>⌨️</span>;
@@ -73,7 +74,7 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
     executeQuery,
     handleExportToExcel,
     setLlmResult,
-  } = useEnhancedQueryPanel();
+  } = useEnhancedQueryPanel(selectedFiles?.map(file => file.filename));
 
   // 界面模式状态 - 简化为两种模式
   const [viewMode, setViewMode] = useState<'query' | 'conversation'>('query');
@@ -122,6 +123,8 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
   // 渲染查询模式
   const renderQueryMode = () => (
     <div className="space-y-3">
+
+      
       {/* 查询输入 */}
       <QueryInput
          query={query}
@@ -148,8 +151,8 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
          onExport={handleExportToExcel}
          onCopy={() => handleCopy()}
        />
-    </div>
-  );
+     </div>
+   );
 
   // 渲染对话模式 - 优化布局
   const renderConversationMode = () => (

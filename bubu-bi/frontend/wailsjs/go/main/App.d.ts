@@ -4,6 +4,10 @@ import {main} from '../models';
 
 export function CheckForUpdates():Promise<main.UpdateInfo>;
 
+export function ClearAllCache():Promise<void>;
+
+export function ClearCacheByType(arg1:string):Promise<void>;
+
 export function ExecuteCommand(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function ExecuteNaturalLanguageQuery(arg1:string):Promise<main.QueryResult>;
@@ -14,11 +18,15 @@ export function ExportToExcel(arg1:string):Promise<string>;
 
 export function GetAppVersion():Promise<string>;
 
+export function GetCacheStats():Promise<Record<string, any>>;
+
 export function GetInstallationInfo():Promise<main.InstallationInfo>;
 
 export function GetLLMConfig():Promise<Record<string, any>>;
 
 export function GetLLMTimeout():Promise<number>;
+
+export function GetPopularQueries(arg1:string,arg2:number):Promise<Array<main.PromptSQLMapping>>;
 
 export function GetQueryHistory():Promise<Array<main.QueryHistory>>;
 
@@ -36,7 +44,13 @@ export function GetUploadedFiles():Promise<Array<main.File>>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function ManualCleanExpiredCache():Promise<void>;
+
 export function ProcessNaturalLanguage(arg1:string):Promise<main.LLMProcessResult>;
+
+export function ProcessNaturalLanguageEnhanced(arg1:string):Promise<main.LLMProcessResult>;
+
+export function ProcessNaturalLanguageWithFiles(arg1:string,arg2:Array<string>):Promise<main.LLMProcessResult>;
 
 export function ReloadConfig():Promise<void>;
 

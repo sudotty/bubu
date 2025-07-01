@@ -7,8 +7,10 @@ import {
 	GetTableList,
 	GetTableSchema as GetTableSchemaAPI,
 	ProcessNaturalLanguage,
+	ProcessNaturalLanguageWithFiles,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
+import { PromptTemplates, ERROR_MESSAGES } from '../utils/promptTemplates';
 
 type QueryResult = main.QueryResult;
 type QueryHistory = main.QueryHistory;
@@ -75,7 +77,7 @@ const DEFAULT_PROCESSING_STEPS: ProcessingStep[] = [
   }
 ];
 
-export const useEnhancedQueryPanel = () => {
+export const useEnhancedQueryPanel = (selectedFiles?: string[]) => {
 	const [query, setQuery] = useState('');
 	const [result, setResult] = useState<QueryResult | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -130,15 +132,16 @@ export const useEnhancedQueryPanel = () => {
 				})
 			);
 
-			let prompt = '可用的数据表和字段信息:\n';
+			// 构建schemas映射
+			const schemasMap: Record<string, any> = {};
 			tableSchemas.forEach(({ table, schema }) => {
-				prompt += `\n表名: ${table}\n`;
-				if (schema && schema.columns) {
-					prompt += `字段: ${schema.columns.join(', ')}\n`;
+				if (schema) {
+					schemasMap[table] = schema;
 				}
 			});
 
-			return prompt;
+			// 使用新的prompt模板管理器
+			return PromptTemplates.buildDatabaseSchemaPrompt(tables, schemasMap);
 		} catch (error) {
 			console.error('生成系统提示词失败:', error);
 			return '无法获取数据表信息';
@@ -153,7 +156,7 @@ export const useEnhancedQueryPanel = () => {
 			setCopySuccess('已复制到剪贴板！');
 			setTimeout(() => setCopySuccess(''), 3000);
 		} catch (error) {
-			setError('复制失败');
+			setError(ERROR_MESSAGES.UNKNOWN_ERROR);
 		}
 	}, [result]);
 
@@ -233,7 +236,10 @@ export const useEnhancedQueryPanel = () => {
 			setCurrentStep('sql_generation');
 			updateProcessingStep('sql_generation', { status: 'processing' });
 			
-			const result = await ProcessNaturalLanguage(userQuery);
+			// 根据是否有选中文件来决定调用哪个方法
+			const result = selectedFiles && selectedFiles.length > 0 
+				? await ProcessNaturalLanguageWithFiles(userQuery, selectedFiles)
+				: await ProcessNaturalLanguage(userQuery);
 			setLlmResult(result);
 			
 			updateProcessingStep('sql_generation', { status: 'completed', duration: 1500 });
@@ -256,7 +262,7 @@ export const useEnhancedQueryPanel = () => {
 				content: `抱歉，处理您的请求时遇到了问题：${error}`,
 				status: 'error'
 			});
-			setError(`自然语言处理失败: ${error}`);
+			setError(`${ERROR_MESSAGES.PROCESSING_ERROR}: ${error}`);
 		} finally {
 			setLoading(false);
 			setCurrentStep(null);
@@ -331,7 +337,7 @@ export const useEnhancedQueryPanel = () => {
 				content: `查询执行失败：${error}`,
 				status: 'error'
 			});
-			setError(`查询执行失败: ${error}`);
+			setError(`${ERROR_MESSAGES.QUERY_FAILED}: ${error}`);
 		} finally {
 			setLoading(false);
 			setCurrentStep(null);
@@ -352,7 +358,7 @@ export const useEnhancedQueryPanel = () => {
 	// 导出Excel功能
 	const handleExportToExcel = useCallback(async () => {
 		if (!lastExecutedQuery) {
-			setError('没有可导出的查询结果，请先执行查询');
+			setError(ERROR_MESSAGES.DATA_ERROR);
 			return;
 		}
 
@@ -365,7 +371,7 @@ export const useEnhancedQueryPanel = () => {
 			setTimeout(() => setCopySuccess(''), 3000);
 			console.log('Excel文件已保存到:', filePath);
 		} catch (error) {
-			setError(`导出Excel失败: ${error}`);
+			setError(`${ERROR_MESSAGES.UNKNOWN_ERROR}: ${error}`);
 		} finally {
 			setExporting(false);
 		}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -12,8 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/xuri/excelize/v2"
 )
 
 // App struct
@@ -23,6 +22,7 @@ type App struct {
 	fileService     *FileService
 	llmService      *LLMService
 	instanceManager *InstanceManager
+	cacheService    *CacheService
 	config          *Config
 }
 
@@ -61,6 +61,31 @@ func (a *App) startup(ctx context.Context) {
 
 	// 初始化LLM服务
 	a.llmService = NewLLMService(&a.config.LLM)
+
+	// 初始化缓存服务
+	a.cacheService = NewCacheService(db)
+
+	// 启动定期清理过期缓存的goroutine
+	go a.startCacheCleanup()
+}
+
+// startCacheCleanup 启动定期清理过期缓存
+func (a *App) startCacheCleanup() {
+	ticker := time.NewTicker(1 * time.Hour) // 每小时清理一次
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// 使用缓存服务清理过期缓存
+			err := a.cacheService.CleanExpired()
+			if err != nil {
+				log.Printf("定期清理过期缓存失败: %v", err)
+			}
+		case <-a.ctx.Done():
+			return
+		}
+	}
 }
 
 // Greet returns a greeting for the given name
@@ -115,6 +140,8 @@ func (a *App) GetTableSchema(tableName string) (*QueryResult, error) {
 	return a.dbService.ExecuteQuery(query)
 }
 
+
+
 // GetTableData 获取表数据（分页）
 func (a *App) GetTableData(tableName string, limit, offset int) (*QueryResult, error) {
 	if limit <= 0 {
@@ -122,6 +149,32 @@ func (a *App) GetTableData(tableName string, limit, offset int) (*QueryResult, e
 	}
 	query := fmt.Sprintf("SELECT * FROM `%s` LIMIT %d OFFSET %d", tableName, limit, offset)
 	return a.dbService.ExecuteQuery(query)
+}
+
+// convertFilesToTableNames 将文件名列表转换为表名列表
+func (a *App) convertFilesToTableNames(filenames []string) []string {
+	var tableNames []string
+	allTables, err := a.GetTableList()
+	if err != nil {
+		return tableNames
+	}
+
+	for _, filename := range filenames {
+		// 将文件名转换为表名（去掉扩展名，替换特殊字符）
+		tableName := strings.TrimSuffix(filename, filepath.Ext(filename))
+		tableName = strings.ReplaceAll(tableName, "-", "_")
+		tableName = strings.ReplaceAll(tableName, " ", "_")
+		
+		// 检查表是否存在
+		for _, existingTable := range allTables {
+			if existingTable == tableName {
+				tableNames = append(tableNames, tableName)
+				break
+			}
+		}
+	}
+
+	return tableNames
 }
 
 // buildTableSchemaInfo 构建表结构信息
@@ -154,16 +207,32 @@ func (a *App) generateID() string {
 
 // ===== LLM API相关 =====
 
-// ProcessNaturalLanguage 处理自然语言输入并生成SQL
+// ProcessNaturalLanguage 处理自然语言输入（使用所有表）
 func (a *App) ProcessNaturalLanguage(input string) (*LLMProcessResult, error) {
+	return a.ProcessNaturalLanguageWithFiles(input, nil)
+}
+
+// ProcessNaturalLanguageWithFiles 处理自然语言输入（指定文件列表）
+func (a *App) ProcessNaturalLanguageWithFiles(input string, selectedFiles []string) (*LLMProcessResult, error) {
 	if input == "" {
 		return nil, fmt.Errorf("输入不能为空")
 	}
 
-	// 获取所有表列表
-	tables, err := a.GetTableList()
-	if err != nil {
-		return nil, fmt.Errorf("获取表列表失败: %v", err)
+	var tables []string
+	var err error
+
+	if selectedFiles != nil && len(selectedFiles) > 0 {
+		// 如果指定了文件列表，只使用这些文件对应的表
+		tables = a.convertFilesToTableNames(selectedFiles)
+		if len(tables) == 0 {
+			return nil, fmt.Errorf("选中的文件没有对应的数据表")
+		}
+	} else {
+		// 如果没有指定文件，使用所有表
+		tables, err = a.GetTableList()
+		if err != nil {
+			return nil, fmt.Errorf("获取表列表失败: %v", err)
+		}
 	}
 
 	// 构建表结构信息
@@ -363,90 +432,18 @@ func (a *App) ExportToExcel(query string) (string, error) {
 		return "", fmt.Errorf("查询执行失败: %v", err)
 	}
 
-	// 创建Excel文件
-	f := excelize.NewFile()
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Printf("关闭Excel文件失败: %v", err)
-		}
-	}()
-
-	// 设置工作表名称
-	sheetName := "查询结果"
-	f.SetSheetName("Sheet1", sheetName)
-
-	// 写入表头
-	for i, column := range result.Columns {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheetName, cell, column)
+	// 使用新的Excel服务进行导出
+	excelService := NewExcelService(GlobalConfig)
+	
+	// 配置导出选项
+	options := &ExportOptions{
+		SheetName:       "查询结果",
+		IncludeHeader:   true,
+		AutoWidth:       true,
+		MaxRowsPerSheet: GlobalConfig.Export.MaxRows,
 	}
-
-	// 设置表头样式
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold: true,
-			Size: 12,
-		},
-		Fill: excelize.Fill{
-			Type:    "pattern",
-			Color:   []string{"#E6E6FA"},
-			Pattern: 1,
-		},
-		Border: []excelize.Border{
-			{Type: "left", Color: "#000000", Style: 1},
-			{Type: "top", Color: "#000000", Style: 1},
-			{Type: "bottom", Color: "#000000", Style: 1},
-			{Type: "right", Color: "#000000", Style: 1},
-		},
-	})
-	if err == nil {
-		headerRange := fmt.Sprintf("A1:%s1", string(rune('A'+len(result.Columns)-1)))
-		f.SetCellStyle(sheetName, "A1", headerRange, headerStyle)
-	}
-
-	// 写入数据行
-	for rowIndex, row := range result.Rows {
-		for colIndex, cellValue := range row {
-			cell, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+2)
-			// 处理不同类型的数据
-			if cellValue == nil {
-				f.SetCellValue(sheetName, cell, "")
-			} else {
-				f.SetCellValue(sheetName, cell, cellValue)
-			}
-		}
-	}
-
-	// 设置列宽自适应
-	for i := 0; i < len(result.Columns); i++ {
-		colName, _ := excelize.ColumnNumberToName(i + 1)
-		f.SetColWidth(sheetName, colName, colName, 15)
-	}
-
-	// 获取用户下载目录
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("获取用户主目录失败: %v", err)
-	}
-	downloadsDir := filepath.Join(homeDir, "Downloads")
-
-	// 确保下载目录存在
-	if err := os.MkdirAll(downloadsDir, os.FileMode(GlobalConfig.System.FilePermissions)); err != nil {
-		return "", fmt.Errorf("创建下载目录失败: %v", err)
-	}
-
-	// 生成文件名（包含时间戳）
-	timestamp := time.Now().Format(GlobalConfig.Export.TimestampFormat)
-	filename := fmt.Sprintf(GlobalConfig.Export.FilenameTemplate, timestamp)
-	filePath := filepath.Join(downloadsDir, filename)
-
-	// 保存文件
-	if err := f.SaveAs(filePath); err != nil {
-		return "", fmt.Errorf("保存Excel文件失败: %v", err)
-	}
-
-	// 返回文件路径
-	return filePath, nil
+	
+	return excelService.ExportToExcelAdvanced(result, options)
 }
 
 // GetInstallationInfo 获取安装信息
@@ -519,4 +516,137 @@ func removeLimitFromQuery(query string) string {
 		return strings.TrimSpace(query[:limitIndex])
 	}
 	return query
+}
+
+// === 缓存辅助方法 ===
+
+// generateDDLHash 生成DDL内容的哈希值
+func (a *App) generateDDLHash(ddlContent string) string {
+	hash := sha256.Sum256([]byte(ddlContent))
+	return hex.EncodeToString(hash[:])
+}
+
+
+
+// === 缓存管理API ===
+
+
+
+
+
+// ClearCacheByType 按类型清除缓存
+func (a *App) ClearCacheByType(cacheType string) error {
+	return a.cacheService.ClearByType(cacheType)
+}
+
+// ClearAllCache 清除所有缓存
+func (a *App) ClearAllCache() error {
+	return a.cacheService.ClearAll()
+}
+
+// GetCacheStats 获取缓存统计信息
+func (a *App) GetCacheStats() (map[string]interface{}, error) {
+	return a.cacheService.GetStats()
+}
+
+// ManualCleanExpiredCache 手动清理过期缓存
+func (a *App) ManualCleanExpiredCache() error {
+	return a.cacheService.CleanExpired()
+}
+
+
+
+
+
+
+
+// ProcessNaturalLanguageEnhanced 增强版自然语言处理（支持缓存复用）
+func (a *App) ProcessNaturalLanguageEnhanced(input string) (*LLMProcessResult, error) {
+	if input == "" {
+		return nil, fmt.Errorf("输入不能为空")
+	}
+
+	// 获取表列表和DDL哈希
+	tables, err := a.GetTableList()
+	if err != nil {
+		return nil, fmt.Errorf("获取表列表失败: %v", err)
+	}
+	ddlHash := a.calculateDDLHash(tables)
+
+	// 尝试从提示词SQL映射中查找
+	mapping, err := a.dbService.GetPromptSQLMapping(input, "default", ddlHash)
+	if err != nil {
+		log.Printf("查询提示词映射失败: %v", err)
+	} else if mapping != nil {
+		// 找到缓存的映射，更新使用统计
+		err = a.dbService.UpdatePromptSQLMappingUsage(mapping.BusinessID, mapping.FileKey, ddlHash)
+		if err != nil {
+			log.Printf("更新使用统计失败: %v", err)
+		}
+
+		// 返回缓存的结果
+		log.Printf("从缓存获取到提示词 '%s' 的SQL映射", input)
+		return &LLMProcessResult{
+			SQL:         mapping.SQL,
+			BusinessID:  mapping.BusinessID,
+			Definition:  mapping.Definition,
+			Description: mapping.Description,
+			Confidence:  mapping.Confidence,
+			Suggestions: []string{}, // 缓存的结果不包含新建议
+		}, nil
+	}
+
+	// 没有缓存，调用原始的LLM处理方法
+	result, err := a.ProcessNaturalLanguage(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// 保存新的提示词SQL映射
+	newMapping := PromptSQLMapping{
+		BusinessID:  result.BusinessID,
+		FileKey:     "default",
+		PromptText:  input,
+		SQL:         result.SQL,
+		Definition:  result.Definition,
+		Description: result.Description,
+		Confidence:  result.Confidence,
+		DDLHash:     ddlHash,
+		UsageCount:  1,
+	}
+
+	err = a.dbService.SavePromptSQLMapping(&newMapping)
+	if err != nil {
+		log.Printf("保存提示词SQL映射失败: %v", err)
+	} else {
+		log.Printf("成功保存新的提示词SQL映射: %s", input)
+	}
+
+	return result, nil
+}
+
+// GetPopularQueries 获取热门查询
+func (a *App) GetPopularQueries(fileKey string, limit int) ([]PromptSQLMapping, error) {
+	tables, err := a.GetTableList()
+	if err != nil {
+		return nil, fmt.Errorf("获取表列表失败: %v", err)
+	}
+	ddlHash := a.calculateDDLHash(tables)
+
+	if fileKey == "" {
+		fileKey = "default"
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	return a.dbService.GetPopularPromptSQLMappings(fileKey, ddlHash, limit)
+}
+
+// calculateDDLHash 计算DDL哈希值
+func (a *App) calculateDDLHash(tables []string) string {
+	// 简单的DDL哈希计算，实际应用中可以更复杂
+	combined := strings.Join(tables, ",")
+	hash := sha256.Sum256([]byte(combined))
+	return hex.EncodeToString(hash[:])
 }

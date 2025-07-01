@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { main } from '../../wailsjs/go/models';
-import { SmartSuggestions } from './SmartSuggestions';
 import { InputSuggestions } from './InputSuggestions';
-import { useSmartSuggestions } from '../hooks/useSmartSuggestions';
 
 type QueryHistory = main.QueryHistory;
 type QueryMode = 'natural' | 'sql';
@@ -33,16 +31,9 @@ export const QueryInput: React.FC<QueryInputProps> = ({
 	selectedFile,
 }) => {
 	const [showInputSuggestions, setShowInputSuggestions] = useState(false);
-	const [showSmartSuggestions, setShowSmartSuggestions] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const { suggestions, loading: suggestionsLoading, generateSuggestions } = useSmartSuggestions();
 
-	// 当选择文件时刷新建议
-	useEffect(() => {
-		if (selectedFile) {
-			generateSuggestions();
-		}
-	}, [selectedFile, generateSuggestions]);
+
 
 	// 处理输入变化
 	const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -57,14 +48,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
 		}
 	};
 
-	// 处理智能建议选择
-	const handleSmartSuggestionClick = (suggestion: any) => {
-		setQuery(suggestion.query);
-		setShowSmartSuggestions(false);
-		if (textareaRef.current) {
-			textareaRef.current.focus();
-		}
-	};
+
 
 	// 处理输入建议选择
 	const handleInputSuggestionSelect = (suggestion: any) => {
@@ -75,19 +59,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
 		}
 	};
 
-	// 处理焦点事件
-	const handleFocus = () => {
-		if (!query.trim() && queryMode === 'natural') {
-			setShowSmartSuggestions(true);
-		}
-	};
 
-	const handleBlur = () => {
-		// 延迟关闭，允许点击建议
-		setTimeout(() => {
-			setShowSmartSuggestions(false);
-		}, 200);
-	};
 	return (
 		<div className="space-y-4">
 
@@ -123,20 +95,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
 							{queryMode === 'natural' ? '请描述您的数据分析需求' : '技术模式 - 直接输入查询语句'}
 						</span>
 					</span>
-					{queryMode === 'natural' && (
-						<button
-							type="button"
-							className="btn btn-ghost btn-xs"
-							onClick={() => setShowSmartSuggestions(!showSmartSuggestions)}
-							disabled={suggestionsLoading}
-						>
-							{suggestionsLoading ? (
-								<span className="loading loading-spinner loading-xs"></span>
-							) : (
-								'🎯 智能建议'
-							)}
-						</button>
-					)}
+
 				</label>
 				<div className="relative">
 					<textarea
@@ -149,21 +108,10 @@ export const QueryInput: React.FC<QueryInputProps> = ({
 						}
 						value={query}
 						onChange={handleInputChange}
-						onFocus={handleFocus}
-						onBlur={handleBlur}
 						disabled={loading}
 					/>
 					
-					{/* 智能建议面板 */}
-					{showSmartSuggestions && queryMode === 'natural' && (
-						<div className="absolute top-full left-0 right-0 z-10 mt-1">
-							<SmartSuggestions
-								suggestions={suggestions}
-								loading={suggestionsLoading}
-								onSuggestionClick={handleSmartSuggestionClick}
-							/>
-						</div>
-					)}
+
 					
 					{/* 输入联想 */}
 					<InputSuggestions

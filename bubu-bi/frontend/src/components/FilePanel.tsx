@@ -41,9 +41,28 @@ const FilePanel = ({ files, onRefresh, analysisHistory = [], isRefreshing: globa
     if (!file) return;
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const base64String = btoa(String.fromCharCode(...uint8Array));
+      // 客户端文件大小验证
+      const maxSizeMB = 300;
+      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      if (file.size > maxSizeBytes) {
+        showToast(`文件大小不能超过 ${maxSizeMB}MB`, 'error');
+        return;
+      }
+
+      // 使用FileReader进行Base64编码，避免手动处理导致的编码错误
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          // 移除data:开头的部分，只保留base64数据
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+      });
+      
+      reader.readAsDataURL(file);
+      const base64String = await base64Promise;
       
       await UploadFile(file.name, base64String);
       showToast('文件上传成功', 'success');

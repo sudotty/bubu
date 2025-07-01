@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { GetUploadedFiles } from '../wailsjs/go/main/App';
 import FilePanel from './components/FilePanel';
-import EnhancedQueryPanel from './components/EnhancedQueryPanel';
+import ConversationInterface from './components/ConversationInterface';
 import AppSettingsModal from './components/AppSettingsModal';
+import { useConversationQuery } from './hooks/useConversationQuery';
 
 import { NotificationProvider, useNotificationMethods } from './components/NotificationSystem';
 import type { File } from './types';
@@ -26,6 +27,11 @@ const AppContent = () => {
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 	const [isProcessingFile, setIsProcessingFile] = useState(false);
 	const { success, error, info } = useNotificationMethods();
+	
+	// 对话查询功能
+	const { conversations, isLoading, processQuery, clearConversations } = useConversationQuery(
+		selectedFiles?.map(file => file.filename)
+	);
 
 
 	// 加载文件和表列表
@@ -119,16 +125,24 @@ const AppContent = () => {
 				</div>
 			</div>
 
-			{/* 右侧AI对话和分析区域 */}
+			{/* 右侧统一对话界面 */}
 			<div className="flex-1 flex flex-col overflow-hidden">
-				<EnhancedQueryPanel
-					onTableDataChange={loadData}
-					files={files}
-					selectedFiles={selectedFiles}
-					onAnalysisComplete={(analysis) => setAnalysisHistory(prev => [analysis, ...prev])}
-					onProcessingStart={() => setIsProcessingFile(true)}
-					onProcessingEnd={() => setIsProcessingFile(false)}
-				/>
+				{selectedFiles.length === 0 ? (
+					<div className="flex items-center justify-center h-full bg-base-100">
+						<div className="text-center p-8">
+							<div className="text-6xl mb-4">📊</div>
+							<h3 className="text-lg font-medium text-base-content mb-2">选择数据源开始分析</h3>
+							<p className="text-base-content/60">请先在左侧选择一个或多个文件作为数据源</p>
+						</div>
+					</div>
+				) : (
+					<ConversationInterface
+						onQuery={processQuery}
+						loading={isLoading}
+						conversations={conversations}
+						selectedFiles={selectedFiles}
+					/>
+				)}
 			</div>
 
 			{/* 应用设置弹窗 */}

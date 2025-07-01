@@ -6,6 +6,14 @@ export function CheckForUpdates() {
   return window['go']['main']['App']['CheckForUpdates']();
 }
 
+export function ClearAllCache() {
+  return window['go']['main']['App']['ClearAllCache']();
+}
+
+export function ClearCacheByType(arg1) {
+  return window['go']['main']['App']['ClearCacheByType'](arg1);
+}
+
 export function ExecuteCommand(arg1, arg2) {
   return window['go']['main']['App']['ExecuteCommand'](arg1, arg2);
 }
@@ -26,6 +34,10 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
+export function GetCacheStats() {
+  return window['go']['main']['App']['GetCacheStats']();
+}
+
 export function GetInstallationInfo() {
   return window['go']['main']['App']['GetInstallationInfo']();
 }
@@ -36,6 +48,10 @@ export function GetLLMConfig() {
 
 export function GetLLMTimeout() {
   return window['go']['main']['App']['GetLLMTimeout']();
+}
+
+export function GetPopularQueries(arg1, arg2) {
+  return window['go']['main']['App']['GetPopularQueries'](arg1, arg2);
 }
 
 export function GetQueryHistory() {
@@ -70,8 +86,20 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function ManualCleanExpiredCache() {
+  return window['go']['main']['App']['ManualCleanExpiredCache']();
+}
+
 export function ProcessNaturalLanguage(arg1) {
   return window['go']['main']['App']['ProcessNaturalLanguage'](arg1);
+}
+
+export function ProcessNaturalLanguageEnhanced(arg1) {
+  return window['go']['main']['App']['ProcessNaturalLanguageEnhanced'](arg1);
+}
+
+export function ProcessNaturalLanguageWithFiles(arg1, arg2) {
+  return window['go']['main']['App']['ProcessNaturalLanguageWithFiles'](arg1, arg2);
 }
 
 export function ReloadConfig() {

@@ -94,6 +94,7 @@ export namespace main {
 	    definition: string;
 	    description: string;
 	    confidence: number;
+	    suggestions: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new LLMProcessResult(source);
@@ -106,7 +107,65 @@ export namespace main {
 	        this.definition = source["definition"];
 	        this.description = source["description"];
 	        this.confidence = source["confidence"];
+	        this.suggestions = source["suggestions"];
 	    }
+	}
+	export class PromptSQLMapping {
+	    id: number;
+	    business_id: string;
+	    file_key: string;
+	    prompt_text: string;
+	    sql: string;
+	    definition: string;
+	    description: string;
+	    confidence: number;
+	    ddl_hash: string;
+	    usage_count: number;
+	    // Go type: time
+	    last_used_at: any;
+	    // Go type: time
+	    created_at: any;
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new PromptSQLMapping(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.business_id = source["business_id"];
+	        this.file_key = source["file_key"];
+	        this.prompt_text = source["prompt_text"];
+	        this.sql = source["sql"];
+	        this.definition = source["definition"];
+	        this.description = source["description"];
+	        this.confidence = source["confidence"];
+	        this.ddl_hash = source["ddl_hash"];
+	        this.usage_count = source["usage_count"];
+	        this.last_used_at = this.convertValues(source["last_used_at"], null);
+	        this.created_at = this.convertValues(source["created_at"], null);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class QueryHistory {
 	    id: number;
