@@ -14,6 +14,14 @@ export function ClearCacheByType(arg1) {
   return window['go']['main']['App']['ClearCacheByType'](arg1);
 }
 
+export function CreateConversation(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateConversation'](arg1, arg2, arg3);
+}
+
+export function DeleteTemplate(arg1) {
+  return window['go']['main']['App']['DeleteTemplate'](arg1);
+}
+
 export function ExecuteCommand(arg1, arg2) {
   return window['go']['main']['App']['ExecuteCommand'](arg1, arg2);
 }
@@ -26,6 +34,10 @@ export function ExecuteSQL(arg1) {
   return window['go']['main']['App']['ExecuteSQL'](arg1);
 }
 
+export function ExecuteTemplateSQL(arg1, arg2) {
+  return window['go']['main']['App']['ExecuteTemplateSQL'](arg1, arg2);
+}
+
 export function ExportToExcel(arg1) {
   return window['go']['main']['App']['ExportToExcel'](arg1);
 }
@@ -36,6 +48,18 @@ export function GetAppVersion() {
 
 export function GetCacheStats() {
   return window['go']['main']['App']['GetCacheStats']();
+}
+
+export function GetConversation(arg1) {
+  return window['go']['main']['App']['GetConversation'](arg1);
+}
+
+export function GetConversationMessages(arg1) {
+  return window['go']['main']['App']['GetConversationMessages'](arg1);
+}
+
+export function GetConversationsByFiles(arg1) {
+  return window['go']['main']['App']['GetConversationsByFiles'](arg1);
 }
 
 export function GetInstallationInfo() {
@@ -78,6 +102,10 @@ export function GetTableSchema(arg1) {
   return window['go']['main']['App']['GetTableSchema'](arg1);
 }
 
+export function GetTemplatesByFiles(arg1) {
+  return window['go']['main']['App']['GetTemplatesByFiles'](arg1);
+}
+
 export function GetUploadedFiles() {
   return window['go']['main']['App']['GetUploadedFiles']();
 }
@@ -110,6 +138,14 @@ export function RestartApplication() {
   return window['go']['main']['App']['RestartApplication']();
 }
 
+export function SaveConversationMessage(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+  return window['go']['main']['App']['SaveConversationMessage'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+}
+
+export function SaveTemplate(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SaveTemplate'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function SetInstanceManager(arg1) {
   return window['go']['main']['App']['SetInstanceManager'](arg1);
 }
@@ -126,6 +162,18 @@ export function SetLLMTimeout(arg1) {
   return window['go']['main']['App']['SetLLMTimeout'](arg1);
 }
 
+export function UpdateConversationTitle(arg1, arg2) {
+  return window['go']['main']['App']['UpdateConversationTitle'](arg1, arg2);
+}
+
+export function UpdateTemplate(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['UpdateTemplate'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function UploadFile(arg1, arg2) {
   return window['go']['main']['App']['UploadFile'](arg1, arg2);
+}
+
+export function UseTemplate(arg1) {
+  return window['go']['main']['App']['UseTemplate'](arg1);
 }

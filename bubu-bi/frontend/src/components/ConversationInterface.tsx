@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ExportToExcel } from '../../wailsjs/go/main/App';
+import { useNotificationMethods } from './NotificationSystem';
 
 
 interface ConversationMessage {
@@ -17,6 +19,7 @@ interface ConversationMessage {
     processingTime?: number;
     apiEndpoint?: string;
     modelUsed?: string;
+    generatedSQL?: string;
   };
 }
 
@@ -28,6 +31,12 @@ interface ConversationInterfaceProps {
   conversations: ConversationMessage[];
   onSuggestionClick?: (suggestion: string) => void;
   selectedFiles?: File[];
+  templates?: any[];
+  showTemplates?: boolean;
+  setShowTemplates?: (show: boolean) => void;
+  onSaveTemplate?: (title: string, promptText: string, sql: string, description: string) => Promise<void>;
+  onUseTemplate?: (templateId: number) => Promise<void>;
+  onDeleteTemplate?: (templateId: number) => Promise<void>;
 }
 
 export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
@@ -35,7 +44,13 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   loading = false,
   conversations,
   onSuggestionClick,
-  selectedFiles = []
+  selectedFiles = [],
+  templates = [],
+  showTemplates = false,
+  setShowTemplates,
+  onSaveTemplate,
+  onUseTemplate,
+  onDeleteTemplate
 }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -44,6 +59,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
     return localStorage.getItem('bubu-debug-mode') === 'true' || 
            window.location.search.includes('debug=true');
   });
+  const { success, error } = useNotificationMethods();
 
   
   // 切换调试模式
@@ -52,6 +68,28 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
     setGlobalDebugMode(newMode);
     localStorage.setItem('bubu-debug-mode', newMode.toString());
   };
+
+  // 下载数据功能
+  const handleExportData = useCallback(async (message: ConversationMessage) => {
+    try {
+      // 尝试从调试信息中获取生成的SQL查询
+      let sqlQuery = '';
+      if (message.debugInfo?.generatedSQL) {
+        // 使用生成的SQL查询
+        sqlQuery = message.debugInfo.generatedSQL;
+      } else {
+        // 如果没有生成的SQL，说明这不是一个数据查询消息
+        error('无法获取SQL查询，该消息可能不包含数据查询结果');
+        return;
+      }
+      
+      const filePath = await ExportToExcel(sqlQuery);
+      success(`Excel文件已保存到: ${filePath}`);
+    } catch (err) {
+      console.error('导出数据失败:', err);
+      error('导出数据失败，请稍后重试');
+    }
+  }, [success, error]);
 
 
 
@@ -122,6 +160,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
               message={message} 
               onSuggestionClick={onSuggestionClick}
               globalDebugMode={globalDebugMode}
+              onExport={handleExportData}
             />
           ))
         )}
@@ -146,8 +185,85 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
       
+      {/* 话术本界面 */}
+      {showTemplates && (
+        <div className="border-t border-base-300 bg-base-50 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">📝 话术本</h3>
+            <button
+              onClick={() => setShowTemplates?.(false)}
+              className="btn btn-ghost btn-sm"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {templates.length === 0 ? (
+            <div className="text-center py-8 text-base-content/60">
+              <div className="text-4xl mb-2">📝</div>
+              <p>暂无话术本</p>
+              <p className="text-sm">保存常用查询作为话术本，方便快速使用</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 max-h-60 overflow-y-auto">
+              {templates.map((template) => (
+                <div key={template.id} className="bg-base-100 p-3 rounded-lg border border-base-300">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{template.title}</h4>
+                      <p className="text-xs text-base-content/60 mt-1">{template.description}</p>
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-base-content/50">
+                        <span>使用次数: {template.usage_count}</span>
+                        <span>最后使用: {new Date(template.last_used_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex space-x-1 ml-2">
+                      <button
+                        onClick={() => {
+                          onUseTemplate?.(template.id);
+                          setInput(template.prompt_text);
+                        }}
+                        className="btn btn-ghost btn-xs"
+                        title="使用话术本"
+                      >
+                        📋
+                      </button>
+                      <button
+                        onClick={() => onDeleteTemplate?.(template.id)}
+                        className="btn btn-ghost btn-xs text-error"
+                        title="删除话术本"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      
       {/* 输入区域 */}
       <div className="border-t border-base-300 p-4">
+        {/* 话术本和功能按钮 */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setShowTemplates?.(!showTemplates)}
+              className={`btn btn-sm ${
+                showTemplates ? 'btn-primary' : 'btn-ghost'
+              }`}
+              title="话术本"
+            >
+              📝 话术本 ({templates.length})
+            </button>
+            <div className="text-xs text-base-content/50 flex items-center">
+              💡 输入 #bubu# 开头可直接执行话术本模式
+            </div>
+          </div>
+        </div>
+        
         <div className="flex space-x-3">
           <div className="flex-1">
             <textarea
@@ -189,12 +305,14 @@ interface ConversationMessageProps {
   message: ConversationMessage;
   onSuggestionClick?: (suggestion: string) => void;
   globalDebugMode?: boolean;
+  onExport?: (message: ConversationMessage) => void;
 }
 
 const ConversationMessage: React.FC<ConversationMessageProps> = ({
   message,
   onSuggestionClick,
-  globalDebugMode = false
+  globalDebugMode = false,
+  onExport
 }) => {
   const isUser = message.type === 'user';
   const isError = message.type === 'error';
@@ -247,7 +365,10 @@ const ConversationMessage: React.FC<ConversationMessageProps> = ({
         {/* 数据结果 */}
         {message.data && (
           <div className="mt-3">
-            <SimpleDataTable data={message.data} />
+            <SimpleDataTable 
+              data={message.data} 
+              onExport={() => onExport?.(message)}
+            />
           </div>
         )}
         
@@ -350,9 +471,143 @@ interface SimpleDataTableProps {
     rows: any[][];
     total: number;
   };
+  onExport?: () => void;
 }
 
-const SimpleDataTable: React.FC<SimpleDataTableProps> = ({ data }) => {
+const SimpleDataTable: React.FC<SimpleDataTableProps> = ({ data, onExport }) => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  
+  // 虚拟化参数
+  const ROW_HEIGHT = 40; // 每行高度
+  const VISIBLE_ROWS = 50; // 可见行数
+
+  // 优化的全屏切换函数
+  const toggleFullscreen = React.useCallback((enable: boolean) => {
+    if (isTransitioning) return; // 防止重复点击
+    
+    setIsTransitioning(true);
+    
+    if (enable) {
+      setIsFullscreen(true);
+      document.body.style.overflow = 'hidden';
+    } else {
+      setIsFullscreen(false);
+      document.body.style.overflow = 'unset';
+    }
+    
+    // 动画完成后重置过渡状态
+    setTimeout(() => setIsTransitioning(false), 300);
+  }, [isTransitioning]);
+
+  // 监听ESC键退出全屏
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen && !isTransitioning) {
+        toggleFullscreen(false);
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen, isTransitioning, toggleFullscreen]);
+
+  // 清理函数
+  React.useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  // 排序处理
+  const handleSort = (column: string) => {
+    setSortConfig(current => {
+      if (current?.key === column) {
+        return current.direction === 'asc' 
+          ? { key: column, direction: 'desc' }
+          : null;
+      }
+      return { key: column, direction: 'asc' };
+    });
+  };
+
+  // 优化的排序数据 - 使用分页和延迟计算
+  const sortedData = React.useMemo(() => {
+    if (!data || !sortConfig) return data;
+    
+    const columnIndex = data.columns.indexOf(sortConfig.key);
+    if (columnIndex === -1) return data;
+
+    // 对于大数据集，只排序前1000条用于显示
+    const maxSortRows = Math.min(data.rows.length, 1000);
+    const rowsToSort = data.rows.slice(0, maxSortRows);
+    
+    const sortedRows = rowsToSort.sort((a, b) => {
+      const aVal = a[columnIndex];
+      const bVal = b[columnIndex];
+      
+      // 快速数值比较
+      const aNum = Number(aVal);
+      const bNum = Number(bVal);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      
+      // 优化的字符串比较
+      if (aVal === bVal) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      
+      const result = String(aVal).localeCompare(String(bVal));
+      return sortConfig.direction === 'asc' ? result : -result;
+    });
+    
+    // 如果有剩余数据，追加到末尾
+    const remainingRows = data.rows.length > maxSortRows ? data.rows.slice(maxSortRows) : [];
+    const finalRows = [...sortedRows, ...remainingRows];
+
+    return { ...data, rows: finalRows };
+  }, [data, sortConfig]);
+
+  // 虚拟化计算
+  const { visibleRows, startIndex, startOffset, endOffset } = React.useMemo(() => {
+    if (!sortedData?.rows) {
+      return { visibleRows: [], startIndex: 0, startOffset: 0, endOffset: 0 };
+    }
+
+    const totalRows = sortedData.rows.length;
+    const startIndex = Math.floor(scrollTop / ROW_HEIGHT);
+    const endIndex = Math.min(startIndex + VISIBLE_ROWS, totalRows);
+    
+    const visibleRows = sortedData.rows.slice(startIndex, endIndex);
+    const startOffset = startIndex * ROW_HEIGHT;
+    const endOffset = (totalRows - endIndex) * ROW_HEIGHT;
+
+    return { visibleRows, startIndex, startOffset, endOffset };
+  }, [sortedData, scrollTop, ROW_HEIGHT, VISIBLE_ROWS]);
+
+  // 防抖的滚动处理
+  const handleScroll = React.useCallback(
+    React.useMemo(() => {
+      let timeoutId: number;
+      return (e: React.UIEvent<HTMLDivElement>) => {
+        clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          setScrollTop(e.currentTarget.scrollTop);
+        }, 16); // 约60fps
+      };
+    }, []),
+    []
+  );
+
   if (!data || !data.columns || !data.rows) {
     return (
       <div className="p-4 bg-base-200 rounded-lg text-center text-base-content/60">
@@ -362,37 +617,166 @@ const SimpleDataTable: React.FC<SimpleDataTableProps> = ({ data }) => {
   }
 
   return (
-    <div className="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="table table-zebra w-full">
-          <thead>
-            <tr className="bg-base-200">
-              {data.columns.map((column, index) => (
-                <th key={index} className="font-medium text-base-content">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.slice(0, 10).map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="text-base-content">
-                    {cell !== null && cell !== undefined ? String(cell) : '-'}
-                  </td>
+    <>
+      <div className="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
+        {/* 标题栏 */}
+        <div className="p-3 border-b border-base-300 bg-base-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">📊</span>
+              <h3 className="font-medium">数据表格</h3>
+              <span className="text-sm text-base-content/50">({data.total} 条记录)</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* 下载按钮 */}
+              <button 
+                className="btn btn-ghost btn-sm"
+                onClick={onExport}
+                disabled={!data || !data.rows || data.rows.length === 0}
+                title="下载全部数据"
+              >
+                📥 下载
+              </button>
+              <button 
+                className="btn btn-ghost btn-sm"
+                onClick={() => toggleFullscreen(true)}
+                disabled={isTransitioning}
+                title="全屏显示"
+              >
+                🔍 全屏
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="table table-zebra w-full">
+            <thead>
+              <tr className="bg-base-200">
+                {data.columns.map((column, index) => (
+                  <th 
+                    key={index} 
+                    className="font-medium text-base-content cursor-pointer hover:bg-base-300"
+                    onClick={() => handleSort(column)}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>{column}</span>
+                      {sortConfig?.key === column && (
+                        <span className="text-xs">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(sortedData || data).rows.slice(0, 10).map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="text-base-content">
+                      {cell !== null && cell !== undefined ? String(cell) : '-'}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {data.total > 10 && (
+          <div className="p-3 bg-base-200 text-center text-sm text-base-content/60">
+            显示前 10 条，共 {data.total} 条数据
+          </div>
+        )}
       </div>
-      {data.total > 10 && (
-        <div className="p-3 bg-base-200 text-center text-sm text-base-content/60">
-          显示前 10 条，共 {data.total} 条数据
+
+      {/* 全屏模态框 */}
+      {isFullscreen && (
+        <div className={`fixed inset-0 z-50 bg-base-100 transition-all duration-300 ease-in-out ${
+          isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+        }`}>
+          {/* 全屏标题栏 */}
+          <div className="flex items-center justify-between p-4 border-b border-base-300 bg-base-200">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">📊</span>
+              <h3 className="font-semibold">数据表格 - 全屏模式</h3>
+              <span className="text-sm text-base-content/50">({data.total} 条记录)</span>
+            </div>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => toggleFullscreen(false)}
+              disabled={isTransitioning}
+              title="退出全屏"
+            >
+              ✕ 退出全屏
+            </button>
+          </div>
+
+          {/* 全屏表格内容 - 虚拟化渲染 */}
+          <div className="flex-1 overflow-auto p-4" ref={containerRef} onScroll={handleScroll}>
+            <div className="overflow-x-auto h-full">
+              <table className="table table-zebra table-sm w-full">
+                <thead className="sticky top-0 bg-base-200 z-10">
+                  <tr>
+                    {data.columns.map((column, index) => (
+                      <th 
+                        key={`header-${index}`} 
+                        className="cursor-pointer hover:bg-base-300 font-medium transition-colors duration-150"
+                        onClick={() => handleSort(column)}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>{column}</span>
+                          {sortConfig?.key === column && (
+                            <span className="text-xs transition-transform duration-150">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* 虚拟化渲染：只渲染可见行 */}
+                  <tr style={{ height: startOffset }}><td colSpan={data.columns.length}></td></tr>
+                  {visibleRows.map((row, index) => (
+                    <tr key={`fullscreen-row-${startIndex + index}`} className="hover:bg-base-200 transition-colors duration-150">
+                      {row.map((cell, cellIndex) => (
+                        <td key={`fullscreen-cell-${startIndex + index}-${cellIndex}`} className="px-4 py-2">
+                          {cell === null || cell === undefined ? (
+                            <span className="text-base-content/30 italic">null</span>
+                          ) : (
+                            <div className="max-w-xs overflow-hidden">
+                              <span className="block truncate" title={String(cell)}>
+                                {String(cell)}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr style={{ height: endOffset }}><td colSpan={data.columns.length}></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 全屏底部状态栏 */}
+          <div className="p-4 border-t border-base-300 bg-base-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-base-content/70">
+                💡 提示：点击列标题可以排序，按 ESC 键退出全屏
+              </div>
+              <div className="text-sm text-base-content/50">
+                共 {data.total} 条记录，{data.columns.length} 个字段
+              </div>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

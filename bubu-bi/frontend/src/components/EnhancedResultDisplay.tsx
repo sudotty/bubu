@@ -3,6 +3,27 @@ import { main } from '../../wailsjs/go/models';
 
 type QueryResult = main.QueryResult;
 
+// 优化的表格行组件，使用React.memo避免不必要的重渲染
+const TableRow = React.memo<{ row: any[]; rowIndex: number }>(({ row, rowIndex }) => (
+  <tr className="hover:bg-base-200 transition-colors duration-150">
+    {row.map((cell, cellIndex) => (
+      <td key={`cell-${rowIndex}-${cellIndex}`} className="px-4 py-2">
+        {cell === null || cell === undefined ? (
+          <span className="text-base-content/30 italic">null</span>
+        ) : (
+          <div className="max-w-xs overflow-hidden">
+            <span className="block truncate" title={String(cell)}>
+              {String(cell)}
+            </span>
+          </div>
+        )}
+      </td>
+    ))}
+  </tr>
+));
+
+TableRow.displayName = 'TableRow';
+
 interface DataInsight {
   type: 'summary' | 'trend' | 'anomaly' | 'recommendation';
   title: string;
@@ -34,6 +55,58 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
   const [viewMode, setViewMode] = useState<'table' | 'insights' | 'chart'>('table');
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  
+  // 虚拟化参数
+  const ROW_HEIGHT = 40; // 每行高度
+  const VISIBLE_ROWS = 50; // 可见行数
+
+  // 优化的全屏切换函数
+  const toggleFullscreen = React.useCallback((enable: boolean) => {
+    if (isTransitioning) return; // 防止重复点击
+    
+    setIsTransitioning(true);
+    
+    if (enable) {
+      setIsFullscreen(true);
+      document.body.style.overflow = 'hidden';
+    } else {
+      setIsFullscreen(false);
+      document.body.style.overflow = 'unset';
+    }
+    
+    // 动画完成后重置过渡状态
+    setTimeout(() => setIsTransitioning(false), 300);
+  }, [isTransitioning]);
+
+  // 监听ESC键退出全屏
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen && !isTransitioning) {
+        toggleFullscreen(false);
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen, isTransitioning, toggleFullscreen]);
+
+  // 清理函数
+  React.useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+
 
   // 生成数据洞察
   const insights = useMemo((): DataInsight[] => {
@@ -133,7 +206,7 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
     return insights.slice(0, 6); // 限制洞察数量
   }, [result, query]);
 
-  // 排序数据
+  // 优化的排序数据 - 使用分页和延迟计算
   const sortedData = useMemo(() => {
     if (!result || !sortConfig) return result;
 
@@ -141,30 +214,67 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
     const columnIndex = columns.indexOf(sortConfig.key);
     if (columnIndex === -1) return result;
 
-    const sortedRows = [...rows].sort((a, b) => {
+    // 对于大数据集，只排序前1000条用于显示
+    const maxSortRows = Math.min(rows.length, 1000);
+    const rowsToSort = rows.slice(0, maxSortRows);
+    
+    const sortedRows = rowsToSort.sort((a, b) => {
       const aVal = a[columnIndex];
       const bVal = b[columnIndex];
       
-      // 数值排序
-      if (!isNaN(Number(aVal)) && !isNaN(Number(bVal))) {
-        return sortConfig.direction === 'asc' 
-          ? Number(aVal) - Number(bVal)
-          : Number(bVal) - Number(aVal);
+      // 快速数值比较
+      const aNum = Number(aVal);
+      const bNum = Number(bVal);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
       }
       
-      // 字符串排序
-      const aStr = String(aVal || '').toLowerCase();
-      const bStr = String(bVal || '').toLowerCase();
+      // 优化的字符串比较
+      if (aVal === bVal) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
       
-      if (sortConfig.direction === 'asc') {
-        return aStr.localeCompare(bStr);
-      } else {
-        return bStr.localeCompare(aStr);
-      }
+      const result = String(aVal).localeCompare(String(bVal));
+      return sortConfig.direction === 'asc' ? result : -result;
     });
+    
+    // 如果有剩余数据，追加到末尾
+     const remainingRows = rows.length > maxSortRows ? rows.slice(maxSortRows) : [];
+     const finalRows = [...sortedRows, ...remainingRows];
 
-    return { ...result, rows: sortedRows };
+     return { ...result, rows: finalRows };
   }, [result, sortConfig]);
+
+  // 虚拟化计算
+  const { visibleRows, startIndex, startOffset, endOffset } = React.useMemo(() => {
+    if (!sortedData?.rows) {
+      return { visibleRows: [], startIndex: 0, startOffset: 0, endOffset: 0 };
+    }
+
+    const totalRows = sortedData.rows.length;
+    const startIndex = Math.floor(scrollTop / ROW_HEIGHT);
+    const endIndex = Math.min(startIndex + VISIBLE_ROWS, totalRows);
+    
+    const visibleRows = sortedData.rows.slice(startIndex, endIndex);
+    const startOffset = startIndex * ROW_HEIGHT;
+    const endOffset = (totalRows - endIndex) * ROW_HEIGHT;
+
+    return { visibleRows, startIndex, startOffset, endOffset };
+  }, [sortedData, scrollTop, ROW_HEIGHT, VISIBLE_ROWS]);
+
+  // 防抖的滚动处理
+  const handleScroll = React.useCallback(
+    React.useMemo(() => {
+      let timeoutId: number;
+      return (e: React.UIEvent<HTMLDivElement>) => {
+        clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          setScrollTop(e.currentTarget.scrollTop);
+        }, 16); // 约60fps
+      };
+    }, []),
+    []
+  );
 
   // 处理排序
   const handleSort = (column: string) => {
@@ -262,7 +372,7 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
             <span className="text-sm text-base-content/50">({result.total} 条记录)</span>
           </div>
           
-          {/* 视图切换 */}
+          {/* 视图切换和操作按钮 */}
           <div className="flex items-center space-x-2">
             <div className="tabs tabs-boxed tabs-sm">
               <button 
@@ -284,6 +394,23 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
                 📈 图表
               </button>
             </div>
+            {/* 下载按钮 */}
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={onExport}
+              disabled={!result || !result.rows || result.rows.length === 0}
+              title="下载全部数据"
+            >
+              📥 下载
+            </button>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => toggleFullscreen(true)}
+              disabled={isTransitioning}
+              title="全屏显示"
+            >
+              🔍 全屏
+            </button>
           </div>
         </div>
       </div>
@@ -417,6 +544,96 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 全屏模态框 */}
+      {isFullscreen && (
+        <div className={`fixed inset-0 z-50 bg-base-100 transition-all duration-300 ease-in-out ${
+          isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+        }`}>
+          {/* 全屏标题栏 */}
+          <div className="flex items-center justify-between p-4 border-b border-base-300 bg-base-200">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">📊</span>
+              <h3 className="font-semibold">数据表格 - 全屏模式</h3>
+              <span className="text-sm text-base-content/50">({result?.total} 条记录)</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button 
+                className="btn btn-ghost btn-sm"
+                onClick={onCopy}
+              >
+                📋 复制数据
+              </button>
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={onExport}
+              >
+                📤 导出Excel
+              </button>
+              <button 
+                className="btn btn-ghost btn-sm"
+                onClick={() => toggleFullscreen(false)}
+                disabled={isTransitioning}
+                title="退出全屏"
+              >
+                ✕ 退出全屏
+              </button>
+            </div>
+          </div>
+
+          {/* 全屏表格内容 - 虚拟化渲染 */}
+          <div className="flex-1 overflow-auto p-4" ref={containerRef} onScroll={handleScroll}>
+            <div className="overflow-x-auto h-full">
+              <table className="table table-zebra table-sm w-full">
+                <thead className="sticky top-0 bg-base-200 z-10">
+                  <tr>
+                    {result?.columns.map((column, index) => (
+                      <th 
+                        key={`header-${index}`} 
+                        className="cursor-pointer hover:bg-base-300 font-medium transition-colors duration-150"
+                        onClick={() => handleSort(column)}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>{column}</span>
+                          {sortConfig?.key === column && (
+                            <span className="text-xs transition-transform duration-150">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* 虚拟化渲染：只渲染可见行 */}
+                  <tr style={{ height: startOffset }}><td colSpan={result?.columns.length || 1}></td></tr>
+                  {visibleRows.map((row, index) => (
+                    <TableRow 
+                      key={`row-${startIndex + index}`} 
+                      row={row} 
+                      rowIndex={startIndex + index}
+                    />
+                  ))}
+                  <tr style={{ height: endOffset }}><td colSpan={result?.columns.length || 1}></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 全屏底部状态栏 */}
+          <div className="p-4 border-t border-base-300 bg-base-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-base-content/70">
+                💡 提示：点击列标题可以排序，按 ESC 键退出全屏
+              </div>
+              <div className="text-sm text-base-content/50">
+                共 {result?.total} 条记录，{result?.columns.length} 个字段
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

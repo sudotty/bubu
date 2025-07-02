@@ -66,6 +66,44 @@ type PromptSQLMapping struct {
 	UpdatedAt   time.Time `json:"updated_at"`   // 更新时间
 }
 
+// Conversation 会话结构体
+type Conversation struct {
+	ID          int       `json:"id"`
+	SessionID   string    `json:"session_id"`   // 会话唯一标识
+	FileKeys    string    `json:"file_keys"`    // 关联的文件列表（JSON格式）
+	Title       string    `json:"title"`        // 会话标题
+	CreatedAt   time.Time `json:"created_at"`   // 创建时间
+	UpdatedAt   time.Time `json:"updated_at"`   // 更新时间
+}
+
+// ConversationMessage 会话消息结构体
+type ConversationMessage struct {
+	ID             int       `json:"id"`
+	ConversationID int       `json:"conversation_id"` // 关联的会话ID
+	MessageType    string    `json:"message_type"`    // user, assistant, error
+	Content        string    `json:"content"`         // 消息内容
+	SQL            string    `json:"sql"`             // 相关的SQL（如果有）
+	QueryResult    string    `json:"query_result"`    // 查询结果（JSON格式）
+	Insights       string    `json:"insights"`        // 洞察信息（JSON格式）
+	Suggestions    string    `json:"suggestions"`     // 建议信息（JSON格式）
+	DebugInfo      string    `json:"debug_info"`      // 调试信息（JSON格式）
+	CreatedAt      time.Time `json:"created_at"`      // 创建时间
+}
+
+// SavedTemplate 保存的话术本结构体
+type SavedTemplate struct {
+	ID          int       `json:"id"`
+	FileKeys    string    `json:"file_keys"`    // 关联的文件列表（JSON格式）
+	Title       string    `json:"title"`        // 话术标题
+	PromptText  string    `json:"prompt_text"`  // 话术内容
+	SQL         string    `json:"sql"`          // 对应的SQL
+	Description string    `json:"description"`  // 描述
+	UsageCount  int       `json:"usage_count"`  // 使用次数
+	LastUsedAt  time.Time `json:"last_used_at"` // 最后使用时间
+	CreatedAt   time.Time `json:"created_at"`   // 创建时间
+	UpdatedAt   time.Time `json:"updated_at"`   // 更新时间
+}
+
 // DatabaseService 数据库服务
 type DatabaseService struct {
 	db *sql.DB
@@ -145,6 +183,48 @@ func (ds *DatabaseService) initTables() error {
 		UNIQUE(business_id, file_key, ddl_hash)
 	);`
 
+	// 创建会话表
+	conversationTable := `
+	CREATE TABLE IF NOT EXISTS conversations (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT NOT NULL UNIQUE,
+		file_keys TEXT NOT NULL,
+		title TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	// 创建会话消息表
+	conversationMessageTable := `
+	CREATE TABLE IF NOT EXISTS conversation_messages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		conversation_id INTEGER NOT NULL,
+		message_type TEXT NOT NULL,
+		content TEXT NOT NULL,
+		sql TEXT,
+		query_result TEXT,
+		insights TEXT,
+		suggestions TEXT,
+		debug_info TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+	);`
+
+	// 创建保存的话术本表
+	savedTemplateTable := `
+	CREATE TABLE IF NOT EXISTS saved_templates (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		file_keys TEXT NOT NULL,
+		title TEXT NOT NULL,
+		prompt_text TEXT NOT NULL,
+		sql TEXT NOT NULL,
+		description TEXT,
+		usage_count INTEGER DEFAULT 0,
+		last_used_at DATETIME,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	// 创建缓存表索引
 	cacheIndexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_cache_entries_type_key ON cache_entries(cache_type, cache_key);`,
@@ -154,10 +234,15 @@ func (ds *DatabaseService) initTables() error {
 		`CREATE INDEX IF NOT EXISTS idx_prompt_sql_mappings_file_key ON prompt_sql_mappings(file_key, ddl_hash);`,
 		`CREATE INDEX IF NOT EXISTS idx_prompt_sql_mappings_business_id ON prompt_sql_mappings(business_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_prompt_sql_mappings_usage ON prompt_sql_mappings(usage_count DESC, last_used_at DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_conversations_session_id ON conversations(session_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_conversations_file_keys ON conversations(file_keys);`,
+		`CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_saved_templates_file_keys ON saved_templates(file_keys);`,
+		`CREATE INDEX IF NOT EXISTS idx_saved_templates_usage ON saved_templates(usage_count DESC, last_used_at DESC);`,
 	}
 
 	// 执行所有表创建语句
-	tables := []string{filesTable, queryHistoryTable, cacheTable, promptSQLMappingTable}
+	tables := []string{filesTable, queryHistoryTable, cacheTable, promptSQLMappingTable, conversationTable, conversationMessageTable, savedTemplateTable}
 	for _, table := range tables {
 		_, err := ds.db.Exec(table)
 		if err != nil {
@@ -368,4 +453,182 @@ func (ds *DatabaseService) GetPopularPromptSQLMappings(fileKey, ddlHash string, 
 		mappings = append(mappings, m)
 	}
 	return mappings, nil
+}
+
+// === 会话相关方法 ===
+
+// CreateConversation 创建新会话
+func (ds *DatabaseService) CreateConversation(sessionID, fileKeys, title string) (*Conversation, error) {
+	result, err := ds.db.Exec(`
+		INSERT INTO conversations (session_id, file_keys, title) 
+		VALUES (?, ?, ?)`,
+		sessionID, fileKeys, title)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Conversation{
+		ID:        int(id),
+		SessionID: sessionID,
+		FileKeys:  fileKeys,
+		Title:     title,
+	}, nil
+}
+
+// GetConversationBySessionID 根据会话ID获取会话
+func (ds *DatabaseService) GetConversationBySessionID(sessionID string) (*Conversation, error) {
+	var c Conversation
+	err := ds.db.QueryRow(`
+		SELECT id, session_id, file_keys, title, created_at, updated_at 
+		FROM conversations 
+		WHERE session_id = ?`,
+		sessionID).Scan(&c.ID, &c.SessionID, &c.FileKeys, &c.Title, &c.CreatedAt, &c.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &c, err
+}
+
+// GetConversationsByFileKeys 根据文件键获取会话列表
+func (ds *DatabaseService) GetConversationsByFileKeys(fileKeys string) ([]Conversation, error) {
+	rows, err := ds.db.Query(`
+		SELECT id, session_id, file_keys, title, created_at, updated_at 
+		FROM conversations 
+		WHERE file_keys = ? 
+		ORDER BY updated_at DESC`,
+		fileKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var conversations []Conversation
+	for rows.Next() {
+		var c Conversation
+		err := rows.Scan(&c.ID, &c.SessionID, &c.FileKeys, &c.Title, &c.CreatedAt, &c.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		conversations = append(conversations, c)
+	}
+	return conversations, nil
+}
+
+// UpdateConversation 更新会话
+func (ds *DatabaseService) UpdateConversation(sessionID, title string) error {
+	_, err := ds.db.Exec(`
+		UPDATE conversations 
+		SET title = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE session_id = ?`,
+		title, sessionID)
+	return err
+}
+
+// === 会话消息相关方法 ===
+
+// SaveConversationMessage 保存会话消息
+func (ds *DatabaseService) SaveConversationMessage(message *ConversationMessage) error {
+	_, err := ds.db.Exec(`
+		INSERT INTO conversation_messages 
+		(conversation_id, message_type, content, sql, query_result, insights, suggestions, debug_info) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		message.ConversationID, message.MessageType, message.Content, message.SQL,
+		message.QueryResult, message.Insights, message.Suggestions, message.DebugInfo)
+	return err
+}
+
+// GetConversationMessages 获取会话消息列表
+func (ds *DatabaseService) GetConversationMessages(conversationID int) ([]ConversationMessage, error) {
+	rows, err := ds.db.Query(`
+		SELECT id, conversation_id, message_type, content, sql, query_result, insights, suggestions, debug_info, created_at 
+		FROM conversation_messages 
+		WHERE conversation_id = ? 
+		ORDER BY created_at ASC`,
+		conversationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []ConversationMessage
+	for rows.Next() {
+		var m ConversationMessage
+		err := rows.Scan(&m.ID, &m.ConversationID, &m.MessageType, &m.Content,
+			&m.SQL, &m.QueryResult, &m.Insights, &m.Suggestions, &m.DebugInfo, &m.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, m)
+	}
+	return messages, nil
+}
+
+// === 话术本相关方法 ===
+
+// SaveTemplate 保存话术本
+func (ds *DatabaseService) SaveTemplate(template *SavedTemplate) error {
+	_, err := ds.db.Exec(`
+		INSERT INTO saved_templates 
+		(file_keys, title, prompt_text, sql, description) 
+		VALUES (?, ?, ?, ?, ?)`,
+		template.FileKeys, template.Title, template.PromptText, template.SQL, template.Description)
+	return err
+}
+
+// GetTemplatesByFileKeys 根据文件键获取话术本列表
+func (ds *DatabaseService) GetTemplatesByFileKeys(fileKeys string) ([]SavedTemplate, error) {
+	rows, err := ds.db.Query(`
+		SELECT id, file_keys, title, prompt_text, sql, description, usage_count, last_used_at, created_at, updated_at 
+		FROM saved_templates 
+		WHERE file_keys = ? 
+		ORDER BY usage_count DESC, last_used_at DESC`,
+		fileKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var templates []SavedTemplate
+	for rows.Next() {
+		var t SavedTemplate
+		err := rows.Scan(&t.ID, &t.FileKeys, &t.Title, &t.PromptText, &t.SQL,
+			&t.Description, &t.UsageCount, &t.LastUsedAt, &t.CreatedAt, &t.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		templates = append(templates, t)
+	}
+	return templates, nil
+}
+
+// UpdateTemplate 更新话术本
+func (ds *DatabaseService) UpdateTemplate(id int, title, promptText, sql, description string) error {
+	_, err := ds.db.Exec(`
+		UPDATE saved_templates 
+		SET title = ?, prompt_text = ?, sql = ?, description = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = ?`,
+		title, promptText, sql, description, id)
+	return err
+}
+
+// UpdateTemplateUsage 更新话术本使用统计
+func (ds *DatabaseService) UpdateTemplateUsage(id int) error {
+	_, err := ds.db.Exec(`
+		UPDATE saved_templates 
+		SET usage_count = usage_count + 1, last_used_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = ?`,
+		id)
+	return err
+}
+
+// DeleteTemplate 删除话术本
+func (ds *DatabaseService) DeleteTemplate(id int) error {
+	_, err := ds.db.Exec("DELETE FROM saved_templates WHERE id = ?", id)
+	return err
 }

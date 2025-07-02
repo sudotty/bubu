@@ -8,17 +8,29 @@ export function ClearAllCache():Promise<void>;
 
 export function ClearCacheByType(arg1:string):Promise<void>;
 
+export function CreateConversation(arg1:string,arg2:Array<string>,arg3:string):Promise<main.Conversation>;
+
+export function DeleteTemplate(arg1:number):Promise<void>;
+
 export function ExecuteCommand(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function ExecuteNaturalLanguageQuery(arg1:string):Promise<main.QueryResult>;
 
 export function ExecuteSQL(arg1:string):Promise<main.QueryResult>;
 
+export function ExecuteTemplateSQL(arg1:string,arg2:Array<string>):Promise<main.LLMProcessResult>;
+
 export function ExportToExcel(arg1:string):Promise<string>;
 
 export function GetAppVersion():Promise<string>;
 
 export function GetCacheStats():Promise<Record<string, any>>;
+
+export function GetConversation(arg1:string):Promise<main.Conversation>;
+
+export function GetConversationMessages(arg1:number):Promise<Array<main.ConversationMessage>>;
+
+export function GetConversationsByFiles(arg1:Array<string>):Promise<Array<main.Conversation>>;
 
 export function GetInstallationInfo():Promise<main.InstallationInfo>;
 
@@ -40,6 +52,8 @@ export function GetTableList():Promise<Array<string>>;
 
 export function GetTableSchema(arg1:string):Promise<main.QueryResult>;
 
+export function GetTemplatesByFiles(arg1:Array<string>):Promise<Array<main.SavedTemplate>>;
+
 export function GetUploadedFiles():Promise<Array<main.File>>;
 
 export function Greet(arg1:string):Promise<string>;
@@ -56,6 +70,10 @@ export function ReloadConfig():Promise<void>;
 
 export function RestartApplication():Promise<void>;
 
+export function SaveConversationMessage(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string):Promise<void>;
+
+export function SaveTemplate(arg1:Array<string>,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
+
 export function SetInstanceManager(arg1:main.InstanceManager):Promise<void>;
 
 export function SetLLMAPIKey(arg1:string):Promise<void>;
@@ -64,4 +82,10 @@ export function SetLLMModel(arg1:string):Promise<void>;
 
 export function SetLLMTimeout(arg1:number):Promise<void>;
 
+export function UpdateConversationTitle(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateTemplate(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
+
 export function UploadFile(arg1:string,arg2:string):Promise<main.File>;
+
+export function UseTemplate(arg1:number):Promise<void>;

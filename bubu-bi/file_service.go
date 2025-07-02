@@ -16,6 +16,47 @@ type FileService struct {
 	uploadDir string
 }
 
+// normalizeColumnNames 标准化列名，处理重复列名和特殊字符
+func (fs *FileService) normalizeColumnNames(headers []string) []string {
+	columnNames := make([]string, len(headers))
+	columnNameMap := make(map[string]int) // 用于跟踪重复列名
+	
+	for i, header := range headers {
+		// 清理列名
+		columnName := strings.TrimSpace(header)
+		if columnName == "" {
+			columnName = fmt.Sprintf("column_%d", i+1)
+		}
+		
+		// 替换特殊字符
+		columnName = strings.ReplaceAll(columnName, " ", "_")
+		columnName = strings.ReplaceAll(columnName, "-", "_")
+		columnName = strings.ReplaceAll(columnName, "(", "_")
+		columnName = strings.ReplaceAll(columnName, ")", "_")
+		columnName = strings.ReplaceAll(columnName, "[", "_")
+		columnName = strings.ReplaceAll(columnName, "]", "_")
+		columnName = strings.ReplaceAll(columnName, ".", "_")
+		columnName = strings.ReplaceAll(columnName, ",", "_")
+		columnName = strings.ReplaceAll(columnName, ";", "_")
+		columnName = strings.ReplaceAll(columnName, ":", "_")
+		columnName = strings.ReplaceAll(columnName, "'", "_")
+		columnName = strings.ReplaceAll(columnName, "\"", "_")
+		
+		// 处理重复列名
+		originalName := columnName
+		if count, exists := columnNameMap[columnName]; exists {
+			columnNameMap[columnName] = count + 1
+			columnName = fmt.Sprintf("%s_%d", originalName, count+1)
+		} else {
+			columnNameMap[columnName] = 1
+		}
+		
+		columnNames[i] = columnName
+	}
+	
+	return columnNames
+}
+
 // NewFileService 创建文件服务
 func NewFileService(db *DatabaseService) *FileService {
 	uploadDir := "./uploads"
@@ -179,17 +220,12 @@ func (fs *FileService) createTableFromData(tableName string, data [][]string) er
 		return fmt.Errorf("没有列名")
 	}
 
+	// 标准化列名
+	normalizedColumns := fs.normalizeColumnNames(headers)
+	
 	// 构建CREATE TABLE语句
 	var columns []string
-	for i, header := range headers {
-		// 清理列名
-		columnName := strings.TrimSpace(header)
-		if columnName == "" {
-			columnName = fmt.Sprintf("column_%d", i+1)
-		}
-		// 替换特殊字符
-		columnName = strings.ReplaceAll(columnName, " ", "_")
-		columnName = strings.ReplaceAll(columnName, "-", "_")
+	for _, columnName := range normalizedColumns {
 		columns = append(columns, fmt.Sprintf("`%s` TEXT", columnName))
 	}
 
@@ -221,14 +257,11 @@ func (fs *FileService) insertDataToTable(tableName string, data [][]string) erro
 		placeholders[i] = "?"
 	}
 
-	columnNames := make([]string, len(headers))
-	for i, header := range headers {
-		columnName := strings.TrimSpace(header)
-		if columnName == "" {
-			columnName = fmt.Sprintf("column_%d", i+1)
-		}
-		columnName = strings.ReplaceAll(columnName, " ", "_")
-		columnName = strings.ReplaceAll(columnName, "-", "_")
+	// 标准化列名
+	normalizedColumns := fs.normalizeColumnNames(headers)
+	
+	columnNames := make([]string, len(normalizedColumns))
+	for i, columnName := range normalizedColumns {
 		columnNames[i] = fmt.Sprintf("`%s`", columnName)
 	}
 

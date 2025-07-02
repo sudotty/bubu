@@ -29,9 +29,29 @@ const AppContent = () => {
 	const { success, error, info } = useNotificationMethods();
 	
 	// 对话查询功能
-	const { conversations, isLoading, processQuery, clearConversations } = useConversationQuery(
-		selectedFiles?.map(file => file.filename)
-	);
+	const selectedFileNames = selectedFiles?.map(file => file.filename) || [];
+	
+	const { 
+		conversations, 
+		isLoading, 
+		processQuery, 
+		clearConversations,
+		templates,
+		showTemplates,
+		setShowTemplates,
+		loadTemplates,
+		createNewConversation,
+		saveTemplate,
+		useTemplate,
+		deleteTemplate,
+		conversationId,
+		sessionId
+	} = useConversationQuery(selectedFileNames);
+	
+	// 监控selectedFiles状态变化
+	// useEffect(() => {
+	//	console.log('🔍 [DEBUG] App.tsx - selectedFiles changed:', selectedFiles);
+	// }, [selectedFiles]);
 
 
 	// 加载文件和表列表
@@ -58,7 +78,7 @@ const AppContent = () => {
 
 	useEffect(() => {
 		loadData();
-	}, [loadData]);
+	}, []); // 只在组件挂载时执行一次
 
 	// 全局刷新函数
 	const handleGlobalRefresh = useCallback(async () => {
@@ -111,15 +131,21 @@ const AppContent = () => {
 						isRefreshing={isRefreshing}
 						selectedFiles={selectedFiles}
 						onFileSelect={(file) => {
-						if (!file) return;
-						if (selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)) {
-							// 如果文件已选中，则取消选择
-							setSelectedFiles(prev => prev.filter(f => !(f.filename === file.filename && f.file_path === file.file_path)));
-						} else {
-							// 如果文件未选中，则添加到选择列表
-							setSelectedFiles(prev => [...prev, file]);
-						}
-					}}
+					if (!file) return;
+					if (selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)) {
+						// 如果文件已选中，则取消选择
+						setSelectedFiles(prev => {
+							const newSelection = prev.filter(f => !(f.filename === file.filename && f.file_path === file.file_path));
+							return newSelection;
+						});
+					} else {
+						// 如果文件未选中，则添加到选择列表
+						setSelectedFiles(prev => {
+							const newSelection = [...prev, file];
+							return newSelection;
+						});
+					}
+				}}
 						isProcessingFile={isProcessingFile}
 					/>
 				</div>
@@ -141,6 +167,12 @@ const AppContent = () => {
 						loading={isLoading}
 						conversations={conversations}
 						selectedFiles={selectedFiles}
+						templates={templates}
+						showTemplates={showTemplates}
+						setShowTemplates={setShowTemplates}
+						onSaveTemplate={saveTemplate}
+						onUseTemplate={useTemplate}
+						onDeleteTemplate={deleteTemplate}
 					/>
 				)}
 			</div>

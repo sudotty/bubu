@@ -153,27 +153,41 @@ func (a *App) GetTableData(tableName string, limit, offset int) (*QueryResult, e
 
 // convertFilesToTableNames 将文件名列表转换为表名列表
 func (a *App) convertFilesToTableNames(filenames []string) []string {
+	log.Printf("🔍 [DEBUG] convertFilesToTableNames - input filenames: %v", filenames)
+	
 	var tableNames []string
 	allTables, err := a.GetTableList()
 	if err != nil {
+		log.Printf("🔍 [DEBUG] convertFilesToTableNames - GetTableList error: %v", err)
 		return tableNames
 	}
+	log.Printf("🔍 [DEBUG] convertFilesToTableNames - all existing tables: %v", allTables)
 
 	for _, filename := range filenames {
+		log.Printf("🔍 [DEBUG] convertFilesToTableNames - processing filename: %s", filename)
+		
 		// 将文件名转换为表名（去掉扩展名，替换特殊字符）
 		tableName := strings.TrimSuffix(filename, filepath.Ext(filename))
 		tableName = strings.ReplaceAll(tableName, "-", "_")
 		tableName = strings.ReplaceAll(tableName, " ", "_")
+		log.Printf("🔍 [DEBUG] convertFilesToTableNames - converted table name: %s", tableName)
 		
 		// 检查表是否存在
+		found := false
 		for _, existingTable := range allTables {
 			if existingTable == tableName {
 				tableNames = append(tableNames, tableName)
+				found = true
+				log.Printf("🔍 [DEBUG] convertFilesToTableNames - table %s found and added", tableName)
 				break
 			}
 		}
+		if !found {
+			log.Printf("🔍 [DEBUG] convertFilesToTableNames - table %s NOT found in existing tables", tableName)
+		}
 	}
 
+	log.Printf("🔍 [DEBUG] convertFilesToTableNames - final result: %v", tableNames)
 	return tableNames
 }
 
@@ -218,18 +232,30 @@ func (a *App) ProcessNaturalLanguageWithFiles(input string, selectedFiles []stri
 		return nil, fmt.Errorf("输入不能为空")
 	}
 
+	// 调试日志：打印接收到的参数
+	log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - input: %s", input)
+	log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - selectedFiles: %v", selectedFiles)
+
+	// 检查是否为话术本模式（以#bubu#开头）
+	if strings.HasPrefix(input, "#bubu#") {
+		// 话术本模式：直接执行SQL，不走LLM
+		return a.processTemplateMode(input, selectedFiles)
+	}
+
 	var tables []string
 	var err error
 
 	if selectedFiles != nil && len(selectedFiles) > 0 {
 		// 如果指定了文件列表，只使用这些文件对应的表
 		tables = a.convertFilesToTableNames(selectedFiles)
+		log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - converted tables: %v", tables)
 		if len(tables) == 0 {
 			return nil, fmt.Errorf("选中的文件没有对应的数据表")
 		}
 	} else {
 		// 如果没有指定文件，使用所有表
 		tables, err = a.GetTableList()
+		log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - all tables: %v", tables)
 		if err != nil {
 			return nil, fmt.Errorf("获取表列表失败: %v", err)
 		}
@@ -641,6 +667,150 @@ func (a *App) GetPopularQueries(fileKey string, limit int) ([]PromptSQLMapping, 
 	}
 
 	return a.dbService.GetPopularPromptSQLMappings(fileKey, ddlHash, limit)
+}
+
+// processTemplateMode 处理话术本模式
+func (a *App) processTemplateMode(input string, selectedFiles []string) (*LLMProcessResult, error) {
+	// 移除#bubu#前缀，提取实际的SQL内容
+	sqlContent := strings.TrimPrefix(input, "#bubu#")
+	sqlContent = strings.TrimSpace(sqlContent)
+	
+	if sqlContent == "" {
+		return nil, fmt.Errorf("话术本内容不能为空")
+	}
+	
+	log.Printf("🔍 [DEBUG] processTemplateMode - executing SQL: %s", sqlContent)
+	
+	// 构建LLM处理结果（话术本模式只返回SQL，不执行查询）
+	result := &LLMProcessResult{
+		SQL:         sqlContent,
+		BusinessID:  "template_mode",
+		Definition:  "通过话术本直接查询数据库",
+		Description: "这是一个保存的话术本查询",
+		Confidence:  1.0,
+		Suggestions: []string{"这是一个保存的话术本查询"},
+		DebugInfo: &DebugInfo{
+			ProcessingTime: 0, // 话术本模式无需LLM处理时间
+			APIEndpoint:    "template_mode",
+		},
+	}
+	
+	// 保存查询历史
+	if saveErr := a.dbService.SaveQueryHistory(input, "template"); saveErr != nil {
+		log.Printf("保存查询历史失败: %v", saveErr)
+	}
+	
+	return result, nil
+}
+
+// === 会话相关API ===
+
+// CreateConversation 创建新会话
+func (a *App) CreateConversation(sessionID string, selectedFiles []string, title string) (*Conversation, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("会话ID不能为空")
+	}
+	
+	// 将文件列表转换为字符串
+	fileKeys := strings.Join(selectedFiles, ",")
+	if fileKeys == "" {
+		fileKeys = "default"
+	}
+	
+	if title == "" {
+		title = "新会话"
+	}
+	
+	return a.dbService.CreateConversation(sessionID, fileKeys, title)
+}
+
+// GetConversation 获取会话信息
+func (a *App) GetConversation(sessionID string) (*Conversation, error) {
+	return a.dbService.GetConversationBySessionID(sessionID)
+}
+
+// GetConversationsByFiles 根据文件获取会话列表
+func (a *App) GetConversationsByFiles(selectedFiles []string) ([]Conversation, error) {
+	fileKeys := strings.Join(selectedFiles, ",")
+	if fileKeys == "" {
+		fileKeys = "default"
+	}
+	return a.dbService.GetConversationsByFileKeys(fileKeys)
+}
+
+// UpdateConversationTitle 更新会话标题
+func (a *App) UpdateConversationTitle(sessionID, title string) error {
+	return a.dbService.UpdateConversation(sessionID, title)
+}
+
+// SaveConversationMessage 保存会话消息
+func (a *App) SaveConversationMessage(conversationID int, messageType, content, sql, queryResult, insights, suggestions, debugInfo string) error {
+	message := &ConversationMessage{
+		ConversationID: conversationID,
+		MessageType:    messageType,
+		Content:        content,
+		SQL:            sql,
+		QueryResult:    queryResult,
+		Insights:       insights,
+		Suggestions:    suggestions,
+		DebugInfo:      debugInfo,
+	}
+	return a.dbService.SaveConversationMessage(message)
+}
+
+// GetConversationMessages 获取会话消息列表
+func (a *App) GetConversationMessages(conversationID int) ([]ConversationMessage, error) {
+	return a.dbService.GetConversationMessages(conversationID)
+}
+
+// === 话术本相关API ===
+
+// SaveTemplate 保存话术本
+func (a *App) SaveTemplate(selectedFiles []string, title, promptText, sql, description string) error {
+	fileKeys := strings.Join(selectedFiles, ",")
+	if fileKeys == "" {
+		fileKeys = "default"
+	}
+	
+	template := &SavedTemplate{
+		FileKeys:    fileKeys,
+		Title:       title,
+		PromptText:  promptText,
+		SQL:         sql,
+		Description: description,
+	}
+	return a.dbService.SaveTemplate(template)
+}
+
+// GetTemplatesByFiles 根据文件获取话术本列表
+func (a *App) GetTemplatesByFiles(selectedFiles []string) ([]SavedTemplate, error) {
+	fileKeys := strings.Join(selectedFiles, ",")
+	if fileKeys == "" {
+		fileKeys = "default"
+	}
+	return a.dbService.GetTemplatesByFileKeys(fileKeys)
+}
+
+// UpdateTemplate 更新话术本
+func (a *App) UpdateTemplate(id int, title, promptText, sql, description string) error {
+	return a.dbService.UpdateTemplate(id, title, promptText, sql, description)
+}
+
+// UseTemplate 使用话术本（更新使用统计）
+func (a *App) UseTemplate(id int) error {
+	return a.dbService.UpdateTemplateUsage(id)
+}
+
+// DeleteTemplate 删除话术本
+func (a *App) DeleteTemplate(id int) error {
+	return a.dbService.DeleteTemplate(id)
+}
+
+// ExecuteTemplateSQL 执行话术本SQL（带#bubu#前缀）
+func (a *App) ExecuteTemplateSQL(sql string, selectedFiles []string) (*LLMProcessResult, error) {
+	// 添加#bubu#前缀
+	templateInput := "#bubu#" + sql
+	return a.ProcessNaturalLanguageWithFiles(templateInput, selectedFiles)
 }
 
 // calculateDDLHash 计算DDL哈希值

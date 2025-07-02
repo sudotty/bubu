@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/volcengine/volcengine-go-sdk/service/arkruntime"
 	"github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
@@ -25,6 +26,19 @@ type LLMProcessResult struct {
 	Description string   `json:"description"`
 	Confidence  float64  `json:"confidence"`
 	Suggestions []string `json:"suggestions"`
+	// 调试信息
+	DebugInfo *DebugInfo `json:"debug_info,omitempty"`
+}
+
+// DebugInfo 调试信息结构
+type DebugInfo struct {
+	OriginalPrompt string      `json:"original_prompt,omitempty"`
+	SystemPrompt   string      `json:"system_prompt,omitempty"`
+	UserPrompt     string      `json:"user_prompt,omitempty"`
+	LLMRawResponse interface{} `json:"llm_raw_response,omitempty"`
+	ProcessingTime int64       `json:"processing_time,omitempty"`
+	APIEndpoint    string      `json:"api_endpoint,omitempty"`
+	ModelUsed      string      `json:"model_used,omitempty"`
 }
 
 // NewLLMService 创建新的LLM服务实例
@@ -64,11 +78,35 @@ func (llm *LLMService) ProcessNaturalLanguage(input string, tableSchema string, 
 		return nil, fmt.Errorf("请先配置火山引擎API密钥")
 	}
 
+	// 记录开始时间
+	startTime := time.Now()
+
 	// 创建带超时的上下文
 	ctx, cancel := context.WithTimeout(context.Background(), llm.config.GetTimeout())
 	defer cancel()
 
-	return llm.callLLMAPI(ctx, input, tableSchema, availableTables)
+	result, err := llm.callLLMAPI(ctx, input, tableSchema, availableTables)
+	if err != nil {
+		return nil, err
+	}
+
+	// 计算处理时间
+	processingTime := time.Since(startTime).Milliseconds()
+
+	// 构建调试信息
+	systemPrompt := llm.prompts.BuildSQLGenerationPrompt(tableSchema, strings.Join(availableTables, ", "))
+	originalPrompt := fmt.Sprintf("System: %s\n\nUser: %s", systemPrompt, input)
+
+	result.DebugInfo = &DebugInfo{
+		OriginalPrompt: originalPrompt,
+		SystemPrompt:   systemPrompt,
+		UserPrompt:     input,
+		ProcessingTime: processingTime,
+		APIEndpoint:    llm.config.BaseURL,
+		ModelUsed:      llm.config.ModelID,
+	}
+
+	return result, nil
 }
 
 // callLLMAPI 调用火山引擎LLM API
@@ -102,7 +140,18 @@ func (llm *LLMService) callLLMAPI(ctx context.Context, input, tableSchema string
 	}
 
 	// 解析响应
-	return llm.parseResponse(&response, input)
+	result, err := llm.parseResponse(&response, input)
+	if err != nil {
+		return nil, err
+	}
+
+	// 保存原始响应到结果中
+	if result.DebugInfo == nil {
+		result.DebugInfo = &DebugInfo{}
+	}
+	result.DebugInfo.LLMRawResponse = response
+
+	return result, nil
 }
 
 // buildSystemPrompt 构建系统提示词 (已废弃，使用PromptTemplates代替)
