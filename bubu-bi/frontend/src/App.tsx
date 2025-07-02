@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { GetUploadedFiles } from '../wailsjs/go/main/App';
 import FilePanel from './components/FilePanel';
 import ConversationInterface from './components/ConversationInterface';
+import { ConversationSelector } from './components/ConversationSelector';
 import AppSettingsModal from './components/AppSettingsModal';
 import { useConversationQuery } from './hooks/useConversationQuery';
+import { GetConversationsByFiles, CreateConversation } from '../wailsjs/go/main/App';
+import { parseDebugInfo } from './types/debug';
 
 import { NotificationProvider, useNotificationMethods } from './components/NotificationSystem';
 import type { File } from './types';
@@ -26,10 +29,61 @@ const AppContent = () => {
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 	const [isProcessingFile, setIsProcessingFile] = useState(false);
+	const [showConversationSelector, setShowConversationSelector] = useState(false);
+
+	// 检查并创建会话的函数
+	const checkAndCreateConversation = async (files: any[]) => {
+		if (files.length === 0) return;
+		
+		// 获取文件的历史会话
+		const fileKeys = files.map(f => f.filename);
+		
+		try {
+			const conversations = await GetConversationsByFiles(fileKeys);
+			
+			if (conversations && conversations.length > 0) {
+				// 有历史会话，显示选择器
+				setShowConversationSelector(true);
+				setCurrentConversationId(null);
+				setCurrentMessages([]);
+			} else {
+				// 没有历史会话，自动创建新会话
+				const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+				const title = files.length === 1 
+					? `新会话 - ${files[0].filename}` 
+					: `多文件会话 - ${new Date().toLocaleString()}`;
+				
+				const conversation = await CreateConversation(sessionId, fileKeys[0], title);
+				setCurrentConversationId(conversation.id);
+				setCurrentMessages([]);
+				setShowConversationSelector(false);
+			}
+		} catch (error) {
+			console.error('Failed to check conversations:', error);
+			// 出错时也创建新会话
+			const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			const title = files.length === 1 
+				? `新会话 - ${files[0].filename}` 
+				: `多文件会话 - ${new Date().toLocaleString()}`;
+			
+			try {
+				const conversation = await CreateConversation(sessionId, fileKeys[0], title);
+				setCurrentConversationId(conversation.id);
+				setCurrentMessages([]);
+				setShowConversationSelector(false);
+			} catch (createError) {
+				console.error('Failed to create conversation:', createError);
+			}
+		}
+	};
+	const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+	const [currentMessages, setCurrentMessages] = useState<any[]>([]);
 	const { success, error, info } = useNotificationMethods();
 	
-	// 对话查询功能
-	const selectedFileNames = selectedFiles?.map(file => file.filename) || [];
+	// 对话查询功能 - 使用 useMemo 避免每次渲染都创建新数组
+	const selectedFileNames = useMemo(() => {
+		return selectedFiles?.map(file => file.filename) || [];
+	}, [selectedFiles]);
 	
 	const { 
 		conversations, 
@@ -39,7 +93,6 @@ const AppContent = () => {
 		templates,
 		showTemplates,
 		setShowTemplates,
-		loadTemplates,
 		createNewConversation,
 		saveTemplate,
 		useTemplate,
@@ -104,21 +157,21 @@ const AppContent = () => {
 
 	return (
 		<div className="h-screen bg-base-100 flex overflow-hidden">
-			{/* 左侧区域 - 包含标题和文件面板 */}
-			<div className="w-80 bg-base-200 border-r border-base-300 flex-shrink-0 flex flex-col">
+			{/* 左侧区域 - 包含标题和文件面板 - 响应式宽度 */}
+			<div className="w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] bg-base-200 border-r border-base-300 flex-shrink-0 flex flex-col">
 				{/* 左上角标题区域 */}
-				<div className="bg-base-300 border-b border-base-content/20 px-4 py-3">
+				<div className="bg-base-300 border-b border-base-content/20 p-fluid-md">
 					<button 
 						className="flex items-center space-x-2 hover:bg-base-200 px-3 py-2 rounded-lg transition-colors duration-200 group w-full"
 						onClick={() => setShowAppSettings(true)}
 						title="点击打开设置和主题选择"
 					>
-						<div className="text-2xl group-hover:scale-110 transition-transform duration-200">📊</div>
-						<h1 className="text-xl font-bold text-primary group-hover:text-primary-focus">BuBu</h1>
+						<div className="text-fluid-xl group-hover:scale-110 transition-transform duration-200">📊</div>
+						<h1 className="text-fluid-xl font-bold text-primary group-hover:text-primary-focus">BuBu</h1>
 						<div className="badge badge-primary badge-sm group-hover:badge-primary-focus">Excel AI助手</div>
 					</button>
-					<div className="mt-2 text-xs text-base-content/60">
-						一句话处理Excel🤖 ，Make Excel Easy Again 👊
+					<div className="mt-2 text-fluid-xs text-base-content/60">
+						🤖一句话处理Excel，Make Excel Easy Again 🖖
 					</div>
 				</div>
 				
@@ -131,21 +184,29 @@ const AppContent = () => {
 						isRefreshing={isRefreshing}
 						selectedFiles={selectedFiles}
 						onFileSelect={(file) => {
-					if (!file) return;
-					if (selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)) {
-						// 如果文件已选中，则取消选择
-						setSelectedFiles(prev => {
-							const newSelection = prev.filter(f => !(f.filename === file.filename && f.file_path === file.file_path));
-							return newSelection;
-						});
-					} else {
-						// 如果文件未选中，则添加到选择列表
-						setSelectedFiles(prev => {
-							const newSelection = [...prev, file];
-							return newSelection;
-						});
-					}
-				}}
+				if (!file) return;
+				if (selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)) {
+					// 如果文件已选中，则取消选择
+					setSelectedFiles(prev => {
+						const newSelection = prev.filter(f => !(f.filename === file.filename && f.file_path === file.file_path));
+						// 如果没有选中的文件了，隐藏会话选择器
+						if (newSelection.length === 0) {
+							setShowConversationSelector(false);
+							setCurrentConversationId(null);
+							setCurrentMessages([]);
+						}
+						return newSelection;
+					});
+				} else {
+					// 如果文件未选中，则添加到选择列表
+					setSelectedFiles(prev => {
+						const newSelection = [...prev, file];
+						// 检查是否有历史会话，没有则自动创建新会话
+						checkAndCreateConversation(newSelection);
+						return newSelection;
+					});
+				}
+			}}
 						isProcessingFile={isProcessingFile}
 					/>
 				</div>
@@ -155,17 +216,46 @@ const AppContent = () => {
 			<div className="flex-1 flex flex-col overflow-hidden">
 				{selectedFiles.length === 0 ? (
 					<div className="flex items-center justify-center h-full bg-base-100">
-						<div className="text-center p-8">
-							<div className="text-6xl mb-4">📊</div>
-							<h3 className="text-lg font-medium text-base-content mb-2">选择数据源开始分析</h3>
-							<p className="text-base-content/60">请先在左侧选择一个或多个文件作为数据源</p>
-						</div>
+						<div className="text-center p-fluid-lg">
+						<div className="text-fluid-4xl mb-4">📊</div>
+						<h3 className="text-fluid-lg font-medium text-base-content mb-2">选择数据源开始分析</h3>
+						<p className="text-fluid-base text-base-content/60">请先在左侧选择一个或多个文件作为数据源</p>
 					</div>
+					</div>
+				) : showConversationSelector && currentConversationId === null ? (
+					// 统一的会话选择器
+					<ConversationSelector
+						fileKey={selectedFiles.map(f => f.filename).join(',')}
+						fileName={selectedFiles.length === 1 ? selectedFiles[0].filename : `${selectedFiles.length}个文件`}
+						selectedFiles={selectedFiles}
+						onSelectConversation={(conversationId, messages) => {
+							setCurrentConversationId(conversationId);
+							// 转换后端消息格式为前端格式
+							const convertedMessages = messages.map(msg => ({
+								id: msg.id.toString(),
+								type: msg.message_type as 'user' | 'assistant' | 'error',
+								content: msg.content,
+								timestamp: new Date(msg.created_at),
+								data: msg.query_result ? JSON.parse(msg.query_result) : undefined,
+								insights: msg.insights ? JSON.parse(msg.insights) : undefined,
+								suggestions: msg.suggestions ? JSON.parse(msg.suggestions) : undefined,
+								debugInfo: parseDebugInfo(msg.debug_info || '')
+							}));
+							console.log('🔧 [DEBUG] 转换后的消息:', convertedMessages);
+							setCurrentMessages(convertedMessages);
+							setShowConversationSelector(false);
+						}}
+						onCreateNewConversation={(conversationId) => {
+							setCurrentConversationId(conversationId);
+							setCurrentMessages([]);
+							setShowConversationSelector(false);
+						}}
+					/>
 				) : (
 					<ConversationInterface
 						onQuery={processQuery}
 						loading={isLoading}
-						conversations={conversations}
+						conversations={currentMessages.length > 0 ? currentMessages : conversations}
 						selectedFiles={selectedFiles}
 						templates={templates}
 						showTemplates={showTemplates}

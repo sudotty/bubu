@@ -18,6 +18,8 @@ import {
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import { PromptTemplates, ERROR_MESSAGES } from '../utils/promptTemplates';
+import { useRef } from 'react';
+import { DebugInfo, LLMProcessResult as CustomLLMProcessResult, parseDebugInfo, stringifyDebugInfo } from '../types/debug';
 
 type BackendQueryResult = main.QueryResult;
 type LLMProcessResult = main.LLMProcessResult;
@@ -32,13 +34,7 @@ interface ConversationMessage {
   insights?: string[];
   suggestions?: string[];
   // 调试信息（仅开发者可见）
-  debugInfo?: {
-    originalPrompt?: string;
-    llmRawResponse?: any;
-    processingTime?: number;
-    apiEndpoint?: string;
-    modelUsed?: string;
-  };
+  debugInfo?: DebugInfo;
 }
 
 interface ProcessResult {
@@ -47,55 +43,46 @@ interface ProcessResult {
   chart?: any;
   insights?: string[];
   suggestions?: string[];
-  debugInfo?: {
-    originalPrompt?: string;
-    llmRawResponse?: any;
-    processingTime?: number;
-    apiEndpoint?: string;
-    modelUsed?: string;
-  };
+  debugInfo?: DebugInfo;
 }
 
 export const useConversationQuery = (selectedFiles?: string[]) => {
   const [conversations, setConversations] = useState<ConversationMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string>('');
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [templates, setTemplates] = useState<main.SavedTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const sessionIdRef = useRef<string>('');
 
   // 生成会话ID
   const generateSessionId = () => {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // 初始化会话
+
+
+  // 初始化会话和加载智能建议
   useEffect(() => {
     if (selectedFiles && selectedFiles.length > 0) {
       const newSessionId = generateSessionId();
-      setSessionId(newSessionId);
-      loadTemplates();
-    }
-  }, [selectedFiles]);
-
-  // 加载话术本
-  const loadTemplates = useCallback(async () => {
-    if (selectedFiles && selectedFiles.length > 0) {
-      try {
-        const templates = await GetTemplatesByFiles(selectedFiles);
-        setTemplates(templates);
-      } catch (error) {
-        console.error('Failed to load templates:', error);
-      }
+      sessionIdRef.current = newSessionId;
+      
+      // 直接加载智能建议，避免循环依赖
+      const loadTemplatesAsync = async () => {
+        try {
+          const templates = await GetTemplatesByFiles(selectedFiles);
+          setTemplates(templates || []);
+        } catch (error) {
+          console.error('Failed to load templates:', error);
+          setTemplates([]);
+        }
+      };
+      
+      loadTemplatesAsync();
     } else {
       setTemplates([]);
     }
   }, [selectedFiles]);
-
-  // 当选择的文件改变时，重新加载话术本
-  useEffect(() => {
-    loadTemplates();
-  }, [loadTemplates]);
 
   // 创建新会话
   const createNewConversation = useCallback(async () => {
@@ -104,7 +91,7 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
     }
     
     try {
-      const conversation = await CreateConversation(sessionId, selectedFiles, `会话 ${new Date().toLocaleString()}`);
+      const conversation = await CreateConversation(sessionIdRef.current, selectedFiles[0], `会话 ${new Date().toLocaleString()}`);
       setConversationId(conversation.id);
       return conversation;
     } catch (error) {
@@ -114,7 +101,7 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
   }, [selectedFiles]);
 
   // 保存会话消息
-  const saveConversationMessage = useCallback(async (messageType: string, content: string, sql?: string, queryResult?: string, insights?: string[], suggestions?: string[], debugInfo?: any) => {
+  const saveConversationMessage = useCallback(async (messageType: string, content: string, sql?: string, queryResult?: string, insights?: string[], suggestions?: string[], debugInfo?: DebugInfo) => {
     if (!conversationId) {
       return;
     }
@@ -128,19 +115,19 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
         queryResult || '',
         JSON.stringify(insights || []),
         JSON.stringify(suggestions || []),
-        JSON.stringify(debugInfo || {})
+        stringifyDebugInfo(debugInfo || {})
       );
     } catch (error) {
       console.error('Failed to save conversation message:', error);
     }
   }, [conversationId]);
 
-  // 处理话术本模式
-  const processTemplateMode = useCallback(async (input: string) => {
+  // 处理智能建议模式
+  const processTemplateMode = useCallback(async (input: string, currentConversations: ConversationMessage[]) => {
     const templateInput = input.substring(6); // 移除 '#bubu#' 前缀
     
     try {
-      const result = await processNaturalLanguage(templateInput, conversations);
+      const result = await processNaturalLanguage(templateInput, currentConversations);
       
       // 如果返回了 SQL，可以选择直接执行或让用户确认
       if (result.data) {
@@ -152,9 +139,9 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
       console.error('Failed to process template mode:', error);
       throw error;
     }
-  }, [conversations]);
+  }, [conversationId, selectedFiles, createNewConversation, saveConversationMessage]);
 
-  // 保存话术本
+  // 保存智能建议
   const saveTemplate = useCallback(async (title: string, promptText: string, sql: string, description: string) => {
     if (!selectedFiles || selectedFiles.length === 0) {
       throw new Error('请先选择文件');
@@ -162,35 +149,59 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
     
     try {
       const template = await SaveTemplate(selectedFiles, title, promptText, sql, description);
-      await loadTemplates(); // 重新加载话术本列表
+      // 重新加载智能建议列表
+      if (selectedFiles && selectedFiles.length > 0) {
+        try {
+          const updatedTemplates = await GetTemplatesByFiles(selectedFiles);
+          setTemplates(updatedTemplates || []);
+        } catch (error) {
+          console.error('Failed to reload templates:', error);
+        }
+      }
       return template;
     } catch (error) {
       console.error('Failed to save template:', error);
       throw error;
     }
-  }, [selectedFiles, loadTemplates]);
+  }, [selectedFiles]);
 
-  // 使用话术本
+  // 使用智能建议
   const useTemplate = useCallback(async (templateId: number) => {
     try {
       await UseTemplate(templateId);
-      await loadTemplates(); // 重新加载话术本列表以更新使用次数
+      // 重新加载智能建议列表以更新使用次数
+      if (selectedFiles && selectedFiles.length > 0) {
+        try {
+          const updatedTemplates = await GetTemplatesByFiles(selectedFiles);
+          setTemplates(updatedTemplates || []);
+        } catch (error) {
+          console.error('Failed to reload templates:', error);
+        }
+      }
     } catch (error) {
       console.error('Failed to use template:', error);
       throw error;
     }
-  }, [loadTemplates]);
+  }, [selectedFiles]);
 
-  // 删除话术本
+  // 删除智能建议
   const deleteTemplate = useCallback(async (templateId: number) => {
     try {
       await DeleteTemplate(templateId);
-      await loadTemplates(); // 重新加载话术本列表
+      // 重新加载智能建议列表
+      if (selectedFiles && selectedFiles.length > 0) {
+        try {
+          const updatedTemplates = await GetTemplatesByFiles(selectedFiles);
+          setTemplates(updatedTemplates || []);
+        } catch (error) {
+          console.error('Failed to reload templates:', error);
+        }
+      }
     } catch (error) {
       console.error('Failed to delete template:', error);
       throw error;
     }
-  }, [loadTemplates]);
+  }, [selectedFiles]);
 
   // 处理自然语言查询
 	const processNaturalLanguage = async (query: string, context: ConversationMessage[]): Promise<ProcessResult> => {
@@ -207,27 +218,31 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
 			
 			// 调用带文件的处理方法
 			const llmResult: LLMProcessResult = await ProcessNaturalLanguageWithFiles(query, selectedFiles);
-			
-			// 调试日志：打印LLM结果
-			// LLM result processed
+      
+      // 调试日志：打印LLM结果
+      console.log('🔍 [DEBUG] LLM Result:', llmResult);
+      console.log('🔍 [DEBUG] LLM Result debug_info:', llmResult.debug_info);
+      
       const processingTime = Date.now() - startTime;
       
       // 使用后端返回的调试信息
       const debugInfo = llmResult.debug_info ? {
-        originalPrompt: llmResult.debug_info.original_prompt,
-        llmRawResponse: llmResult.debug_info.llm_raw_response,
-        processingTime: llmResult.debug_info.processing_time,
-        apiEndpoint: llmResult.debug_info.api_endpoint,
-        modelUsed: llmResult.debug_info.model_used,
-        generatedSQL: llmResult.sql // 添加生成的SQL查询
+        original_prompt: llmResult.debug_info.original_prompt,
+        system_prompt: llmResult.debug_info.system_prompt,
+        user_prompt: llmResult.debug_info.user_prompt,
+        llm_raw_response: llmResult.debug_info.llm_raw_response,
+        processing_time: llmResult.debug_info.processing_time,
+        api_endpoint: llmResult.debug_info.api_endpoint,
+        model_used: llmResult.debug_info.model_used
       } : {
-        originalPrompt: `用户查询: ${query}\n\n上下文: ${context.length > 0 ? '包含' + context.length + '条历史消息' : '无历史消息'}`,
-        llmRawResponse: llmResult,
-        processingTime,
-        apiEndpoint: 'ProcessNaturalLanguage',
-        modelUsed: 'Unknown',
-        generatedSQL: llmResult.sql // 添加生成的SQL查询
+        original_prompt: `用户查询: ${query}\n\n上下文: ${context.length > 0 ? '包含' + context.length + '条历史消息' : '无历史消息'}`,
+        llm_raw_response: llmResult,
+        processing_time: processingTime,
+        api_endpoint: 'ProcessNaturalLanguage',
+        model_used: 'Unknown'
       };
+      
+      console.log('🔍 [DEBUG] Final debugInfo:', debugInfo);
       
       // 如果有SQL，执行查询
       if (llmResult.sql) {
@@ -273,7 +288,7 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
   const processQuery = useCallback(async (query: string) => {
     if (!query.trim()) return;
 
-    // 检查是否是话术本模式
+    // 检查是否是智能建议模式
     const isTemplateMode = query.startsWith('#bubu#');
     
     // 如果没有会话ID，创建新会话
@@ -297,12 +312,15 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
       
       let result;
       if (isTemplateMode) {
-        // 话术本模式处理
-        result = await processTemplateMode(query);
+        // 智能建议模式处理
+        result = await processTemplateMode(query, conversations);
       } else {
         // 普通模式处理
         result = await processNaturalLanguage(query, conversations);
       }
+      
+      console.log('🔧 [DEBUG] processQuery result:', result);
+      console.log('🔧 [DEBUG] processQuery result.debugInfo:', result.debugInfo);
       
       const assistantMessage: ConversationMessage = {
         id: (Date.now() + 1).toString(),
@@ -315,6 +333,8 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
         suggestions: result.suggestions,
         debugInfo: result.debugInfo
       };
+      
+      console.log('🔧 [DEBUG] assistantMessage with debugInfo:', assistantMessage);
 
       // 保存助手消息到数据库
        await saveConversationMessage(
@@ -330,18 +350,41 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
       setConversations(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('查询处理错误:', error);
+      
+      // 即使出错也要包含调试信息
+      const errorDebugInfo = {
+        original_prompt: `用户查询: ${query}`,
+        llm_raw_response: error,
+        processing_time: Date.now(),
+        api_endpoint: 'ProcessNaturalLanguage',
+        model_used: 'Unknown',
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      };
+      
       const errorMessage: ConversationMessage = {
         id: (Date.now() + 1).toString(),
         type: 'error',
         content: error instanceof Error ? error.message : ERROR_MESSAGES.QUERY_FAILED,
-        timestamp: new Date()
+        timestamp: new Date(),
+        debugInfo: errorDebugInfo
       };
 
       setConversations(prev => [...prev, errorMessage]);
+      
+      // 保存错误消息到数据库，包含调试信息
+      await saveConversationMessage(
+        'error',
+        error instanceof Error ? error.message : ERROR_MESSAGES.QUERY_FAILED,
+        '',
+        '',
+        [],
+        [],
+        errorDebugInfo
+      );
     } finally {
        setLoading(false);
      }
-  }, [conversations]);
+  }, [conversationId, selectedFiles, createNewConversation, saveConversationMessage, processTemplateMode]);
   
   // 清空对话历史
   const clearConversations = useCallback(() => {
@@ -358,7 +401,6 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
     templates,
     showTemplates,
     setShowTemplates,
-    loadTemplates,
     createNewConversation,
     saveConversationMessage,
     processTemplateMode,
@@ -366,7 +408,7 @@ export const useConversationQuery = (selectedFiles?: string[]) => {
     useTemplate,
     deleteTemplate,
     conversationId,
-    sessionId
+    sessionId: sessionIdRef.current
   };
 };
 

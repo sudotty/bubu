@@ -12,7 +12,7 @@ import (
 
 // FileService 文件处理服务
 type FileService struct {
-	db       *DatabaseService
+	db        *DatabaseService
 	uploadDir string
 }
 
@@ -20,14 +20,14 @@ type FileService struct {
 func (fs *FileService) normalizeColumnNames(headers []string) []string {
 	columnNames := make([]string, len(headers))
 	columnNameMap := make(map[string]int) // 用于跟踪重复列名
-	
+
 	for i, header := range headers {
 		// 清理列名
 		columnName := strings.TrimSpace(header)
 		if columnName == "" {
 			columnName = fmt.Sprintf("column_%d", i+1)
 		}
-		
+
 		// 替换特殊字符
 		columnName = strings.ReplaceAll(columnName, " ", "_")
 		columnName = strings.ReplaceAll(columnName, "-", "_")
@@ -41,7 +41,7 @@ func (fs *FileService) normalizeColumnNames(headers []string) []string {
 		columnName = strings.ReplaceAll(columnName, ":", "_")
 		columnName = strings.ReplaceAll(columnName, "'", "_")
 		columnName = strings.ReplaceAll(columnName, "\"", "_")
-		
+
 		// 处理重复列名
 		originalName := columnName
 		if count, exists := columnNameMap[columnName]; exists {
@@ -50,10 +50,10 @@ func (fs *FileService) normalizeColumnNames(headers []string) []string {
 		} else {
 			columnNameMap[columnName] = 1
 		}
-		
+
 		columnNames[i] = columnName
 	}
-	
+
 	return columnNames
 }
 
@@ -72,7 +72,7 @@ func (fs *FileService) UploadFile(filename string, content []byte) (*File, error
 	// 检查文件类型
 	ext := strings.ToLower(filepath.Ext(filename))
 	var fileType string
-	
+
 	// 检查是否为支持的扩展名
 	supported := false
 	for _, supportedExt := range GlobalConfig.FileHandling.Processing.SupportedExtensions {
@@ -81,11 +81,11 @@ func (fs *FileService) UploadFile(filename string, content []byte) (*File, error
 			break
 		}
 	}
-	
+
 	if !supported {
 		return nil, fmt.Errorf("不支持的文件类型: %s", ext)
 	}
-	
+
 	switch ext {
 	case ".xlsx", ".xls":
 		fileType = "xlsx"
@@ -169,16 +169,16 @@ func (fs *FileService) importFileToDatabase(file *File) error {
 func (fs *FileService) parseExcelFile(filePath string) ([][]string, error) {
 	// 使用新的Excel服务进行解析
 	excelService := NewExcelService(GlobalConfig)
-	
+
 	// 验证Excel文件
 	if err := excelService.ValidateExcelFile(filePath); err != nil {
 		return nil, fmt.Errorf("Excel文件验证失败: %v", err)
 	}
-	
+
 	// 使用流式解析，支持大文件
 	options := DefaultExcelOptions()
 	options.MaxRows = 0 // 读取所有行
-	
+
 	return excelService.ParseExcelFileStream(filePath, options)
 }
 
@@ -222,7 +222,7 @@ func (fs *FileService) createTableFromData(tableName string, data [][]string) er
 
 	// 标准化列名
 	normalizedColumns := fs.normalizeColumnNames(headers)
-	
+
 	// 构建CREATE TABLE语句
 	var columns []string
 	for _, columnName := range normalizedColumns {
@@ -259,7 +259,7 @@ func (fs *FileService) insertDataToTable(tableName string, data [][]string) erro
 
 	// 标准化列名
 	normalizedColumns := fs.normalizeColumnNames(headers)
-	
+
 	columnNames := make([]string, len(normalizedColumns))
 	for i, columnName := range normalizedColumns {
 		columnNames[i] = fmt.Sprintf("`%s`", columnName)
@@ -320,7 +320,7 @@ func (fs *FileService) GetUploadedFiles() ([]File, error) {
 
 		ext := strings.ToLower(filepath.Ext(file.Name()))
 		var fileType string
-		
+
 		// 检查是否为支持的扩展名
 		supported := false
 		for _, supportedExt := range GlobalConfig.FileHandling.Processing.SupportedExtensions {
@@ -329,11 +329,11 @@ func (fs *FileService) GetUploadedFiles() ([]File, error) {
 				break
 			}
 		}
-		
+
 		if !supported {
 			continue
 		}
-		
+
 		switch ext {
 		case ".xlsx", ".xls":
 			fileType = "xlsx"

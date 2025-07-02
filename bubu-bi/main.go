@@ -59,9 +59,22 @@ func main() {
 
 	// Create application with options
 	err = wails.Run(&options.App{
-		Title:  "bubu",
-		Width:  1024,
-		Height: 768,
+		Title:  "BuBu BI - 智能数据分析助手",
+		Width:  1200,
+		Height: 800,
+		MinWidth:  800,
+		MinHeight: 600,
+		MaxWidth:  0, // 0 表示无限制
+		MaxHeight: 0, // 0 表示无限制
+		WindowStartState: options.Maximised, // 启动时最大化窗口
+		DisableResize: false, // 允许调整窗口大小
+		// 窗口管理优化
+		HideWindowOnClose: true, // 关闭时隐藏到托盘而不是退出
+		AlwaysOnTop: false,
+		// 系统托盘配置
+		Menu: app.ApplicationMenu(),
+		// 原生通知支持
+		OnDomReady: app.OnDomReady,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

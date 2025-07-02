@@ -13,6 +13,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
@@ -140,8 +144,6 @@ func (a *App) GetTableSchema(tableName string) (*QueryResult, error) {
 	return a.dbService.ExecuteQuery(query)
 }
 
-
-
 // GetTableData 获取表数据（分页）
 func (a *App) GetTableData(tableName string, limit, offset int) (*QueryResult, error) {
 	if limit <= 0 {
@@ -153,41 +155,27 @@ func (a *App) GetTableData(tableName string, limit, offset int) (*QueryResult, e
 
 // convertFilesToTableNames 将文件名列表转换为表名列表
 func (a *App) convertFilesToTableNames(filenames []string) []string {
-	log.Printf("🔍 [DEBUG] convertFilesToTableNames - input filenames: %v", filenames)
-	
 	var tableNames []string
 	allTables, err := a.GetTableList()
 	if err != nil {
-		log.Printf("🔍 [DEBUG] convertFilesToTableNames - GetTableList error: %v", err)
 		return tableNames
 	}
-	log.Printf("🔍 [DEBUG] convertFilesToTableNames - all existing tables: %v", allTables)
 
 	for _, filename := range filenames {
-		log.Printf("🔍 [DEBUG] convertFilesToTableNames - processing filename: %s", filename)
-		
 		// 将文件名转换为表名（去掉扩展名，替换特殊字符）
 		tableName := strings.TrimSuffix(filename, filepath.Ext(filename))
 		tableName = strings.ReplaceAll(tableName, "-", "_")
 		tableName = strings.ReplaceAll(tableName, " ", "_")
-		log.Printf("🔍 [DEBUG] convertFilesToTableNames - converted table name: %s", tableName)
-		
+
 		// 检查表是否存在
-		found := false
 		for _, existingTable := range allTables {
 			if existingTable == tableName {
 				tableNames = append(tableNames, tableName)
-				found = true
-				log.Printf("🔍 [DEBUG] convertFilesToTableNames - table %s found and added", tableName)
 				break
 			}
 		}
-		if !found {
-			log.Printf("🔍 [DEBUG] convertFilesToTableNames - table %s NOT found in existing tables", tableName)
-		}
 	}
 
-	log.Printf("🔍 [DEBUG] convertFilesToTableNames - final result: %v", tableNames)
 	return tableNames
 }
 
@@ -232,13 +220,9 @@ func (a *App) ProcessNaturalLanguageWithFiles(input string, selectedFiles []stri
 		return nil, fmt.Errorf("输入不能为空")
 	}
 
-	// 调试日志：打印接收到的参数
-	log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - input: %s", input)
-	log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - selectedFiles: %v", selectedFiles)
-
-	// 检查是否为话术本模式（以#bubu#开头）
+	// 检查是否为智能建议模式（以#bubu#开头）
 	if strings.HasPrefix(input, "#bubu#") {
-		// 话术本模式：直接执行SQL，不走LLM
+		// 智能建议模式：直接执行SQL，不走LLM
 		return a.processTemplateMode(input, selectedFiles)
 	}
 
@@ -248,14 +232,12 @@ func (a *App) ProcessNaturalLanguageWithFiles(input string, selectedFiles []stri
 	if selectedFiles != nil && len(selectedFiles) > 0 {
 		// 如果指定了文件列表，只使用这些文件对应的表
 		tables = a.convertFilesToTableNames(selectedFiles)
-		log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - converted tables: %v", tables)
 		if len(tables) == 0 {
 			return nil, fmt.Errorf("选中的文件没有对应的数据表")
 		}
 	} else {
 		// 如果没有指定文件，使用所有表
 		tables, err = a.GetTableList()
-		log.Printf("🔍 [DEBUG] ProcessNaturalLanguageWithFiles - all tables: %v", tables)
 		if err != nil {
 			return nil, fmt.Errorf("获取表列表失败: %v", err)
 		}
@@ -460,7 +442,7 @@ func (a *App) ExportToExcel(query string) (string, error) {
 
 	// 使用新的Excel服务进行导出
 	excelService := NewExcelService(GlobalConfig)
-	
+
 	// 配置导出选项
 	options := &ExportOptions{
 		SheetName:       "查询结果",
@@ -468,7 +450,7 @@ func (a *App) ExportToExcel(query string) (string, error) {
 		AutoWidth:       true,
 		MaxRowsPerSheet: GlobalConfig.Export.MaxRows,
 	}
-	
+
 	return excelService.ExportToExcelAdvanced(result, options)
 }
 
@@ -552,13 +534,7 @@ func (a *App) generateDDLHash(ddlContent string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-
-
 // === 缓存管理API ===
-
-
-
-
 
 // ClearCacheByType 按类型清除缓存
 func (a *App) ClearCacheByType(cacheType string) error {
@@ -579,12 +555,6 @@ func (a *App) GetCacheStats() (map[string]interface{}, error) {
 func (a *App) ManualCleanExpiredCache() error {
 	return a.cacheService.CleanExpired()
 }
-
-
-
-
-
-
 
 // ProcessNaturalLanguageEnhanced 增强版自然语言处理（支持缓存复用）
 func (a *App) ProcessNaturalLanguageEnhanced(input string) (*LLMProcessResult, error) {
@@ -669,59 +639,81 @@ func (a *App) GetPopularQueries(fileKey string, limit int) ([]PromptSQLMapping, 
 	return a.dbService.GetPopularPromptSQLMappings(fileKey, ddlHash, limit)
 }
 
-// processTemplateMode 处理话术本模式
+// processTemplateMode 处理智能建议模式
 func (a *App) processTemplateMode(input string, selectedFiles []string) (*LLMProcessResult, error) {
 	// 移除#bubu#前缀，提取实际的SQL内容
 	sqlContent := strings.TrimPrefix(input, "#bubu#")
 	sqlContent = strings.TrimSpace(sqlContent)
-	
+
 	if sqlContent == "" {
-		return nil, fmt.Errorf("话术本内容不能为空")
+		return nil, fmt.Errorf("智能建议内容不能为空")
 	}
-	
-	log.Printf("🔍 [DEBUG] processTemplateMode - executing SQL: %s", sqlContent)
-	
-	// 构建LLM处理结果（话术本模式只返回SQL，不执行查询）
+
+	// 构建LLM处理结果（智能建议模式只返回SQL，不执行查询）
 	result := &LLMProcessResult{
 		SQL:         sqlContent,
 		BusinessID:  "template_mode",
-		Definition:  "通过话术本直接查询数据库",
-		Description: "这是一个保存的话术本查询",
+		Definition:  "通过智能建议直接查询数据库",
+		Description: "这是一个保存的智能建议查询",
 		Confidence:  1.0,
-		Suggestions: []string{"这是一个保存的话术本查询"},
+		Suggestions: []string{"这是一个保存的智能建议查询"},
 		DebugInfo: &DebugInfo{
-			ProcessingTime: 0, // 话术本模式无需LLM处理时间
+			ProcessingTime: 0, // 智能建议模式无需LLM处理时间
 			APIEndpoint:    "template_mode",
 		},
 	}
-	
+
 	// 保存查询历史
 	if saveErr := a.dbService.SaveQueryHistory(input, "template"); saveErr != nil {
 		log.Printf("保存查询历史失败: %v", saveErr)
 	}
-	
+
 	return result, nil
 }
 
 // === 会话相关API ===
 
-// CreateConversation 创建新会话
-func (a *App) CreateConversation(sessionID string, selectedFiles []string, title string) (*Conversation, error) {
+// CreateConversation 创建一个新的会话（单文件）
+func (a *App) CreateConversation(sessionID string, fileKey string, title string) (*Conversation, error) {
 	if sessionID == "" {
 		return nil, fmt.Errorf("会话ID不能为空")
 	}
-	
-	// 将文件列表转换为字符串
-	fileKeys := strings.Join(selectedFiles, ",")
-	if fileKeys == "" {
-		fileKeys = "default"
+
+	if fileKey == "" {
+		fileKey = "default"
 	}
-	
+
 	if title == "" {
 		title = "新会话"
 	}
-	
-	return a.dbService.CreateConversation(sessionID, fileKeys, title)
+
+	return a.dbService.CreateConversation(sessionID, fileKey, title)
+}
+
+// CreateConversationsForFiles 为多个文件创建会话
+func (a *App) CreateConversationsForFiles(sessionID string, selectedFiles []string, title string) ([]*Conversation, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("会话ID不能为空")
+	}
+
+	if len(selectedFiles) == 0 {
+		selectedFiles = []string{"default"}
+	}
+
+	if title == "" {
+		title = "新会话"
+	}
+
+	var conversations []*Conversation
+	for _, fileKey := range selectedFiles {
+		conv, err := a.dbService.CreateConversation(sessionID, fileKey, title)
+		if err != nil {
+			return nil, err
+		}
+		conversations = append(conversations, conv)
+	}
+
+	return conversations, nil
 }
 
 // GetConversation 获取会话信息
@@ -731,11 +723,18 @@ func (a *App) GetConversation(sessionID string) (*Conversation, error) {
 
 // GetConversationsByFiles 根据文件获取会话列表
 func (a *App) GetConversationsByFiles(selectedFiles []string) ([]Conversation, error) {
-	fileKeys := strings.Join(selectedFiles, ",")
-	if fileKeys == "" {
-		fileKeys = "default"
+	if len(selectedFiles) == 0 {
+		selectedFiles = []string{"default"}
 	}
-	return a.dbService.GetConversationsByFileKeys(fileKeys)
+	return a.dbService.GetConversationsByFileKeys(selectedFiles)
+}
+
+// GetConversationsByFileKey 根据单个文件获取会话列表
+func (a *App) GetConversationsByFileKey(fileKey string) ([]Conversation, error) {
+	if fileKey == "" {
+		fileKey = "default"
+	}
+	return a.dbService.GetConversationsByFileKey(fileKey)
 }
 
 // UpdateConversationTitle 更新会话标题
@@ -763,15 +762,15 @@ func (a *App) GetConversationMessages(conversationID int) ([]ConversationMessage
 	return a.dbService.GetConversationMessages(conversationID)
 }
 
-// === 话术本相关API ===
+// === 智能建议相关API ===
 
-// SaveTemplate 保存话术本
+// SaveTemplate 保存智能建议
 func (a *App) SaveTemplate(selectedFiles []string, title, promptText, sql, description string) error {
 	fileKeys := strings.Join(selectedFiles, ",")
 	if fileKeys == "" {
 		fileKeys = "default"
 	}
-	
+
 	template := &SavedTemplate{
 		FileKeys:    fileKeys,
 		Title:       title,
@@ -782,7 +781,7 @@ func (a *App) SaveTemplate(selectedFiles []string, title, promptText, sql, descr
 	return a.dbService.SaveTemplate(template)
 }
 
-// GetTemplatesByFiles 根据文件获取话术本列表
+// GetTemplatesByFiles 根据文件获取智能建议列表
 func (a *App) GetTemplatesByFiles(selectedFiles []string) ([]SavedTemplate, error) {
 	fileKeys := strings.Join(selectedFiles, ",")
 	if fileKeys == "" {
@@ -791,22 +790,22 @@ func (a *App) GetTemplatesByFiles(selectedFiles []string) ([]SavedTemplate, erro
 	return a.dbService.GetTemplatesByFileKeys(fileKeys)
 }
 
-// UpdateTemplate 更新话术本
+// UpdateTemplate 更新智能建议
 func (a *App) UpdateTemplate(id int, title, promptText, sql, description string) error {
 	return a.dbService.UpdateTemplate(id, title, promptText, sql, description)
 }
 
-// UseTemplate 使用话术本（更新使用统计）
+// UseTemplate 使用智能建议（更新使用统计）
 func (a *App) UseTemplate(id int) error {
 	return a.dbService.UpdateTemplateUsage(id)
 }
 
-// DeleteTemplate 删除话术本
+// DeleteTemplate 删除智能建议
 func (a *App) DeleteTemplate(id int) error {
 	return a.dbService.DeleteTemplate(id)
 }
 
-// ExecuteTemplateSQL 执行话术本SQL（带#bubu#前缀）
+// ExecuteTemplateSQL 执行智能建议SQL（带#bubu#前缀）
 func (a *App) ExecuteTemplateSQL(sql string, selectedFiles []string) (*LLMProcessResult, error) {
 	// 添加#bubu#前缀
 	templateInput := "#bubu#" + sql
@@ -819,4 +818,81 @@ func (a *App) calculateDDLHash(tables []string) string {
 	combined := strings.Join(tables, ",")
 	hash := sha256.Sum256([]byte(combined))
 	return hex.EncodeToString(hash[:])
+}
+
+// ApplicationMenu 创建应用程序菜单（系统托盘）
+func (a *App) ApplicationMenu() *menu.Menu {
+	appMenu := menu.NewMenu()
+
+	// 文件菜单
+	fileMenu := appMenu.AddSubmenu("文件")
+	fileMenu.AddText("打开文件", keys.CmdOrCtrl("o"), func(cd *menu.CallbackData) {
+		// 触发文件选择
+		runtime.EventsEmit(a.ctx, "open-file-dialog")
+	})
+	fileMenu.AddSeparator()
+	fileMenu.AddText("退出", keys.CmdOrCtrl("q"), func(cd *menu.CallbackData) {
+		runtime.Quit(a.ctx)
+	})
+
+	// 窗口菜单
+	windowMenu := appMenu.AddSubmenu("窗口")
+	windowMenu.AddText("显示窗口", nil, func(cd *menu.CallbackData) {
+		runtime.WindowShow(a.ctx)
+		runtime.WindowUnminimise(a.ctx)
+	})
+	windowMenu.AddText("隐藏窗口", nil, func(cd *menu.CallbackData) {
+		runtime.WindowHide(a.ctx)
+	})
+	windowMenu.AddSeparator()
+	windowMenu.AddText("最小化", keys.CmdOrCtrl("m"), func(cd *menu.CallbackData) {
+		runtime.WindowMinimise(a.ctx)
+	})
+	windowMenu.AddText("最大化", nil, func(cd *menu.CallbackData) {
+		runtime.WindowMaximise(a.ctx)
+	})
+
+	// 帮助菜单
+	helpMenu := appMenu.AddSubmenu("帮助")
+	helpMenu.AddText("关于 BuBu BI", nil, func(cd *menu.CallbackData) {
+		runtime.EventsEmit(a.ctx, "show-about-dialog")
+	})
+
+	return appMenu
+}
+
+// OnDomReady DOM准备就绪时的回调
+func (a *App) OnDomReady(ctx context.Context) {
+	// 发送欢迎通知
+	a.ShowNotification("欢迎使用 BuBu BI", "智能数据分析助手已启动")
+}
+
+// ShowNotification 显示原生通知
+func (a *App) ShowNotification(title, message string) {
+	if a.ctx != nil {
+		// 使用 Wails 运行时显示通知
+		runtime.EventsEmit(a.ctx, "show-notification", map[string]string{
+			"title":   title,
+			"message": message,
+		})
+	}
+}
+
+// ShowSuccessNotification 显示成功通知
+func (a *App) ShowSuccessNotification(message string) {
+	a.ShowNotification("操作成功", message)
+}
+
+// ShowErrorNotification 显示错误通知
+func (a *App) ShowErrorNotification(message string) {
+	a.ShowNotification("操作失败", message)
+}
+
+// ToggleWindow 切换窗口显示/隐藏状态
+func (a *App) ToggleWindow() {
+	if a.ctx != nil {
+		// 这里可以添加窗口状态检查逻辑
+		runtime.WindowShow(a.ctx)
+		runtime.WindowUnminimise(a.ctx)
+	}
 }

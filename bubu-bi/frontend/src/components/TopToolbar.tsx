@@ -34,7 +34,7 @@ const TopToolbar = memo<TopToolbarProps>(({ onRefresh, onOpenAppSettings }) => {
 			<div className="mt-2 flex items-center text-xs text-base-content/60">
 				<div className="flex items-center space-x-4">
 					<span>
-						一句话处理Excel🤖 ，Make Excel Easy Again 👊
+						🤖一句话处理Excel，Make Excel Easy Again🖖
 					</span>
 				</div>
 			</div>

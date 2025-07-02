@@ -21,10 +21,10 @@ func NewCacheService(dbService *DatabaseService) *CacheService {
 
 // CacheType 缓存类型常量
 const (
-	CacheTypeQuery      = "query"          // 查询结果缓存
-	CacheTypeSchema     = "schema"         // 表结构缓存
-	CacheTypeAnalysis   = "analysis"       // 数据分析缓存
-	CacheTypeReport     = "report"         // 报表缓存
+	CacheTypeQuery    = "query"    // 查询结果缓存
+	CacheTypeSchema   = "schema"   // 表结构缓存
+	CacheTypeAnalysis = "analysis" // 数据分析缓存
+	CacheTypeReport   = "report"   // 报表缓存
 )
 
 // === 通用缓存操作 ===
@@ -76,8 +76,6 @@ func (cs *CacheService) Delete(cacheType, key string) error {
 
 // === 专用缓存方法 ===
 
-
-
 // SetQueryCache 设置查询结果缓存
 func (cs *CacheService) SetQueryCache(queryHash string, result *QueryResult, ttl time.Duration) error {
 	return cs.Set(CacheTypeQuery, queryHash, result, ttl)
@@ -123,8 +121,6 @@ func (cs *CacheService) GetStats() (map[string]interface{}, error) {
 		stats[cacheType+"_count"] = count
 	}
 
-
-
 	// 总体统计
 	var totalActive, totalExpired int
 	cs.dbService.db.QueryRow(
@@ -145,8 +141,6 @@ func (cs *CacheService) CleanExpired() error {
 	if err != nil {
 		return fmt.Errorf("清理过期通用缓存失败: %v", err)
 	}
-
-
 
 	log.Printf("缓存清理完成")
 	return nil

@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -45,10 +47,6 @@ type CacheEntry struct {
 	UpdatedAt  time.Time `json:"updated_at"`  // 更新时间
 }
 
-
-
-
-
 // PromptSQLMapping 提示词与SQL映射关系
 type PromptSQLMapping struct {
 	ID          int       `json:"id"`
@@ -68,12 +66,12 @@ type PromptSQLMapping struct {
 
 // Conversation 会话结构体
 type Conversation struct {
-	ID          int       `json:"id"`
-	SessionID   string    `json:"session_id"`   // 会话唯一标识
-	FileKeys    string    `json:"file_keys"`    // 关联的文件列表（JSON格式）
-	Title       string    `json:"title"`        // 会话标题
-	CreatedAt   time.Time `json:"created_at"`   // 创建时间
-	UpdatedAt   time.Time `json:"updated_at"`   // 更新时间
+	ID        int       `json:"id"`
+	SessionID string    `json:"session_id"` // 会话唯一标识
+	FileKey   string    `json:"file_key"`   // 关联的单个文件
+	Title     string    `json:"title"`      // 会话标题
+	CreatedAt time.Time `json:"created_at"` // 创建时间
+	UpdatedAt time.Time `json:"updated_at"` // 更新时间
 }
 
 // ConversationMessage 会话消息结构体
@@ -90,12 +88,12 @@ type ConversationMessage struct {
 	CreatedAt      time.Time `json:"created_at"`      // 创建时间
 }
 
-// SavedTemplate 保存的话术本结构体
+// SavedTemplate 保存的智能建议结构体
 type SavedTemplate struct {
 	ID          int       `json:"id"`
 	FileKeys    string    `json:"file_keys"`    // 关联的文件列表（JSON格式）
-	Title       string    `json:"title"`        // 话术标题
-	PromptText  string    `json:"prompt_text"`  // 话术内容
+	Title       string    `json:"title"`        // 智能建议标题
+	PromptText  string    `json:"prompt_text"`  // 智能建议内容
 	SQL         string    `json:"sql"`          // 对应的SQL
 	Description string    `json:"description"`  // 描述
 	UsageCount  int       `json:"usage_count"`  // 使用次数
@@ -162,8 +160,6 @@ func (ds *DatabaseService) initTables() error {
 
 	// 创建智能建议缓存表
 
-	
-
 	// 创建提示词SQL映射表
 	promptSQLMappingTable := `
 	CREATE TABLE IF NOT EXISTS prompt_sql_mappings (
@@ -188,7 +184,7 @@ func (ds *DatabaseService) initTables() error {
 	CREATE TABLE IF NOT EXISTS conversations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		session_id TEXT NOT NULL UNIQUE,
-		file_keys TEXT NOT NULL,
+		file_key TEXT NOT NULL,
 		title TEXT NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -210,7 +206,7 @@ func (ds *DatabaseService) initTables() error {
 		FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 	);`
 
-	// 创建保存的话术本表
+	// 创建保存的智能建议表
 	savedTemplateTable := `
 	CREATE TABLE IF NOT EXISTS saved_templates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -229,13 +225,12 @@ func (ds *DatabaseService) initTables() error {
 	cacheIndexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_cache_entries_type_key ON cache_entries(cache_type, cache_key);`,
 		`CREATE INDEX IF NOT EXISTS idx_cache_entries_expires ON cache_entries(expires_at);`,
-		`CREATE INDEX IF NOT EXISTS idx_business_suggestions_file_key ON business_suggestions(file_key, ddl_hash);`,
-		`CREATE INDEX IF NOT EXISTS idx_business_suggestions_business_id ON business_suggestions(business_id);`,
+
 		`CREATE INDEX IF NOT EXISTS idx_prompt_sql_mappings_file_key ON prompt_sql_mappings(file_key, ddl_hash);`,
 		`CREATE INDEX IF NOT EXISTS idx_prompt_sql_mappings_business_id ON prompt_sql_mappings(business_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_prompt_sql_mappings_usage ON prompt_sql_mappings(usage_count DESC, last_used_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_conversations_session_id ON conversations(session_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_conversations_file_keys ON conversations(file_keys);`,
+		`CREATE INDEX IF NOT EXISTS idx_conversations_file_key ON conversations(file_key);`,
 		`CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_saved_templates_file_keys ON saved_templates(file_keys);`,
 		`CREATE INDEX IF NOT EXISTS idx_saved_templates_usage ON saved_templates(usage_count DESC, last_used_at DESC);`,
@@ -381,11 +376,6 @@ func (ds *DatabaseService) ClearExpiredCache() error {
 	return err
 }
 
-
-
-
-
-
 // === 提示词SQL映射相关方法 ===
 
 // SavePromptSQLMapping 保存提示词SQL映射
@@ -458,11 +448,11 @@ func (ds *DatabaseService) GetPopularPromptSQLMappings(fileKey, ddlHash string, 
 // === 会话相关方法 ===
 
 // CreateConversation 创建新会话
-func (ds *DatabaseService) CreateConversation(sessionID, fileKeys, title string) (*Conversation, error) {
+func (ds *DatabaseService) CreateConversation(sessionID, fileKey, title string) (*Conversation, error) {
 	result, err := ds.db.Exec(`
-		INSERT INTO conversations (session_id, file_keys, title) 
+		INSERT INTO conversations (session_id, file_key, title) 
 		VALUES (?, ?, ?)`,
-		sessionID, fileKeys, title)
+		sessionID, fileKey, title)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +465,7 @@ func (ds *DatabaseService) CreateConversation(sessionID, fileKeys, title string)
 	return &Conversation{
 		ID:        int(id),
 		SessionID: sessionID,
-		FileKeys:  fileKeys,
+		FileKey:   fileKey,
 		Title:     title,
 	}, nil
 }
@@ -484,10 +474,10 @@ func (ds *DatabaseService) CreateConversation(sessionID, fileKeys, title string)
 func (ds *DatabaseService) GetConversationBySessionID(sessionID string) (*Conversation, error) {
 	var c Conversation
 	err := ds.db.QueryRow(`
-		SELECT id, session_id, file_keys, title, created_at, updated_at 
+		SELECT id, session_id, file_key, title, created_at, updated_at 
 		FROM conversations 
 		WHERE session_id = ?`,
-		sessionID).Scan(&c.ID, &c.SessionID, &c.FileKeys, &c.Title, &c.CreatedAt, &c.UpdatedAt)
+		sessionID).Scan(&c.ID, &c.SessionID, &c.FileKey, &c.Title, &c.CreatedAt, &c.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -495,14 +485,14 @@ func (ds *DatabaseService) GetConversationBySessionID(sessionID string) (*Conver
 	return &c, err
 }
 
-// GetConversationsByFileKeys 根据文件键获取会话列表
-func (ds *DatabaseService) GetConversationsByFileKeys(fileKeys string) ([]Conversation, error) {
+// GetConversationsByFileKey 根据文件键获取会话列表
+func (ds *DatabaseService) GetConversationsByFileKey(fileKey string) ([]Conversation, error) {
 	rows, err := ds.db.Query(`
-		SELECT id, session_id, file_keys, title, created_at, updated_at 
+		SELECT id, session_id, file_key, title, created_at, updated_at 
 		FROM conversations 
-		WHERE file_keys = ? 
+		WHERE file_key = ? 
 		ORDER BY updated_at DESC`,
-		fileKeys)
+		fileKey)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +501,45 @@ func (ds *DatabaseService) GetConversationsByFileKeys(fileKeys string) ([]Conver
 	var conversations []Conversation
 	for rows.Next() {
 		var c Conversation
-		err := rows.Scan(&c.ID, &c.SessionID, &c.FileKeys, &c.Title, &c.CreatedAt, &c.UpdatedAt)
+		err := rows.Scan(&c.ID, &c.SessionID, &c.FileKey, &c.Title, &c.CreatedAt, &c.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		conversations = append(conversations, c)
+	}
+	return conversations, nil
+}
+
+// GetConversationsByFileKeys 根据多个文件键获取会话列表（支持多文件场景）
+func (ds *DatabaseService) GetConversationsByFileKeys(fileKeys []string) ([]Conversation, error) {
+	if len(fileKeys) == 0 {
+		return []Conversation{}, nil
+	}
+
+	// 构建IN查询
+	placeholders := make([]string, len(fileKeys))
+	args := make([]interface{}, len(fileKeys))
+	for i, key := range fileKeys {
+		placeholders[i] = "?"
+		args[i] = key
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, session_id, file_key, title, created_at, updated_at 
+		FROM conversations 
+		WHERE file_key IN (%s) 
+		ORDER BY updated_at DESC`, strings.Join(placeholders, ","))
+
+	rows, err := ds.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var conversations []Conversation
+	for rows.Next() {
+		var c Conversation
+		err := rows.Scan(&c.ID, &c.SessionID, &c.FileKey, &c.Title, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -569,9 +597,9 @@ func (ds *DatabaseService) GetConversationMessages(conversationID int) ([]Conver
 	return messages, nil
 }
 
-// === 话术本相关方法 ===
+// === 智能建议相关方法 ===
 
-// SaveTemplate 保存话术本
+// SaveTemplate 保存智能建议
 func (ds *DatabaseService) SaveTemplate(template *SavedTemplate) error {
 	_, err := ds.db.Exec(`
 		INSERT INTO saved_templates 
@@ -581,7 +609,7 @@ func (ds *DatabaseService) SaveTemplate(template *SavedTemplate) error {
 	return err
 }
 
-// GetTemplatesByFileKeys 根据文件键获取话术本列表
+// GetTemplatesByFileKeys 根据文件键获取智能建议列表
 func (ds *DatabaseService) GetTemplatesByFileKeys(fileKeys string) ([]SavedTemplate, error) {
 	rows, err := ds.db.Query(`
 		SELECT id, file_keys, title, prompt_text, sql, description, usage_count, last_used_at, created_at, updated_at 
@@ -607,7 +635,7 @@ func (ds *DatabaseService) GetTemplatesByFileKeys(fileKeys string) ([]SavedTempl
 	return templates, nil
 }
 
-// UpdateTemplate 更新话术本
+// UpdateTemplate 更新智能建议
 func (ds *DatabaseService) UpdateTemplate(id int, title, promptText, sql, description string) error {
 	_, err := ds.db.Exec(`
 		UPDATE saved_templates 
@@ -617,7 +645,7 @@ func (ds *DatabaseService) UpdateTemplate(id int, title, promptText, sql, descri
 	return err
 }
 
-// UpdateTemplateUsage 更新话术本使用统计
+// UpdateTemplateUsage 更新智能建议使用统计
 func (ds *DatabaseService) UpdateTemplateUsage(id int) error {
 	_, err := ds.db.Exec(`
 		UPDATE saved_templates 
@@ -627,7 +655,7 @@ func (ds *DatabaseService) UpdateTemplateUsage(id int) error {
 	return err
 }
 
-// DeleteTemplate 删除话术本
+// DeleteTemplate 删除智能建议
 func (ds *DatabaseService) DeleteTemplate(id int) error {
 	_, err := ds.db.Exec("DELETE FROM saved_templates WHERE id = ?", id)
 	return err
