@@ -1,8 +1,11 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { main } from '../../wailsjs/go/models';
 import ChartVisualization from './ChartVisualization';
 import EnhancedInsights from './EnhancedInsights';
-import VirtualizedTable from './VirtualizedTable';
+import SimpleTable from './SimpleTable';
+import { adaptTableData, optimizeTableData, type TableData } from '../utils/tableDataAdapter';
+import { getColumnDisplayName, getColumnKey, type ColumnType } from '../utils/columnUtils';
+import { TableErrorBoundary } from './ErrorBoundary';
 
 // 类型定义
 type QueryResult = main.QueryResult;
@@ -66,7 +69,9 @@ interface EnhancedResultDisplayProps {
 
 // 优化的表格行组件
 const TableRow = React.memo<{ row: any[]; rowIndex: number }>(({ row, rowIndex }) => (
-  <tr className="hover:bg-base-200 transition-colors duration-150">
+  <tr className={`hover:bg-base-200 transition-colors duration-150 ${
+    rowIndex % 2 === 0 ? 'bg-base-50' : 'bg-base-100'
+  }`}>
     {row.map((cell, cellIndex) => (
       <td key={`cell-${rowIndex}-${cellIndex}`} className="px-4 py-2">
         <TableCell value={cell} />
@@ -248,7 +253,7 @@ const useVirtualization = (data: QueryResult | null, sortConfig: SortConfig | nu
   return { sortedData, virtualizationData, handleScroll };
 };
 
-export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
+export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = memo(({
   result,
   error,
   loading,
@@ -297,7 +302,7 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
 
         insights.push({
           type: 'summary',
-          title: `${column} 统计`,
+          title: `${getColumnDisplayName(column)} 统计`,
           description: `平均值: ${avg.toFixed(2)}, 最大值: ${max}, 最小值: ${min}`,
           value: avg.toFixed(2),
           confidence: 95,
@@ -311,7 +316,7 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
         if (outliers.length > 0) {
           insights.push({
             type: 'anomaly',
-            title: `${column} 异常值`,
+            title: `${getColumnDisplayName(column)} 异常值`,
             description: `发现 ${outliers.length} 个可能的异常值`,
             value: outliers.length,
             confidence: 80,
@@ -444,12 +449,26 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
       {/* 内容区域 */}
       <div className="p-4">
         {viewMode === 'table' && (
-          <VirtualizedTable
+          <SimpleTable
              data={{
-               columns: result.columns,
-               rows: sortedData?.rows || []
+               columns: result.columns.map((col, index) => ({
+                 key: `col_${index}`,
+                 title: col,
+                 dataType: 'string' as const,
+                 sortable: true
+               })),
+               rows: (sortedData?.rows || []).map(row => {
+                 const rowObj: Record<string, any> = {};
+                 row.forEach((cell, index) => {
+                   rowObj[`col_${index}`] = cell;
+                 });
+                 return rowObj;
+               })
              }}
-             height={600}
+             features={{
+               sortable: true,
+               fullscreen: true
+             }}
            />
         )}
 
@@ -542,22 +561,25 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
               <table className="table table-zebra table-sm w-full">
                 <thead className="sticky top-0 bg-base-200 z-10">
                   <tr>
-                    {result?.columns.map((column, index) => (
-                      <th 
-                        key={`header-${index}`} 
-                        className="cursor-pointer hover:bg-base-300 font-medium transition-colors duration-150"
-                        onClick={() => handleSort(column)}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>{column}</span>
-                          {sortConfig?.key === column && (
-                            <span className="text-xs transition-transform duration-150">
-                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    ))}
+                    {result?.columns.map((column, index) => {
+                      const columnKey = getColumnKey(column);
+                      return (
+                        <th 
+                          key={`header-${index}`} 
+                          className="cursor-pointer hover:bg-base-300 font-medium transition-colors duration-150"
+                          onClick={() => handleSort(columnKey)}
+                        >
+                          <div className="flex items-center space-x-1">
+                             <span>{getColumnDisplayName(column)}</span>
+                             {sortConfig?.key === columnKey && (
+                               <span className="text-xs transition-transform duration-150">
+                                 {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                               </span>
+                             )}
+                           </div>
+                         </th>
+                       );
+                     })}
                   </tr>
                 </thead>
                 <tbody>
@@ -591,4 +613,6 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
       )}
     </div>
   );
-};
+});
+
+EnhancedResultDisplay.displayName = 'EnhancedResultDisplay';

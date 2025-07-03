@@ -13,7 +13,7 @@ import InputArea from './InputArea';
 import WelcomeScreen from './WelcomeScreen';
 import LoadingMessage from './LoadingMessage';
 
-import SimpleDataTable from './SimpleDataTable';
+import { SimpleDataTable } from './SimpleDataTable';
 
 interface ConversationInterfaceProps {
   onQuery: (query: string) => void;

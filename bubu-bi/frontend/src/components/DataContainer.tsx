@@ -1,7 +1,64 @@
 import React, { ReactNode } from 'react';
 import { ErrorBoundary } from './ErrorBoundary';
 import type { TableData, ChartConfig, DataInsight } from '../types/data';
+import type { TableData as NewTableData } from '../types/table';
 import { useOptimizedData, useOptimizedChart, useOptimizedInsights } from '../hooks/useOptimizedData';
+
+// 适配器函数：将旧的TableData格式转换为新的格式
+const adaptTableData = (oldData: TableData): NewTableData => {
+  // 处理列数据 - 检查是否已经是对象格式
+  const columns = oldData.columns.map((col: any, index: number) => {
+    // 如果已经是列对象格式，直接使用
+    if (typeof col === 'object' && col !== null && col.key && col.title) {
+      return {
+        key: col.key,
+        title: col.title,
+        dataType: col.dataType || 'string' as const,
+        sortable: col.sortable !== false
+      };
+    }
+    // 如果是字符串，转换为对象格式
+    return {
+      key: `col_${index}`,
+      title: typeof col === 'string' ? col : String(col),
+      dataType: 'string' as const,
+      sortable: true
+    };
+  });
+  
+  return {
+    columns,
+    rows: oldData.rows.map(row => {
+      const rowObj: Record<string, any> = {};
+      
+      // 如果 row 已经是对象格式，直接使用
+      if (typeof row === 'object' && !Array.isArray(row) && row !== null) {
+        return row as Record<string, any>;
+      }
+      
+      // 如果 row 是数组格式，转换为对象
+      if (Array.isArray(row)) {
+        row.forEach((cell, index) => {
+          rowObj[`col_${index}`] = cell;
+        });
+        return rowObj;
+      }
+      
+      // 其他情况，返回空对象
+      return {};
+    })
+  };
+};
+
+// 反向适配器函数：将新的TableData格式转换回旧的格式
+const adaptTableDataBack = (newData: NewTableData): TableData => {
+  return {
+    columns: newData.columns.map(col => col.title),
+    rows: newData.rows.map(row => {
+      return newData.columns.map(col => row[col.key] || null);
+    })
+  };
+};
 
 // 数据容器的基础props
 interface DataContainerProps {
@@ -17,7 +74,7 @@ interface DataContainerProps {
 // 传递给子组件的数据
 export interface DataContainerRenderProps {
   // 优化后的数据
-  optimizedData: TableData;
+  optimizedData: NewTableData;
   
   // 数据操作函数
   handleSort: (column: string) => void;
@@ -64,7 +121,7 @@ export const DataContainer: React.FC<DataContainerProps> = ({
   const containerData: DataContainerRenderProps = {
     // 基础数据
     rawData: data,
-    optimizedData: enableOptimization ? dataHooks.data : data,
+    optimizedData: adaptTableData(enableOptimization ? dataHooks.data : data),
     
     // 数据操作
     handleSort: dataHooks.handleSort,
@@ -129,7 +186,7 @@ export const DataTableContainer: React.FC<DataTableContainerProps> = ({
     >
       {({ optimizedData, handleSort, handleFilter, resetFilters, sortConfig, filterConfig }) =>
         children({
-          data: optimizedData,
+          data: adaptTableDataBack(optimizedData),
           onSort: handleSort,
           onFilter: handleFilter,
           onReset: resetFilters,

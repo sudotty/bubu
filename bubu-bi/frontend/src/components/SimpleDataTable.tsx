@@ -1,29 +1,52 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+/**
+ * 简单数据表格组件 - 优化版本
+ * 符合React 19和TypeScript最新版本优化建议
+ */
+
+import React, { useState, useCallback, useEffect, useMemo, memo } from 'react';
 import { UI_CONSTANTS, STYLE_CLASSES } from '../constants/ui';
 import { isEscapePressed } from '../utils/keyboard';
+import { adaptTableData, optimizeTableData, type TableData } from '../utils/tableDataAdapter';
+import { getColumnDisplayName, getColumnKey, type ColumnType } from '../utils/columnUtils';
+import { TableErrorBoundary } from './ErrorBoundary';
 
 interface SimpleDataTableProps {
   data: {
-    columns: string[];
+    columns: ColumnType[];
     rows: any[][];
     total: number;
   };
   onExport?: () => void;
   definition?: string;
+  maxRows?: number;
+  enableVirtualization?: boolean;
 }
 
-export const SimpleDataTable: React.FC<SimpleDataTableProps> = ({ 
-  data, 
-  onExport, 
-  definition 
+export const SimpleDataTable: React.FC<SimpleDataTableProps> = memo(({
+  data,
+  onExport,
+  definition,
+  maxRows = 1000,
+  enableVirtualization = false
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  
+
+  // 使用数据适配器转换和优化数据
+  const tableData = useMemo(() => {
+    const adaptedData = adaptTableData(data);
+    return optimizeTableData(adaptedData, {
+      maxRows,
+      enableVirtualization,
+      sortColumn: sortConfig?.key,
+      sortDirection: sortConfig?.direction
+    });
+  }, [data, maxRows, enableVirtualization, sortConfig]);
+
   // 优化的全屏切换函数
   const toggleFullscreen = useCallback((enable: boolean) => {
-    if (isTransitioning) return; // 防止重复点击
+    if (isTransitioning) return;
     
     setIsTransitioning(true);
     
@@ -35,7 +58,6 @@ export const SimpleDataTable: React.FC<SimpleDataTableProps> = ({
       document.body.style.overflow = 'unset';
     }
     
-    // 动画完成后重置过渡状态
     setTimeout(() => setIsTransitioning(false), UI_CONSTANTS.ANIMATION.TRANSITION_DURATION);
   }, [isTransitioning]);
 
@@ -49,112 +71,83 @@ export const SimpleDataTable: React.FC<SimpleDataTableProps> = ({
 
     if (isFullscreen) {
       document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
     }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
   }, [isFullscreen, isTransitioning, toggleFullscreen]);
+
+  // 排序处理函数
+  const handleSort = useCallback((columnKey: string) => {
+    setSortConfig(prev => {
+      if (prev?.key === columnKey) {
+        return prev.direction === 'asc' 
+          ? { key: columnKey, direction: 'desc' }
+          : null;
+      }
+      return { key: columnKey, direction: 'asc' };
+    });
+  }, []);
 
   // 清理函数
   useEffect(() => {
     return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-
-  // 排序处理
-  const handleSort = (column: string) => {
-    setSortConfig(current => {
-      if (current?.key === column) {
-        return current.direction === 'asc' 
-          ? { key: column, direction: 'desc' }
-          : null;
+      if (isFullscreen) {
+        document.body.style.overflow = 'unset';
       }
-      return { key: column, direction: 'asc' };
-    });
-  };
-
-  // 优化的排序数据 - 使用分页和延迟计算
-  const sortedData = useMemo(() => {
-    if (!data || !sortConfig) return data;
-    
-    const columnIndex = data.columns.indexOf(sortConfig.key);
-    if (columnIndex === -1) return data;
-
-    // 对于大数据集，只排序前1000条用于显示
-    const maxSortRows = Math.min(data.rows.length, UI_CONSTANTS.TABLE.MAX_SORT_ROWS);
-    const rowsToSort = data.rows.slice(0, maxSortRows);
-    
-    const sortedRows = rowsToSort.sort((a, b) => {
-      const aVal = a[columnIndex];
-      const bVal = b[columnIndex];
-      
-      // 快速数值比较
-      const aNum = Number(aVal);
-      const bNum = Number(bVal);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      
-      // 优化的字符串比较
-      if (aVal === bVal) return 0;
-      if (aVal == null) return 1;
-      if (bVal == null) return -1;
-      
-      const result = String(aVal).localeCompare(String(bVal));
-      return sortConfig.direction === 'asc' ? result : -result;
-    });
-    
-    // 如果有剩余数据，追加到末尾
-    const remainingRows = data.rows.length > maxSortRows ? data.rows.slice(maxSortRows) : [];
-    const finalRows = [...sortedRows, ...remainingRows];
-
-    return { ...data, rows: finalRows };
-  }, [data, sortConfig]);
-
-  // 获取要显示的数据（最多50条）
-  const displayData = useMemo(() => {
-    const dataToUse = sortedData || data;
-    return {
-      ...dataToUse,
-      rows: dataToUse.rows.slice(0, UI_CONSTANTS.TABLE.VISIBLE_ROWS)
     };
-  }, [sortedData, data]);
+  }, [isFullscreen]);
 
-  if (!data || !data.columns || !data.rows) {
+  if (!tableData.rows.length) {
     return (
-      <div className="p-4 bg-base-200 rounded-lg text-center text-base-content/60">
-        暂无数据
+      <div className="text-center py-8 text-base-content/60">
+        <p>暂无数据</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className={STYLE_CLASSES.CARD_BASE + " overflow-hidden"}>
-        {/* 标题栏 */}
-        <TableHeader 
-          definition={definition}
-          total={data.total}
-          onExport={onExport}
-          onFullscreen={() => toggleFullscreen(true)}
-          isTransitioning={isTransitioning}
-          hasData={data.rows.length > 0}
-        />
-
+      {/* 普通视图 */}
+      <div className={`${STYLE_CLASSES.CARD_BASE} ${isFullscreen ? 'hidden' : ''}`}>
+        <div className="card-header flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">数据表格</h3>
+            {definition && (
+              <p className="text-sm text-base-content/60 mt-1">{definition}</p>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            {onExport && (
+              <button
+                onClick={onExport}
+                className="btn btn-sm btn-outline"
+                title="导出数据"
+              >
+                导出
+              </button>
+            )}
+            <button
+              onClick={() => toggleFullscreen(true)}
+              className="btn btn-sm btn-outline"
+              title="全屏查看"
+              disabled={isTransitioning}
+            >
+              全屏
+            </button>
+          </div>
+        </div>
+        
         <div className="overflow-x-auto">
-          <DataTable 
-            data={sortedData || data}
+          <DataTable
+            data={tableData}
             sortConfig={sortConfig}
             onSort={handleSort}
-            maxRows={UI_CONSTANTS.TABLE.PREVIEW_ROWS}
+            maxRows={50}
           />
         </div>
         
-        {data.total > UI_CONSTANTS.TABLE.PREVIEW_ROWS && (
-          <div className="p-3 bg-base-200 text-center text-fluid-sm text-base-content/60">
-            显示前 {UI_CONSTANTS.TABLE.PREVIEW_ROWS} 条，共 {data.total} 条数据
+        {tableData.hasMore && (
+          <div className="text-center mt-4 text-sm text-base-content/60">
+            显示前 {Math.min(50, tableData.rows.length)} 行，共 {tableData.totalRows || data.total} 行
           </div>
         )}
       </div>
@@ -162,7 +155,7 @@ export const SimpleDataTable: React.FC<SimpleDataTableProps> = ({
       {/* 全屏模态框 */}
       {isFullscreen && (
         <FullscreenModal
-          data={sortedData || data}
+          data={tableData}
           definition={definition}
           sortConfig={sortConfig}
           onSort={handleSort}
@@ -173,120 +166,74 @@ export const SimpleDataTable: React.FC<SimpleDataTableProps> = ({
       )}
     </>
   );
-};
-
-// 表格头部组件
-interface TableHeaderProps {
-  definition?: string;
-  total: number;
-  onExport?: () => void;
-  onFullscreen: () => void;
-  isTransitioning: boolean;
-  hasData: boolean;
-}
-
-const TableHeader: React.FC<TableHeaderProps> = ({
-  definition,
-  total,
-  onExport,
-  onFullscreen,
-  isTransitioning,
-  hasData
-}) => (
-  <div className="p-3 border-b border-base-300 bg-base-200">
-    <div className={STYLE_CLASSES.FLEX_BETWEEN}>
-      <div className={`flex items-center ${STYLE_CLASSES.SPACE_X_2}`}>
-        <span className="text-lg">{UI_CONSTANTS.ICONS.TABLE}</span>
-        <h3 className="font-medium">{definition || "数据表格"}</h3>
-        <span className={`${STYLE_CLASSES.TEXT_SMALL} text-base-content/50`}>({total} 条记录)</span>
-      </div>
-      <div className={`flex items-center ${STYLE_CLASSES.SPACE_X_2}`}>
-        {/* 下载按钮 */}
-        <button 
-          className={`${STYLE_CLASSES.BTN_GHOST} ${STYLE_CLASSES.BTN_SM}`}
-          onClick={onExport}
-          disabled={!hasData}
-          title="下载全部数据"
-        >
-          {UI_CONSTANTS.ICONS.EXPORT} 下载
-        </button>
-        <button 
-          className={`${STYLE_CLASSES.BTN_GHOST} ${STYLE_CLASSES.BTN_SM}`}
-          onClick={onFullscreen}
-          disabled={isTransitioning}
-          title="全屏显示"
-        >
-          {UI_CONSTANTS.ICONS.FULLSCREEN} 全屏
-        </button>
-      </div>
-    </div>
-  </div>
-);
+});
 
 // 数据表格组件
 interface DataTableProps {
-  data: {
-    columns: string[];
-    rows: any[][];
-    total: number;
-  };
+  data: TableData;
   sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
   onSort: (column: string) => void;
   maxRows?: number;
 }
 
-const DataTable: React.FC<DataTableProps> = ({
+const DataTable: React.FC<DataTableProps> = memo(({
   data,
   sortConfig,
   onSort,
   maxRows
 }) => {
   const displayRows = maxRows ? data.rows.slice(0, maxRows) : data.rows;
-  
+
   return (
-    <table className="table table-zebra w-full">
-      <thead>
-        <tr className="bg-base-200">
-          {data.columns.map((column, index) => (
-            <th 
-              key={index} 
-              className="font-medium text-base-content cursor-pointer hover:bg-base-300 transition-colors"
-              onClick={() => onSort(column)}
-            >
-              <div className="flex items-center space-x-1">
-                <span>{column}</span>
-                {sortConfig?.key === column && (
-                  <span className="text-xs transition-transform duration-150">
-                    {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                  </span>
-                )}
-              </div>
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {displayRows.map((row, rowIndex) => (
-          <tr key={rowIndex} className="hover:bg-base-200 transition-colors">
-            {row.map((cell, cellIndex) => (
-              <td key={cellIndex} className="text-base-content select-text" style={{ userSelect: 'text' }}>
-                {cell !== null && cell !== undefined ? String(cell) : '-'}
-              </td>
-            ))}
+    <TableErrorBoundary>
+      <table className="table table-zebra w-full">
+        <thead>
+          <tr className="bg-base-200">
+            {data.columns.map((column) => {
+              const columnKey = getColumnKey(column);
+              return (
+                <th
+                  key={columnKey}
+                  className="font-medium text-base-content cursor-pointer hover:bg-base-300 transition-colors"
+                  onClick={() => onSort(columnKey)}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>{getColumnDisplayName(column)}</span>
+                    {sortConfig?.key === columnKey && (
+                      <span className="text-xs transition-transform duration-150">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {displayRows.map((row, rowIndex) => (
+            <tr key={rowIndex} className={`hover:bg-base-200 transition-colors ${
+              rowIndex % 2 === 0 ? 'bg-base-50' : 'bg-base-100'
+            }`}>
+              {data.columns.map((column) => {
+                const columnKey = getColumnKey(column);
+                return (
+                  <td key={columnKey} className="text-base-content select-text" style={{ userSelect: 'text' }}>
+                    {row[columnKey] !== null && row[columnKey] !== undefined ? String(row[columnKey]) : '-'}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableErrorBoundary>
   );
-};
+});
 
 // 全屏模态框组件
 interface FullscreenModalProps {
-  data: {
-    columns: string[];
-    rows: any[][];
-    total: number;
-  };
+  data: TableData;
   definition?: string;
   sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
   onSort: (column: string) => void;
@@ -295,7 +242,7 @@ interface FullscreenModalProps {
   isTransitioning: boolean;
 }
 
-const FullscreenModal: React.FC<FullscreenModalProps> = ({
+const FullscreenModal: React.FC<FullscreenModalProps> = memo(({
   data,
   definition,
   sortConfig,
@@ -303,109 +250,60 @@ const FullscreenModal: React.FC<FullscreenModalProps> = ({
   onExport,
   onClose,
   isTransitioning
-}) => (
-  <>
-    {/* Modal Backdrop */}
-    <div 
-      className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
-        isTransitioning ? 'opacity-0' : 'opacity-100'
-      }`}
-      onClick={onClose}
-    />
-    
-    {/* Modal Content */}
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ease-in-out ${
-      isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-    }`}>
-      <div className="w-full h-full max-w-full max-h-full bg-base-100 rounded-lg shadow-2xl border border-base-300 flex flex-col overflow-hidden">
-        {/* Modal 标题栏 */}
-        <div className="flex items-center justify-between p-4 border-b border-base-300 bg-base-200 flex-shrink-0">
-          <div className={`flex items-center ${STYLE_CLASSES.SPACE_X_2}`}>
-            <span className="text-lg">{UI_CONSTANTS.ICONS.TABLE}</span>
-            <h3 className="font-semibold">{definition || "数据表格"} - 全屏模式</h3>
-            <span className={`${STYLE_CLASSES.TEXT_SMALL} text-base-content/50`}>({data.total} 条记录)</span>
+}) => {
+  return (
+    <div className="fixed inset-0 z-50 bg-base-100 flex flex-col">
+      {/* 头部工具栏 */}
+      <div className="flex-shrink-0 border-b border-base-300 p-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold">数据表格 - 全屏视图</h2>
+            {definition && (
+              <p className="text-sm text-base-content/60 mt-1">{definition}</p>
+            )}
           </div>
-          <div className={`flex items-center ${STYLE_CLASSES.SPACE_X_2}`}>
-            <button 
-              className={`${STYLE_CLASSES.BTN_GHOST} ${STYLE_CLASSES.BTN_SM}`}
-              onClick={onExport}
-              disabled={!data.rows.length}
-              title="下载全部数据"
-            >
-              {UI_CONSTANTS.ICONS.EXPORT} 下载
-            </button>
-            <button 
-              className={`${STYLE_CLASSES.BTN_GHOST} ${STYLE_CLASSES.BTN_SM}`}
+          <div className="flex space-x-2">
+            {onExport && (
+              <button
+                onClick={onExport}
+                className="btn btn-sm btn-outline"
+                title="导出数据"
+              >
+                导出
+              </button>
+            )}
+            <button
               onClick={onClose}
+              className="btn btn-sm btn-outline"
+              title="退出全屏"
               disabled={isTransitioning}
-              title="退出全屏 (ESC)"
             >
-              {UI_CONSTANTS.ICONS.CLOSE} 关闭
+              退出全屏
             </button>
-          </div>
-        </div>
-
-        {/* Modal 表格内容 */}
-        <div className="flex-1 overflow-auto p-4">
-          <div className="overflow-x-auto h-full">
-            <table className="table table-zebra table-sm w-full">
-              <thead className="sticky top-0 bg-base-200 z-10">
-                <tr>
-                  {data.columns.map((column, index) => (
-                    <th 
-                      key={`header-${index}`} 
-                      className="cursor-pointer hover:bg-base-300 font-medium transition-colors duration-150"
-                      onClick={() => onSort(column)}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>{column}</span>
-                        {sortConfig?.key === column && (
-                          <span className="text-fluid-xs transition-transform duration-150">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.rows.slice(0, UI_CONSTANTS.TABLE.VISIBLE_ROWS).map((row, index) => (
-                  <tr key={`fullscreen-row-${index}`} className="hover:bg-base-200 transition-colors duration-150">
-                    {row.map((cell, cellIndex) => (
-                      <td key={`fullscreen-cell-${index}-${cellIndex}`} className="px-4 py-2 select-text" style={{ userSelect: 'text' }}>
-                        {cell === null || cell === undefined ? (
-                          <span className="text-base-content/30 italic select-text">null</span>
-                        ) : (
-                          <div className="max-w-xs overflow-hidden">
-                            <span className="block truncate select-text" title={String(cell)} style={{ userSelect: 'text' }}>
-                              {String(cell)}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Modal 底部状态栏 */}
-        <div className="p-4 border-t border-base-300 bg-base-200 flex-shrink-0">
-          <div className={STYLE_CLASSES.FLEX_BETWEEN}>
-            <div className={`${STYLE_CLASSES.TEXT_SMALL} text-base-content/70`}>
-              💡 提示：点击列标题可以排序，按 ESC 键或点击背景退出全屏
-            </div>
-            <div className={`${STYLE_CLASSES.TEXT_SMALL} text-base-content/50`}>
-              显示前 {Math.min(UI_CONSTANTS.TABLE.VISIBLE_ROWS, data.total)} 条，共 {data.total} 条记录，{data.columns.length} 个字段
-            </div>
           </div>
         </div>
       </div>
-    </div>
-  </>
-);
 
-export default SimpleDataTable;
+      {/* 表格内容 */}
+      <div className="flex-1 overflow-auto p-4">
+        <DataTable
+          data={data}
+          sortConfig={sortConfig}
+          onSort={onSort}
+        />
+      </div>
+
+      {/* 底部信息 */}
+      <div className="flex-shrink-0 border-t border-base-300 p-4">
+        <div className="text-center text-sm text-base-content/60">
+          共 {data.totalRows || data.rows.length} 行数据
+          {data.hasMore && ' (已优化显示)'}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+SimpleDataTable.displayName = 'SimpleDataTable';
+DataTable.displayName = 'DataTable';
+FullscreenModal.displayName = 'FullscreenModal';

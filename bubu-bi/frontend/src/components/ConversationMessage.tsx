@@ -3,7 +3,58 @@ import { copyMessageContent } from '../utils/clipboard';
 import { UI_CONSTANTS, MESSAGE_TYPES, STYLE_CLASSES } from '../constants/ui';
 import DebugInfoPanel from './DebugInfoPanel';
 import { DataContainer } from './DataContainer';
-import VirtualizedTable from './VirtualizedTable';
+import SimpleTable from './SimpleTable';
+import type { TableData as NewTableData } from '../types/table';
+
+// 适配器函数：将旧的TableData格式转换为新的格式
+const adaptTableData = (oldData: any): NewTableData => {
+  if (!oldData || !oldData.columns || !oldData.rows) {
+    return { columns: [], rows: [] };
+  }
+  
+  // 处理列数据 - 检查是否已经是对象格式
+  const columns = oldData.columns.map((col: any, index: number) => {
+    // 如果已经是列对象格式，直接使用
+    if (typeof col === 'object' && col !== null && col.key && col.title) {
+      return {
+        key: col.key,
+        title: col.title,
+        dataType: col.dataType || 'string' as const,
+        sortable: col.sortable !== false
+      };
+    }
+    // 如果是字符串，转换为对象格式
+    return {
+      key: `col_${index}`,
+      title: typeof col === 'string' ? col : String(col),
+      dataType: 'string' as const,
+      sortable: true
+    };
+  });
+  
+  return {
+    columns,
+    rows: oldData.rows.map((row: any) => {
+      const rowObj: Record<string, any> = {};
+      
+      // 如果 row 已经是对象格式，直接使用
+      if (typeof row === 'object' && !Array.isArray(row) && row !== null) {
+        return row;
+      }
+      
+      // 如果 row 是数组格式，转换为对象
+      if (Array.isArray(row)) {
+        row.forEach((cell, index) => {
+          rowObj[`col_${index}`] = cell;
+        });
+        return rowObj;
+      }
+      
+      // 其他情况，返回空对象
+      return {};
+    })
+  };
+};
 import { ChartVisualization } from './ChartVisualization';
 import { EnhancedInsights } from './EnhancedInsights';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -120,9 +171,12 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
                    </div>
                    
                    {/* 数据表格 */}
-                   <VirtualizedTable 
-                     data={optimizedData}
-                     height={400}
+                   <SimpleTable 
+                     data={adaptTableData(optimizedData)}
+                     features={{
+                       sortable: true,
+                       fullscreen: true
+                     }}
                    />
                  </div>
                )}
