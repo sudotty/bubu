@@ -1,36 +1,57 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { main } from '../../wailsjs/go/models';
+import ChartVisualization from './ChartVisualization';
+import EnhancedInsights from './EnhancedInsights';
+import VirtualizedTable from './VirtualizedTable';
 
+// 类型定义
 type QueryResult = main.QueryResult;
+type ViewMode = 'table' | 'insights' | 'chart';
+type SortDirection = 'asc' | 'desc';
+type InsightType = 'summary' | 'trend' | 'anomaly' | 'recommendation';
+type VisualizationType = 'bar' | 'line' | 'pie' | 'scatter';
 
-// 优化的表格行组件，使用React.memo避免不必要的重渲染
-const TableRow = React.memo<{ row: any[]; rowIndex: number }>(({ row, rowIndex }) => (
-  <tr className="hover:bg-base-200 transition-colors duration-150">
-    {row.map((cell, cellIndex) => (
-      <td key={`cell-${rowIndex}-${cellIndex}`} className="px-4 py-2">
-        {cell === null || cell === undefined ? (
-          <span className="text-base-content/30 italic">null</span>
-        ) : (
-          <div className="max-w-xs overflow-hidden">
-            <span className="block truncate" title={String(cell)}>
-              {String(cell)}
-            </span>
-          </div>
-        )}
-      </td>
-    ))}
-  </tr>
-));
+// 常量定义
+const CONFIG = {
+  VIRTUALIZATION: {
+    ROW_HEIGHT: 40,
+    VISIBLE_ROWS: 50,
+    MAX_SORT_ROWS: 1000,
+    SCROLL_DEBOUNCE_MS: 16,
+    TRANSITION_DURATION_MS: 300,
+  },
+  INSIGHTS: {
+    MAX_COUNT: 6,
+    OUTLIER_THRESHOLD: 2, // 标准差倍数
+  },
+  STYLES: {
+    summary: 'bg-info/10 border-info/20 text-info',
+    trend: 'bg-success/10 border-success/20 text-success',
+    anomaly: 'bg-warning/10 border-warning/20 text-warning',
+    recommendation: 'bg-primary/10 border-primary/20 text-primary',
+  } as Record<InsightType, string>,
+} as const;
 
-TableRow.displayName = 'TableRow';
-
+// 接口定义
 interface DataInsight {
-  type: 'summary' | 'trend' | 'anomaly' | 'recommendation';
+  type: InsightType;
   title: string;
   description: string;
   value?: string | number;
   confidence: number;
   icon: string;
+}
+
+interface SortConfig {
+  key: string;
+  direction: SortDirection;
+}
+
+interface VirtualizationData {
+  visibleRows: any[];
+  startIndex: number;
+  startOffset: number;
+  endOffset: number;
 }
 
 interface EnhancedResultDisplayProps {
@@ -40,8 +61,192 @@ interface EnhancedResultDisplayProps {
   query: string;
   onExport?: () => void;
   onCopy?: () => void;
-  onVisualize?: (type: string) => void;
+  onVisualize?: (type: VisualizationType) => void;
 }
+
+// 优化的表格行组件
+const TableRow = React.memo<{ row: any[]; rowIndex: number }>(({ row, rowIndex }) => (
+  <tr className="hover:bg-base-200 transition-colors duration-150">
+    {row.map((cell, cellIndex) => (
+      <td key={`cell-${rowIndex}-${cellIndex}`} className="px-4 py-2">
+        <TableCell value={cell} />
+      </td>
+    ))}
+  </tr>
+));
+
+TableRow.displayName = 'TableRow';
+
+// 状态组件
+const LoadingState: React.FC = () => (
+  <div className="bg-base-100 rounded-lg border border-base-300 p-8">
+    <div className="flex flex-col items-center justify-center space-y-4">
+      <div className="loading loading-spinner loading-lg text-primary"></div>
+      <div className="text-center">
+        <h3 className="font-semibold text-lg mb-2">🤖 AI正在分析数据</h3>
+        <p className="text-base-content/70">请稍候，正在为您生成分析结果...</p>
+      </div>
+    </div>
+  </div>
+);
+
+const ErrorState: React.FC<{ error: string }> = ({ error }) => (
+  <div className="bg-base-100 rounded-lg border border-base-300 p-8">
+    <div className="text-center">
+      <div className="text-4xl mb-4">❌</div>
+      <h3 className="font-semibold text-lg mb-2 text-error">分析遇到问题</h3>
+      <p className="text-base-content/70 mb-4">{error}</p>
+      <div className="text-sm text-base-content/50">
+        <p>💡 建议：</p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li>检查查询语法是否正确</li>
+          <li>确认数据源是否可访问</li>
+          <li>尝试简化查询条件</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+);
+
+const EmptyState: React.FC = () => (
+  <div className="bg-base-100 rounded-lg border border-base-300 p-8">
+    <div className="text-center">
+      <div className="text-4xl mb-4">📭</div>
+      <h3 className="font-semibold text-lg mb-2">分析完成</h3>
+      <p className="text-base-content/70 mb-4">未找到符合条件的数据</p>
+      <div className="text-sm text-base-content/50">
+        <p>💡 建议：</p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li>检查筛选条件是否过于严格</li>
+          <li>尝试扩大查询范围</li>
+          <li>确认数据源中是否有相关数据</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+);
+
+// 表格单元格组件
+const TableCell = React.memo<{ value: any }>(({ value }) => {
+  if (value === null || value === undefined) {
+    return <span className="text-base-content/30 italic">null</span>;
+  }
+  
+  const stringValue = String(value);
+  return (
+    <div className="max-w-xs overflow-hidden">
+      <span className="block truncate" title={stringValue}>
+        {stringValue}
+      </span>
+    </div>
+  );
+});
+
+TableCell.displayName = 'TableCell';
+
+// 自定义hooks
+const useFullscreen = () => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const toggleFullscreen = useCallback((enable: boolean) => {
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setIsFullscreen(enable);
+    document.body.style.overflow = enable ? 'hidden' : 'unset';
+    
+    setTimeout(() => setIsTransitioning(false), CONFIG.VIRTUALIZATION.TRANSITION_DURATION_MS);
+  }, [isTransitioning]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen && !isTransitioning) {
+        toggleFullscreen(false);
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isFullscreen, isTransitioning, toggleFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  return { isFullscreen, isTransitioning, toggleFullscreen };
+};
+
+const useVirtualization = (data: QueryResult | null, sortConfig: SortConfig | null) => {
+  const [scrollTop, setScrollTop] = useState(0);
+  
+  const sortedData = useMemo(() => {
+    if (!data || !sortConfig) return data;
+
+    const { columns, rows } = data;
+    const columnIndex = columns.indexOf(sortConfig.key);
+    if (columnIndex === -1) return data;
+
+    const maxSortRows = Math.min(rows.length, CONFIG.VIRTUALIZATION.MAX_SORT_ROWS);
+    const rowsToSort = rows.slice(0, maxSortRows);
+    
+    const sortedRows = rowsToSort.sort((a, b) => {
+      const aVal = a[columnIndex];
+      const bVal = b[columnIndex];
+      
+      const aNum = Number(aVal);
+      const bNum = Number(bVal);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      
+      if (aVal === bVal) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      
+      const result = String(aVal).localeCompare(String(bVal));
+      return sortConfig.direction === 'asc' ? result : -result;
+    });
+    
+    const remainingRows = rows.length > maxSortRows ? rows.slice(maxSortRows) : [];
+    return { ...data, rows: [...sortedRows, ...remainingRows] };
+  }, [data, sortConfig]);
+
+  const virtualizationData = useMemo((): VirtualizationData => {
+    if (!sortedData?.rows) {
+      return { visibleRows: [], startIndex: 0, startOffset: 0, endOffset: 0 };
+    }
+
+    const totalRows = sortedData.rows.length;
+    const startIndex = Math.floor(scrollTop / CONFIG.VIRTUALIZATION.ROW_HEIGHT);
+    const endIndex = Math.min(startIndex + CONFIG.VIRTUALIZATION.VISIBLE_ROWS, totalRows);
+    
+    const visibleRows = sortedData.rows.slice(startIndex, endIndex);
+    const startOffset = startIndex * CONFIG.VIRTUALIZATION.ROW_HEIGHT;
+    const endOffset = (totalRows - endIndex) * CONFIG.VIRTUALIZATION.ROW_HEIGHT;
+
+    return { visibleRows, startIndex, startOffset, endOffset };
+  }, [sortedData, scrollTop]);
+
+  const handleScroll = useCallback(
+    useMemo(() => {
+      let timeoutId: number;
+      return (e: React.UIEvent<HTMLDivElement>) => {
+        clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          setScrollTop(e.currentTarget.scrollTop);
+        }, CONFIG.VIRTUALIZATION.SCROLL_DEBOUNCE_MS);
+      };
+    }, []),
+    []
+  );
+
+  return { sortedData, virtualizationData, handleScroll };
+};
 
 export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
   result,
@@ -52,59 +257,12 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
   onCopy,
   onVisualize
 }) => {
-  const [viewMode, setViewMode] = useState<'table' | 'insights' | 'chart'>('table');
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [scrollTop, setScrollTop] = useState(0);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
-  // 虚拟化参数
-  const ROW_HEIGHT = 40; // 每行高度
-  const VISIBLE_ROWS = 50; // 可见行数
-
-  // 优化的全屏切换函数
-  const toggleFullscreen = React.useCallback((enable: boolean) => {
-    if (isTransitioning) return; // 防止重复点击
-    
-    setIsTransitioning(true);
-    
-    if (enable) {
-      setIsFullscreen(true);
-      document.body.style.overflow = 'hidden';
-    } else {
-      setIsFullscreen(false);
-      document.body.style.overflow = 'unset';
-    }
-    
-    // 动画完成后重置过渡状态
-    setTimeout(() => setIsTransitioning(false), 300);
-  }, [isTransitioning]);
-
-  // 监听ESC键退出全屏
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isFullscreen && !isTransitioning) {
-        toggleFullscreen(false);
-      }
-    };
-
-    if (isFullscreen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isFullscreen, isTransitioning, toggleFullscreen]);
-
-  // 清理函数
-  React.useEffect(() => {
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  const { isFullscreen, isTransitioning, toggleFullscreen } = useFullscreen();
+  const { sortedData, virtualizationData, handleScroll } = useVirtualization(result, sortConfig);
 
 
 
@@ -148,7 +306,7 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
 
         // 异常值检测
         const stdDev = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - avg, 2), 0) / values.length);
-        const outliers = values.filter(val => Math.abs(val - avg) > 2 * stdDev);
+        const outliers = values.filter(val => Math.abs(val - avg) > CONFIG.INSIGHTS.OUTLIER_THRESHOLD * stdDev);
         
         if (outliers.length > 0) {
           insights.push({
@@ -203,81 +361,13 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
       });
     }
 
-    return insights.slice(0, 6); // 限制洞察数量
+    return insights.slice(0, CONFIG.INSIGHTS.MAX_COUNT);
   }, [result, query]);
 
-  // 优化的排序数据 - 使用分页和延迟计算
-  const sortedData = useMemo(() => {
-    if (!result || !sortConfig) return result;
-
-    const { columns, rows } = result;
-    const columnIndex = columns.indexOf(sortConfig.key);
-    if (columnIndex === -1) return result;
-
-    // 对于大数据集，只排序前1000条用于显示
-    const maxSortRows = Math.min(rows.length, 1000);
-    const rowsToSort = rows.slice(0, maxSortRows);
-    
-    const sortedRows = rowsToSort.sort((a, b) => {
-      const aVal = a[columnIndex];
-      const bVal = b[columnIndex];
-      
-      // 快速数值比较
-      const aNum = Number(aVal);
-      const bNum = Number(bVal);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      
-      // 优化的字符串比较
-      if (aVal === bVal) return 0;
-      if (aVal == null) return 1;
-      if (bVal == null) return -1;
-      
-      const result = String(aVal).localeCompare(String(bVal));
-      return sortConfig.direction === 'asc' ? result : -result;
-    });
-    
-    // 如果有剩余数据，追加到末尾
-     const remainingRows = rows.length > maxSortRows ? rows.slice(maxSortRows) : [];
-     const finalRows = [...sortedRows, ...remainingRows];
-
-     return { ...result, rows: finalRows };
-  }, [result, sortConfig]);
-
-  // 虚拟化计算
-  const { visibleRows, startIndex, startOffset, endOffset } = React.useMemo(() => {
-    if (!sortedData?.rows) {
-      return { visibleRows: [], startIndex: 0, startOffset: 0, endOffset: 0 };
-    }
-
-    const totalRows = sortedData.rows.length;
-    const startIndex = Math.floor(scrollTop / ROW_HEIGHT);
-    const endIndex = Math.min(startIndex + VISIBLE_ROWS, totalRows);
-    
-    const visibleRows = sortedData.rows.slice(startIndex, endIndex);
-    const startOffset = startIndex * ROW_HEIGHT;
-    const endOffset = (totalRows - endIndex) * ROW_HEIGHT;
-
-    return { visibleRows, startIndex, startOffset, endOffset };
-  }, [sortedData, scrollTop, ROW_HEIGHT, VISIBLE_ROWS]);
-
-  // 防抖的滚动处理
-  const handleScroll = React.useCallback(
-    React.useMemo(() => {
-      let timeoutId: number;
-      return (e: React.UIEvent<HTMLDivElement>) => {
-        clearTimeout(timeoutId);
-        timeoutId = window.setTimeout(() => {
-          setScrollTop(e.currentTarget.scrollTop);
-        }, 16); // 约60fps
-      };
-    }, []),
-    []
-  );
+  const { visibleRows, startIndex, startOffset, endOffset } = virtualizationData;
 
   // 处理排序
-  const handleSort = (column: string) => {
+  const handleSort = useCallback((column: string) => {
     setSortConfig(current => {
       if (current?.key === column) {
         return current.direction === 'asc' 
@@ -286,80 +376,16 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
       }
       return { key: column, direction: 'asc' };
     });
-  };
+  }, []);
 
   // 获取洞察类型样式
-  const getInsightStyle = (type: DataInsight['type']) => {
-    switch (type) {
-      case 'summary':
-        return 'bg-info/10 border-info/20 text-info';
-      case 'trend':
-        return 'bg-success/10 border-success/20 text-success';
-      case 'anomaly':
-        return 'bg-warning/10 border-warning/20 text-warning';
-      case 'recommendation':
-        return 'bg-primary/10 border-primary/20 text-primary';
-      default:
-        return 'bg-base-200 border-base-300';
-    }
-  };
+  const getInsightStyle = useCallback((type: InsightType): string => 
+    CONFIG.STYLES[type] || 'bg-base-200 border-base-300', []);
 
-  // 渲染加载状态
-  if (loading) {
-    return (
-      <div className="bg-base-100 rounded-lg border border-base-300 p-8">
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="loading loading-spinner loading-lg text-primary"></div>
-          <div className="text-center">
-            <h3 className="font-semibold text-lg mb-2">🤖 AI正在分析数据</h3>
-            <p className="text-base-content/70">请稍候，正在为您生成分析结果...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 渲染错误状态
-  if (error) {
-    return (
-      <div className="bg-base-100 rounded-lg border border-base-300 p-8">
-        <div className="text-center">
-          <div className="text-4xl mb-4">❌</div>
-          <h3 className="font-semibold text-lg mb-2 text-error">分析遇到问题</h3>
-          <p className="text-base-content/70 mb-4">{error}</p>
-          <div className="text-sm text-base-content/50">
-            <p>💡 建议：</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>检查查询语法是否正确</li>
-              <li>确认数据源是否可访问</li>
-              <li>尝试简化查询条件</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 渲染无结果状态
-  if (!result || !result.rows || result.rows.length === 0) {
-    return (
-      <div className="bg-base-100 rounded-lg border border-base-300 p-8">
-        <div className="text-center">
-          <div className="text-4xl mb-4">📭</div>
-          <h3 className="font-semibold text-lg mb-2">分析完成</h3>
-          <p className="text-base-content/70 mb-4">未找到符合条件的数据</p>
-          <div className="text-sm text-base-content/50">
-            <p>💡 建议：</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>检查筛选条件是否过于严格</li>
-              <li>尝试扩大查询范围</li>
-              <li>确认数据源中是否有相关数据</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // 早期返回状态组件
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState error={error} />;
+  if (!result || !result.rows || result.rows.length === 0) return <EmptyState />;
 
   return (
     <div className="bg-base-100 rounded-lg border border-base-300">
@@ -418,107 +444,36 @@ export const EnhancedResultDisplay: React.FC<EnhancedResultDisplayProps> = ({
       {/* 内容区域 */}
       <div className="p-4">
         {viewMode === 'table' && (
-          <div className="overflow-x-auto">
-            <table className="table table-zebra table-sm">
-              <thead>
-                <tr>
-                  {result.columns.map((column, index) => (
-                    <th 
-                      key={index} 
-                      className="cursor-pointer hover:bg-base-200"
-                      onClick={() => handleSort(column)}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>{column}</span>
-                        {sortConfig?.key === column && (
-                          <span className="text-xs">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedData?.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {row.map((cell, cellIndex) => (
-                      <td key={cellIndex} className="max-w-xs truncate">
-                        {cell === null || cell === undefined ? (
-                          <span className="text-base-content/30 italic">null</span>
-                        ) : (
-                          String(cell)
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <VirtualizedTable
+             data={{
+               columns: result.columns,
+               rows: sortedData?.rows || []
+             }}
+             height={600}
+           />
         )}
 
         {viewMode === 'insights' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {insights.map((insight, index) => (
-                <div 
-                  key={index}
-                  className={`p-4 rounded-lg border ${getInsightStyle(insight.type)}`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <span className="text-2xl">{insight.icon}</span>
-                    <div className="flex-1">
-                      <h4 className="font-medium mb-1">{insight.title}</h4>
-                      <p className="text-sm opacity-80 mb-2">{insight.description}</p>
-                      {insight.value && (
-                        <div className="text-lg font-semibold">{insight.value}</div>
-                      )}
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span className="text-xs opacity-60">置信度:</span>
-                        <div className="flex-1 bg-base-content/10 rounded-full h-1.5">
-                          <div 
-                            className="bg-current h-1.5 rounded-full transition-all duration-300"
-                            style={{ width: `${insight.confidence}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs opacity-60">{insight.confidence}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <EnhancedInsights 
+               data={{
+                 columns: result.columns,
+                 rows: sortedData?.rows || []
+               }}
+             />
         )}
 
         {viewMode === 'chart' && (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">📈</div>
-            <h3 className="font-semibold text-lg mb-2">图表功能</h3>
-            <p className="text-base-content/70 mb-4">选择合适的图表类型来可视化您的数据</p>
-            <div className="flex justify-center space-x-2">
-              <button 
-                className="btn btn-outline btn-sm"
-                onClick={() => onVisualize?.('bar')}
-              >
-                📊 柱状图
-              </button>
-              <button 
-                className="btn btn-outline btn-sm"
-                onClick={() => onVisualize?.('line')}
-              >
-                📈 折线图
-              </button>
-              <button 
-                className="btn btn-outline btn-sm"
-                onClick={() => onVisualize?.('pie')}
-              >
-                🥧 饼图
-              </button>
-            </div>
-          </div>
+          <ChartVisualization 
+               config={{
+                 type: 'bar',
+                 title: '数据图表'
+               }}
+               data={{
+                 columns: result.columns,
+                 rows: sortedData?.rows || []
+               }}
+               onChartTypeChange={(type) => onVisualize?.(type)}
+             />
         )}
       </div>
 

@@ -1,19 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useEnhancedQueryPanel } from '../hooks/useEnhancedQueryPanel';
 import type { File } from '../types';
 import { QueryInput } from './QueryInput';
 import { EnhancedResultDisplay } from './EnhancedResultDisplay';
 import { AIConversation } from './AIConversation';
-import { ProcessingVisualization } from './ProcessingVisualization';
-import { PromptModal } from './PromptModal';
+import EnhancedProcessingVisualization from './EnhancedProcessingVisualization';
+import EnhancedPromptModal from './EnhancedPromptModal';
 
+// 类型定义
+type ViewMode = 'query' | 'conversation';
 
-// 使用简单的文本图标替代
-const ChatIcon = () => <span>💬</span>;
-const CommandIcon = () => <span>⌨️</span>;
-const EyeIcon = () => <span>👁️</span>;
-const SettingsIcon = () => <span>⚙️</span>;
-const SparklesIcon = () => <span>✨</span>;
+interface IconProps {
+  className?: string;
+}
+
+// 图标组件
+const ChatIcon: React.FC<IconProps> = ({ className }) => <span className={className}>💬</span>;
+const CommandIcon: React.FC<IconProps> = ({ className }) => <span className={className}>⌨️</span>;
+const SettingsIcon: React.FC<IconProps> = ({ className }) => <span className={className}>⚙️</span>;
 
 interface EnhancedQueryPanelProps {
   onTableDataChange: () => Promise<void>;
@@ -32,6 +36,12 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
   onProcessingStart,
   onProcessingEnd
 }) => {
+  // 计算选中文件名
+  const selectedFileNames = useMemo(() => 
+    selectedFiles?.map(file => file.filename) || [], 
+    [selectedFiles]
+  );
+
   const {
     // 基础状态
     query,
@@ -74,15 +84,75 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
     executeQuery,
     handleExportToExcel,
     setLlmResult,
-  } = useEnhancedQueryPanel(selectedFiles?.map(file => file.filename));
+  } = useEnhancedQueryPanel(selectedFileNames);
 
-  // 界面模式状态 - 简化为两种模式
-  const [viewMode, setViewMode] = useState<'query' | 'conversation'>('query');
+  // 界面模式状态
+  const [viewMode, setViewMode] = useState<ViewMode>('query');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // 渲染高级设置面板
-  const renderAdvancedSettings = () => (
-    showAdvanced && (
+  // 优化的事件处理函数
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+  }, []);
+
+  const toggleAdvanced = useCallback(() => {
+    setShowAdvanced(prev => !prev);
+  }, []);
+
+  // 视图模式切换组件
+  const ViewModeToggle: React.FC<{
+    viewMode: ViewMode;
+    onViewModeChange: (mode: ViewMode) => void;
+  }> = useCallback(({ viewMode, onViewModeChange }) => (
+    <div className="flex bg-base-200 rounded-lg p-1">
+      <button
+        onClick={() => onViewModeChange('query')}
+        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
+          viewMode === 'query'
+            ? 'bg-base-100 text-primary shadow-sm'
+            : 'text-base-content/60 hover:text-base-content'
+        }`}
+      >
+        <CommandIcon />
+        <span>数据查询</span>
+      </button>
+      <button
+        onClick={() => onViewModeChange('conversation')}
+        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
+          viewMode === 'conversation'
+            ? 'bg-base-100 text-primary shadow-sm'
+            : 'text-base-content/60 hover:text-base-content'
+        }`}
+      >
+        <ChatIcon />
+        <span>AI对话</span>
+      </button>
+    </div>
+  ), []);
+
+  // 高级设置切换按钮组件
+  const AdvancedToggleButton: React.FC<{
+    showAdvanced: boolean;
+    onToggle: () => void;
+  }> = useCallback(({ showAdvanced, onToggle }) => (
+    <button
+      onClick={onToggle}
+      className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center space-x-1 ${
+        showAdvanced
+          ? 'bg-primary text-primary-content'
+          : 'bg-base-200 text-base-content hover:bg-base-300'
+      }`}
+    >
+      <SettingsIcon />
+      <span>高级设置</span>
+    </button>
+  ), []);
+
+  // 高级设置组件
+  const AdvancedSettings: React.FC = useCallback(() => {
+    if (!showAdvanced) return null;
+    
+    return (
       <div className="mb-3 p-2 bg-base-100 rounded border border-base-300">
         <div className="flex items-center space-x-4">
           <label className="flex items-center">
@@ -105,59 +175,53 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
           </label>
         </div>
       </div>
-    )
-  );
+    );
+  }, [showAdvanced, autoAnalysis, setAutoAnalysis, showSqlPreview, setShowSqlPreview]);
 
-  // 渲染处理过程可视化
-  const renderProcessingVisualization = () => (
-    showProcessing && processingSteps.length > 0 && (
+  // 处理过程可视化组件
+  const ProcessingSection: React.FC = useCallback(() => {
+    if (!showProcessing || processingSteps.length === 0) return null;
+    return (
       <div className="mb-3">
-        <ProcessingVisualization
+        <EnhancedProcessingVisualization
           steps={processingSteps}
           currentStep={currentStep || undefined}
+          compact={true}
         />
       </div>
-    )
-  );
+    );
+  }, [showProcessing, processingSteps, currentStep]);
 
-  // 渲染查询模式
-  const renderQueryMode = () => (
+  // 查询模式组件
+  const QueryModeContent: React.FC = useCallback(() => (
     <div className="space-y-3">
-
-      
-      {/* 查询输入 */}
       <QueryInput
-         query={query}
-         setQuery={setQuery}
-         queryMode={queryMode}
-         setQueryMode={setQueryMode}
-         queryHistory={queryHistory}
-         loading={loading}
-         onExecute={executeQuery}
-         onProcessNaturalLanguage={() => processNaturalLanguage(query)}
-         showSqlPreview={showSqlPreview}
-         selectedFile={''}
-       />
-
-      {/* 处理过程可视化 */}
-      {renderProcessingVisualization()}
-
-      {/* 结果展示 */}
+        query={query}
+        setQuery={setQuery}
+        queryMode={queryMode}
+        setQueryMode={setQueryMode}
+        queryHistory={queryHistory}
+        loading={loading}
+        onExecute={executeQuery}
+        onProcessNaturalLanguage={() => processNaturalLanguage(query)}
+        showSqlPreview={showSqlPreview}
+        selectedFile={''}
+      />
+      <ProcessingSection />
       <EnhancedResultDisplay
-         result={result}
-         error={error}
-         loading={loading}
-         query={lastExecutedQuery ?? ''}
-         onExport={handleExportToExcel}
-         onCopy={() => handleCopy()}
-       />
-     </div>
-   );
+        result={result}
+        error={error}
+        loading={loading}
+        query={lastExecutedQuery ?? ''}
+        onExport={handleExportToExcel}
+        onCopy={handleCopy}
+      />
+    </div>
+  ), [query, setQuery, queryMode, setQueryMode, queryHistory, loading, executeQuery, processNaturalLanguage, showSqlPreview, result, error, lastExecutedQuery, handleExportToExcel, handleCopy]);
 
-  // 渲染对话模式 - 优化布局
-  const renderConversationMode = () => (
+  // 对话模式组件
+  const ConversationModeContent: React.FC = useCallback(() => (
     <div className="space-y-3">
-      {/* AI对话组件 - 主要内容区域 */}
       <div className="flex-1">
         <AIConversation
           messages={messages}
@@ -167,11 +231,7 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
           currentProcessingStep={currentStep || undefined}
         />
       </div>
-
-      {/* 处理过程可视化 - 紧凑显示 */}
-      {renderProcessingVisualization()}
-
-      {/* 结果展示 - 当有结果时显示 */}
+      <ProcessingSection />
       {result && (
         <div className="bg-base-100 rounded border border-base-300 p-3">
           <h3 className="text-sm font-medium text-base-content mb-2">查询结果</h3>
@@ -181,12 +241,12 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
             loading={loading}
             query={lastExecutedQuery ?? ''}
             onExport={handleExportToExcel}
-            onCopy={() => handleCopy()}
+            onCopy={handleCopy}
           />
         </div>
       )}
     </div>
-  );
+  ), [messages, loading, handleAIConversation, processingSteps, currentStep, result, error, lastExecutedQuery, handleExportToExcel, handleCopy]);
 
   return (
     <div className="h-full flex flex-col bg-base-100 relative">
@@ -206,57 +266,30 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
         
         <div className="flex items-center justify-between">
           {/* 视图模式切换 */}
-          <div className="flex bg-base-200 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('query')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
-                  viewMode === 'query'
-                  ? 'bg-base-100 text-primary shadow-sm'
-                  : 'text-base-content/60 hover:text-base-content'
-                }`}
-            >
-              <CommandIcon />
-              <span>数据查询</span>
-            </button>
-            <button
-              onClick={() => setViewMode('conversation')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
-                  viewMode === 'conversation'
-                  ? 'bg-base-100 text-primary shadow-sm'
-                  : 'text-base-content/60 hover:text-base-content'
-                }`}
-            >
-              <ChatIcon />
-              <span>AI对话</span>
-            </button>
-          </div>
+          <ViewModeToggle 
+            viewMode={viewMode} 
+            onViewModeChange={handleViewModeChange} 
+          />
           
           {/* 高级设置按钮 */}
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center space-x-1 ${
-                showAdvanced
-                ? 'bg-primary text-primary-content'
-                : 'bg-base-200 text-base-content hover:bg-base-300'
-              }`}
-          >
-            <SettingsIcon />
-            <span>高级设置</span>
-          </button>
+          <AdvancedToggleButton 
+            showAdvanced={showAdvanced} 
+            onToggle={toggleAdvanced} 
+          />
         </div>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4">
         {/* 高级设置 */}
-        {renderAdvancedSettings()}
+        <AdvancedSettings />
 
         {/* 根据模式渲染不同内容 */}
-        {viewMode === 'query' && renderQueryMode()}
-        {viewMode === 'conversation' && renderConversationMode()}
+        {viewMode === 'query' && <QueryModeContent />}
+        {viewMode === 'conversation' && <ConversationModeContent />}
       </div>
 
-      {/* Prompt模态框组件 */}
-      <PromptModal
+      {/* 增强的Prompt模态框 */}
+      <EnhancedPromptModal
         showSqlPreview={showSqlPreview}
         setShowSqlPreview={setShowSqlPreview}
         llmResult={llmResult}
@@ -265,6 +298,11 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
         onCopy={handleCopy}
         generateSystemPrompt={generateSystemPrompt}
         loading={loading}
+        onSqlEdit={(sql) => {
+           if (llmResult) {
+             setLlmResult({ ...llmResult, sql, convertValues: llmResult.convertValues });
+           }
+         }}
       />
     </div>
   );

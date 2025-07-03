@@ -2,26 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { copyMessageContent } from '../utils/clipboard';
 import { UI_CONSTANTS, MESSAGE_TYPES, STYLE_CLASSES } from '../constants/ui';
 import DebugInfoPanel from './DebugInfoPanel';
-import SimpleDataTable from './SimpleDataTable';
+import { DataContainer } from './DataContainer';
+import VirtualizedTable from './VirtualizedTable';
+import { ChartVisualization } from './ChartVisualization';
+import { EnhancedInsights } from './EnhancedInsights';
+import { ErrorBoundary } from './ErrorBoundary';
+import { useDataContext } from '../context/DataContext';
+import type { ConversationMessage as MessageType } from '../types/data';
 import { DebugInfo } from '../types/debug';
 
-interface ConversationMessage {
-  id: string;
-  type: 'user' | 'assistant' | 'error';
-  content: string;
-  timestamp: Date;
-  data?: any;
-  chart?: any;
-  insights?: string[];
-  suggestions?: string[];
-  debugInfo?: DebugInfo;
-}
-
 interface ConversationMessageProps {
-  message: ConversationMessage;
+  message: MessageType;
   onSuggestionClick?: (suggestion: string) => void;
   globalDebugMode?: boolean;
-  onExport?: (message: ConversationMessage) => void;
+  onExport?: (message: MessageType) => void;
 }
 
 export const ConversationMessage: React.FC<ConversationMessageProps> = ({
@@ -33,6 +27,11 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
   const isUser = message.type === MESSAGE_TYPES.USER;
   const isError = message.type === MESSAGE_TYPES.ERROR;
   const [showDebug, setShowDebug] = useState(false);
+  const [showChartModal, setShowChartModal] = useState(false);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [chartData, setChartData] = useState<any>(null);
+  const [insightsData, setInsightsData] = useState<any>(null);
+  const { dispatch } = useDataContext();
   
   // 调试日志
   useEffect(() => {
@@ -73,23 +72,63 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
         />
         
         {/* 数据结果 */}
-        {message.data && (
-          <div className="mt-3">
-            <SimpleDataTable 
-              data={message.data} 
-              onExport={() => onExport?.(message)}
-              definition={message.insights?.find(insight => 
-                !insight.includes('置信度:') && 
-                !insight.includes('请提供更具体的查询条件')
-              )}
-            />
-          </div>
-        )}
-        
-        {/* 洞察信息 */}
-        {message.insights && message.insights.length > 0 && (
-          <InsightsPanel insights={message.insights} />
-        )}
+         {message.data && (
+           <ErrorBoundary>
+             <DataContainer
+               data={message.data}
+               enableChart={!!message.chart}
+               enableInsights={!!(message.insights && message.insights.length > 0)}
+               initialChartType={message.chart?.type || 'bar'}
+             >
+               {({ optimizedData, chartConfig, insights, handleSort, handleFilter }) => (
+                 <div className="space-y-4">
+                   {/* 表格工具栏 */}
+                   <div className="flex justify-between items-center p-2 bg-base-100 border-b">
+                     <span className="text-sm font-medium">数据表格</span>
+                     <div className="flex space-x-2">
+                       {/* 图表按钮 */}
+                       {message.chart && (
+                         <button
+                           className="btn btn-sm btn-ghost"
+                           onClick={async () => {
+                             if (!chartData) {
+                               setChartData({ config: chartConfig, data: optimizedData });
+                             }
+                             setShowChartModal(true);
+                           }}
+                           title="查看图表"
+                         >
+                           📊
+                         </button>
+                       )}
+                       {/* 洞察按钮 */}
+                       {message.insights && message.insights.length > 0 && (
+                         <button
+                           className="btn btn-sm btn-ghost"
+                           onClick={async () => {
+                             if (!insightsData) {
+                               setInsightsData(optimizedData);
+                             }
+                             setShowInsightsModal(true);
+                           }}
+                           title="查看洞察"
+                         >
+                           💡
+                         </button>
+                       )}
+                     </div>
+                   </div>
+                   
+                   {/* 数据表格 */}
+                   <VirtualizedTable 
+                     data={optimizedData}
+                     height={400}
+                   />
+                 </div>
+               )}
+             </DataContainer>
+           </ErrorBoundary>
+         )}
         
         {/* 调试信息面板 */}
         {globalDebugMode && showDebug && message.debugInfo && (
@@ -99,6 +138,41 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
           />
         )}
       </div>
+      
+      {/* 图表弹框 */}
+      {showChartModal && chartData && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-4xl">
+            <h3 className="font-bold text-lg mb-4">数据图表</h3>
+            <ChartVisualization 
+              config={chartData.config}
+              data={chartData.data}
+              onChartTypeChange={(type) => console.log('Chart type changed:', type)}
+            />
+            <div className="modal-action">
+              <button className="btn" onClick={() => setShowChartModal(false)}>关闭</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowChartModal(false)}></div>
+        </div>
+      )}
+      
+      {/* 洞察弹框 */}
+      {showInsightsModal && insightsData && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-4xl">
+            <h3 className="font-bold text-lg mb-4">数据洞察</h3>
+            <EnhancedInsights 
+              data={insightsData}
+              onInsightAction={(insight, action) => console.log('Insight action:', insight, action)}
+            />
+            <div className="modal-action">
+              <button className="btn" onClick={() => setShowInsightsModal(false)}>关闭</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInsightsModal(false)}></div>
+        </div>
+      )}
     </div>
   );
 };
@@ -195,26 +269,6 @@ const MessageContent: React.FC<MessageContentProps> = ({
   );
 };
 
-// 洞察信息面板组件
-interface InsightsPanelProps {
-  insights: string[];
-}
 
-const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights }) => (
-  <div className="mt-3 p-3 bg-info/10 border border-info/20 rounded-lg">
-    <h4 className="font-medium text-info mb-2 flex items-center">
-      <span className="mr-1">{UI_CONSTANTS.ICONS.INSIGHTS}</span>
-      数据洞察
-    </h4>
-    <ul className={`${STYLE_CLASSES.SPACE_Y_3} ${STYLE_CLASSES.TEXT_SMALL} text-base-content/80`}>
-      {insights.map((insight, index) => (
-        <li key={index} className="flex items-start space-x-2">
-          <span className="text-info mt-0.5">•</span>
-          <span>{insight}</span>
-        </li>
-      ))}
-    </ul>
-  </div>
-);
 
 export default ConversationMessage;

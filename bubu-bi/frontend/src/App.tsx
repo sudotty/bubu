@@ -7,7 +7,7 @@ import AppSettingsModal from './components/AppSettingsModal';
 import { useConversationQuery } from './hooks/useConversationQuery';
 import { GetConversationsByFiles, CreateConversation } from '../wailsjs/go/main/App';
 import { parseDebugInfo } from './types/debug';
-
+import { DataProvider } from './context/DataContext';
 import { NotificationProvider, useNotificationMethods } from './components/NotificationSystem';
 import type { File } from './types';
 
@@ -276,7 +276,9 @@ const AppContent = () => {
 function App() {
 	return (
 		<NotificationProvider>
-			<AppContent />
+			<DataProvider>
+				<AppContent />
+			</DataProvider>
 		</NotificationProvider>
 	);
 }

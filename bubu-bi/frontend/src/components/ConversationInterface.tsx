@@ -4,7 +4,7 @@ import { useNotificationMethods } from './NotificationSystem';
 import { File } from '../types';
 import { UI_CONSTANTS, MESSAGE_TYPES } from '../constants/ui';
 import { isEscapePressed } from '../utils/keyboard';
-import { DebugInfo } from '../types/debug';
+import { ConversationMessage } from '../types/data';
 
 // 组件导入
 import { ConversationMessage as ConversationMessageComponent } from './ConversationMessage';
@@ -14,18 +14,6 @@ import WelcomeScreen from './WelcomeScreen';
 import LoadingMessage from './LoadingMessage';
 
 import SimpleDataTable from './SimpleDataTable';
-
-interface ConversationMessage {
-  id: string;
-  type: 'user' | 'assistant' | 'error';
-  content: string;
-  timestamp: Date;
-  data?: any;
-  chart?: any;
-  insights?: string[];
-  suggestions?: string[];
-  debugInfo?: DebugInfo;
-}
 
 interface ConversationInterfaceProps {
   onQuery: (query: string) => void;
