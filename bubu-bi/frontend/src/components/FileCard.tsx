@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
-import type { File } from '../types';
+import type { FileInfo } from '../types';
 import { formatFileSize, formatDate } from '../utils/fileUtils';
 
 interface FileCardProps {
-  file: File;
+  file: FileInfo;
   isSelected?: boolean;
   onSelect?: () => void;
   isProcessing?: boolean;

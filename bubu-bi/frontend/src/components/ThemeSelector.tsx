@@ -1,189 +1,336 @@
-import { memo, useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useTheme, DaisyTheme, ThemeConfig } from '../hooks/useTheme';
 
-interface ThemeSelectorProps {
-	className?: string;
+export interface ThemeSelectorProps {
+  /** 显示模式 */
+  mode?: 'dropdown' | 'grid' | 'list';
+  /** 是否显示主题预览 */
+  showPreview?: boolean;
+  /** 是否显示主题描述 */
+  showDescription?: boolean;
+  /** 是否按分类分组显示 */
+  groupByCategory?: boolean;
+  /** 自定义样式类名 */
+  className?: string;
+  /** 触发器文本 */
+  triggerText?: string;
+  /** 是否显示当前主题名称 */
+  showCurrentTheme?: boolean;
 }
 
-interface Theme {
-	value: string;
-	label: string;
-	icon: string;
-	category: string;
+/**
+ * 主题选择器组件
+ * 提供多种显示模式的主题切换界面
+ */
+export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
+  mode = 'dropdown',
+  showPreview = true,
+  showDescription = false,
+  groupByCategory = true,
+  className = '',
+  triggerText = '主题',
+  showCurrentTheme = true,
+}) => {
+  const {
+    currentTheme,
+    themeConfig,
+    availableThemes,
+    themesByCategory,
+    setTheme,
+    isDarkTheme,
+  } = useTheme();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [previewTheme, setPreviewTheme] = useState<DaisyTheme | null>(null);
+
+  // 处理主题选择
+  const handleThemeSelect = (theme: DaisyTheme) => {
+    setTheme(theme);
+    setIsOpen(false);
+    setPreviewTheme(null);
+  };
+
+  // 处理主题预览
+  const handleThemePreview = (theme: DaisyTheme | null) => {
+    if (showPreview) {
+      setPreviewTheme(theme);
+    }
+  };
+
+  // 渲染主题预览色块
+  const renderThemePreview = (config: ThemeConfig) => {
+    if (!showPreview) return null;
+
+    return (
+      <div className="flex gap-1 mr-2">
+        <div 
+          className="w-3 h-3 rounded-full border border-base-300"
+          style={{ backgroundColor: config.preview.primary }}
+        />
+        <div 
+          className="w-3 h-3 rounded-full border border-base-300"
+          style={{ backgroundColor: config.preview.secondary }}
+        />
+        <div 
+          className="w-3 h-3 rounded-full border border-base-300"
+          style={{ backgroundColor: config.preview.accent }}
+        />
+      </div>
+    );
+  };
+
+  // 渲染主题项
+  const renderThemeItem = (config: ThemeConfig, isActive: boolean = false) => (
+    <button
+      key={config.name}
+      className={`
+        flex items-center w-full p-3 text-left transition-colors
+        hover:bg-base-200 focus:bg-base-200 focus:outline-none
+        ${isActive ? 'bg-primary/10 text-primary' : ''}
+      `}
+      onClick={() => handleThemeSelect(config.name)}
+      onMouseEnter={() => handleThemePreview(config.name)}
+      onMouseLeave={() => handleThemePreview(null)}
+    >
+      {renderThemePreview(config)}
+      <div className="flex-1">
+        <div className="font-medium">{config.displayName}</div>
+        {showDescription && (
+          <div className="text-sm opacity-60 mt-1">{config.description}</div>
+        )}
+      </div>
+      {isActive && (
+        <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+      )}
+    </button>
+  );
+
+  // 渲染分组主题列表
+  const renderGroupedThemes = () => {
+    const categoryNames = {
+      light: '浅色主题',
+      dark: '深色主题',
+      colorful: '彩色主题',
+      minimal: '简约主题',
+    };
+
+    return Object.entries(themesByCategory).map(([category, themes]) => (
+      <div key={category} className="mb-4">
+        <div className="px-3 py-2 text-sm font-medium text-base-content/60 border-b border-base-300">
+          {categoryNames[category as keyof typeof categoryNames]}
+        </div>
+        <div className="space-y-1">
+          {themes.map(config => 
+            renderThemeItem(config, config.name === currentTheme)
+          )}
+        </div>
+      </div>
+    ));
+  };
+
+  // 渲染普通主题列表
+  const renderThemeList = () => (
+    <div className="space-y-1">
+      {availableThemes.map(config => 
+        renderThemeItem(config, config.name === currentTheme)
+      )}
+    </div>
+  );
+
+  // 下拉模式
+  if (mode === 'dropdown') {
+    return (
+      <div className={`dropdown dropdown-end ${isOpen ? 'dropdown-open' : ''} ${className}`}>
+        <button
+          className="btn btn-ghost gap-2"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          {showPreview && renderThemePreview(themeConfig)}
+          <span>
+            {triggerText}
+            {showCurrentTheme && (
+              <span className="ml-1 opacity-60">({themeConfig.displayName})</span>
+            )}
+          </span>
+          <svg 
+            className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        
+        {isOpen && (
+          <div className="dropdown-content z-[1] menu p-0 shadow-lg bg-base-100 rounded-box w-80 max-h-96 overflow-y-auto border border-base-300">
+            <div className="p-3 border-b border-base-300">
+              <h3 className="font-medium">选择主题</h3>
+              <p className="text-sm opacity-60 mt-1">选择您喜欢的界面主题</p>
+            </div>
+            
+            <div className="p-2">
+              {groupByCategory ? renderGroupedThemes() : renderThemeList()}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 网格模式
+  if (mode === 'grid') {
+    return (
+      <div className={`space-y-4 ${className}`}>
+        <h3 className="text-lg font-medium">选择主题</h3>
+        
+        {groupByCategory ? (
+          Object.entries(themesByCategory).map(([category, themes]) => (
+            <div key={category} className="space-y-3">
+              <h4 className="text-sm font-medium text-base-content/60 uppercase tracking-wide">
+                {{
+                  light: '浅色主题',
+                  dark: '深色主题',
+                  colorful: '彩色主题',
+                  minimal: '简约主题',
+                }[category as keyof typeof themesByCategory]}
+              </h4>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {themes.map(config => (
+                  <button
+                    key={config.name}
+                    className={`
+                      p-4 rounded-lg border-2 transition-all text-left
+                      hover:shadow-md focus:outline-none focus:shadow-md
+                      ${config.name === currentTheme 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-base-300 hover:border-base-400'
+                      }
+                    `}
+                    onClick={() => handleThemeSelect(config.name)}
+                    onMouseEnter={() => handleThemePreview(config.name)}
+                    onMouseLeave={() => handleThemePreview(null)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      {renderThemePreview(config)}
+                      {config.name === currentTheme && (
+                        <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    
+                    <div className="font-medium text-sm">{config.displayName}</div>
+                    {showDescription && (
+                      <div className="text-xs opacity-60 mt-1">{config.description}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {availableThemes.map(config => (
+              <button
+                key={config.name}
+                className={`
+                  p-4 rounded-lg border-2 transition-all text-left
+                  hover:shadow-md focus:outline-none focus:shadow-md
+                  ${config.name === currentTheme 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-base-300 hover:border-base-400'
+                  }
+                `}
+                onClick={() => handleThemeSelect(config.name)}
+                onMouseEnter={() => handleThemePreview(config.name)}
+                onMouseLeave={() => handleThemePreview(null)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  {renderThemePreview(config)}
+                  {config.name === currentTheme && (
+                    <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                
+                <div className="font-medium text-sm">{config.displayName}</div>
+                {showDescription && (
+                  <div className="text-xs opacity-60 mt-1">{config.description}</div>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 列表模式
+  return (
+    <div className={`space-y-4 ${className}`}>
+      <h3 className="text-lg font-medium">选择主题</h3>
+      
+      <div className="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
+        {groupByCategory ? renderGroupedThemes() : renderThemeList()}
+      </div>
+    </div>
+  );
+};
+
+// 快速主题切换按钮组件
+export interface QuickThemeSwitcherProps {
+  /** 自定义样式类名 */
+  className?: string;
+  /** 按钮大小 */
+  size?: 'sm' | 'md' | 'lg';
+  /** 是否显示主题名称 */
+  showName?: boolean;
 }
 
-const ThemeSelector = memo<ThemeSelectorProps>(({ className = '' }) => {
-	const [currentTheme, setCurrentTheme] = useState<string>('light');
-	const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+/**
+ * 快速主题切换器
+ * 提供简单的主题切换按钮
+ */
+export const QuickThemeSwitcher: React.FC<QuickThemeSwitcherProps> = ({
+  className = '',
+  size = 'md',
+  showName = false,
+}) => {
+  const { currentTheme, themeConfig, nextTheme, isDarkTheme } = useTheme();
 
-	// DaisyUI 35个内置主题选项（中文名称和分类）
-	const themes: Theme[] = [
-		{ value: 'light', label: '浅色', icon: '☀️', category: '基础' },
-		{ value: 'dark', label: '深色', icon: '🌙', category: '基础' },
-		{ value: 'cupcake', label: '纸杯蛋糕', icon: '🧁', category: '可爱' },
-		{ value: 'bumblebee', label: '大黄蜂', icon: '🐝', category: '自然' },
-		{ value: 'emerald', label: '翡翠', icon: '💚', category: '自然' },
-		{ value: 'corporate', label: '企业', icon: '🏢', category: '商务' },
-		{ value: 'synthwave', label: '合成波', icon: '🎛️', category: '科技' },
-		{ value: 'retro', label: '复古', icon: '📻', category: '复古' },
-		{ value: 'cyberpunk', label: '赛博朋克', icon: '🤖', category: '科技' },
-		{ value: 'valentine', label: '情人节', icon: '💝', category: '节日' },
-		{ value: 'halloween', label: '万圣节', icon: '🎃', category: '节日' },
-		{ value: 'garden', label: '花园', icon: '🌺', category: '自然' },
-		{ value: 'forest', label: '森林', icon: '🌲', category: '自然' },
-		{ value: 'aqua', label: '水蓝', icon: '💧', category: '自然' },
-		{ value: 'lofi', label: 'Lo-Fi', icon: '🎧', category: '艺术' },
-		{ value: 'pastel', label: '粉彩', icon: '🎨', category: '艺术' },
-		{ value: 'fantasy', label: '幻想', icon: '🦄', category: '艺术' },
-		{ value: 'wireframe', label: '线框', icon: '📐', category: '极简' },
-		{ value: 'black', label: '黑色', icon: '⚫', category: '极简' },
-		{ value: 'luxury', label: '奢华', icon: '✨', category: '高端' },
-		{ value: 'dracula', label: '德古拉', icon: '🧛', category: '暗黑' },
-		{ value: 'cmyk', label: 'CMYK', icon: '🖨️', category: '专业' },
-		{ value: 'autumn', label: '秋季', icon: '🍂', category: '季节' },
-		{ value: 'business', label: '商务', icon: '💼', category: '商务' },
-		{ value: 'acid', label: '酸性', icon: '🧪', category: '科技' },
-		{ value: 'lemonade', label: '柠檬水', icon: '🍋', category: '清新' },
-		{ value: 'night', label: '夜晚', icon: '🌃', category: '暗黑' },
-		{ value: 'coffee', label: '咖啡', icon: '☕', category: '温馨' },
-		{ value: 'winter', label: '冬季', icon: '❄️', category: '季节' },
-		{ value: 'dim', label: '暗淡', icon: '🔅', category: '暗黑' },
-		{ value: 'nord', label: '北欧', icon: '🏔️', category: '极简' },
-		{ value: 'sunset', label: '日落', icon: '🌅', category: '温馨' },
-		{ value: 'caramellatte', label: '焦糖拿铁', icon: '🥛', category: '温馨' },
-		{ value: 'abyss', label: '深渊', icon: '🕳️', category: '暗黑' },
-		{ value: 'silk', label: '丝绸', icon: '🧵', category: '高端' },
-	];
+  const sizeClasses = {
+    sm: 'btn-sm',
+    md: '',
+    lg: 'btn-lg',
+  };
 
-	// 初始化主题
-	useEffect(() => {
-		const savedTheme = localStorage.getItem('theme') || 'light';
-		setCurrentTheme(savedTheme);
-		applyTheme(savedTheme);
-	}, []);
-
-	// 应用主题
-	const applyTheme = (theme: string) => {
-		document.documentElement.setAttribute('data-theme', theme);
-		localStorage.setItem('theme', theme);
-	};
-
-	// 切换主题
-	const handleThemeChange = (theme: string) => {
-		setCurrentTheme(theme);
-		applyTheme(theme);
-		setIsModalOpen(false); // 选择主题后关闭弹窗
-	};
-
-	// 按分类分组主题
-	const groupedThemes = themes.reduce((acc, theme) => {
-		if (!acc[theme.category]) {
-			acc[theme.category] = [];
-		}
-		acc[theme.category].push(theme);
-		return acc;
-	}, {} as Record<string, Theme[]>);
-
-	// 打开弹窗
-	const openModal = () => {
-		setIsModalOpen(true);
-	};
-
-	// 关闭弹窗
-	const closeModal = () => {
-		setIsModalOpen(false);
-	};
-
-	return (
-		<>
-			{/* 主题选择按钮 */}
-			<button
-				type="button"
-				className={`btn btn-ghost btn-sm gap-2 ${className}`}
-				onClick={openModal}
-			>
-				<span className="text-lg">
-					{themes.find(t => t.value === currentTheme)?.icon || '✨'}
-				</span>
-				<span className="hidden sm:inline">
-					{themes.find(t => t.value === currentTheme)?.label || '浅色'}
-				</span>
-				<svg
-					width="12px"
-					height="12px"
-					className="inline-block h-2 w-2 fill-current opacity-60"
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 2048 2048"
-				>
-					<path d="m1799 349 242 241-1017 1017L7 590l242-241 775 775 775-775z" />
-				</svg>
-			</button>
-
-			{/* 主题选择弹窗 */}
-			{isModalOpen && (
-				<div className="modal modal-open">
-				<div className="modal-box w-11/12 max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-						{/* 弹窗头部 */}
-						<div className="flex items-center justify-between mb-4">
-							<div>
-								<h3 className="font-bold text-lg">选择主题</h3>
-								<p className="text-sm text-base-content/70 mt-1">从 {themes.length} 个精美主题中选择您喜欢的风格</p>
-							</div>
-							<button
-								type="button"
-								className="btn btn-sm btn-circle btn-ghost"
-								onClick={closeModal}
-							>
-								✕
-							</button>
-						</div>
-
-						{/* 主题网格 */}
-						<div className="flex-1 overflow-y-auto">
-							{Object.entries(groupedThemes).map(([category, categoryThemes]) => (
-								<div key={category} className="mb-6">
-									<h4 className="font-semibold text-sm mb-3 text-base-content/80 border-b border-base-300 pb-1">
-										{category} ({categoryThemes.length})
-									</h4>
-									<div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-										{categoryThemes.map((theme) => (
-											<button
-												key={theme.value}
-												type="button"
-												className={`
-													card card-compact bg-base-100 shadow-sm hover:shadow-md transition-all duration-200
-													border-2 hover:scale-105 cursor-pointer
-													${currentTheme === theme.value 
-														? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
-														: 'border-base-300 hover:border-primary/50'
-													}
-												`}
-												onClick={() => handleThemeChange(theme.value)}
-											>
-												<div className="card-body items-center text-center p-3">
-													<div className="text-xl mb-1">{theme.icon}</div>
-													<div className="text-xs font-medium">{theme.label}</div>
-													{currentTheme === theme.value && (
-														<div className="absolute top-1 right-1 text-primary">
-															<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-																<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-															</svg>
-														</div>
-													)}
-												</div>
-											</button>
-										))}
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-					<div className="modal-backdrop" onClick={closeModal}></div>
-				</div>
-			)}
-		</>
-	);
-});
-
-ThemeSelector.displayName = 'ThemeSelector';
+  return (
+    <button
+      className={`btn btn-ghost ${sizeClasses[size]} gap-2 ${className}`}
+      onClick={nextTheme}
+      title={`当前主题: ${themeConfig.displayName}`}
+    >
+      {/* 主题图标 */}
+      {isDarkTheme ? (
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+        </svg>
+      )}
+      
+      {showName && (
+        <span className="hidden sm:inline">{themeConfig.displayName}</span>
+      )}
+    </button>
+  );
+};
 
 export default ThemeSelector;

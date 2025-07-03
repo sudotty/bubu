@@ -4,12 +4,15 @@ import FilePanel from './components/FilePanel';
 import ConversationInterface from './components/ConversationInterface';
 import { ConversationSelector } from './components/ConversationSelector';
 import AppSettingsModal from './components/AppSettingsModal';
+import { ThemeSelector, QuickThemeSwitcher } from './components/ThemeSelector';
+import { LanguageSelector, QuickLanguageSwitcher } from './components/LanguageSelector';
 import { useConversationQuery } from './hooks/useConversationQuery';
 import { GetConversationsByFiles, CreateConversation } from '../wailsjs/go/main/App';
 import { parseDebugInfo } from './types/debug';
 import { DataProvider } from './context/DataContext';
 import { NotificationProvider, useNotificationMethods } from './components/NotificationSystem';
-import type { File } from './types';
+import { useI18n } from './hooks/useI18n';
+import type { FileInfo } from './types';
 
 // 扩展Window接口以包含go对象
 declare global {
@@ -23,11 +26,11 @@ declare global {
 }
 
 const AppContent = () => {
-	const [files, setFiles] = useState<File[]>([]);
+	const [files, setFiles] = useState<FileInfo[]>([]);
 	const [showAppSettings, setShowAppSettings] = useState(false);
 	const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
 	const [isRefreshing, setIsRefreshing] = useState(false);
-	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+	const [selectedFiles, setSelectedFiles] = useState<FileInfo[]>([]);
 	const [isProcessingFile, setIsProcessingFile] = useState(false);
 	const [showConversationSelector, setShowConversationSelector] = useState(false);
 
@@ -147,11 +150,11 @@ const AppContent = () => {
 		} finally {
 			setIsRefreshing(false);
 		}
-	}, [isRefreshing, loadData, info]);
+	}, [isRefreshing, info]); // 移除loadData依赖，避免无限循环
 
 	const handleFileUploaded = useCallback(() => {
 		loadData(true); // 重新加载数据并显示通知
-	}, [loadData]);
+	}, []); // 移除loadData依赖，避免无限循环
 
 
 
@@ -161,16 +164,25 @@ const AppContent = () => {
 			<div className="w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] bg-base-200 border-r border-base-300 flex-shrink-0 flex flex-col">
 				{/* 左上角标题区域 */}
 				<div className="bg-base-300 border-b border-base-content/20 p-fluid-md">
-					<button 
-						className="flex items-center space-x-2 hover:bg-base-200 px-3 py-2 rounded-lg transition-colors duration-200 group w-full"
-						onClick={() => setShowAppSettings(true)}
-						title="点击打开设置和主题选择"
-					>
-						<div className="text-fluid-xl group-hover:scale-110 transition-transform duration-200">📊</div>
-						<h1 className="text-fluid-xl font-bold text-primary group-hover:text-primary-focus">BuBu</h1>
-						<div className="badge badge-primary badge-sm group-hover:badge-primary-focus">Excel AI助手</div>
-					</button>
-					<div className="mt-2 text-fluid-xs text-base-content/60">
+					<div className="flex items-center justify-between mb-3">
+						<button 
+							className="flex items-center space-x-2 hover:bg-base-200 px-3 py-2 rounded-lg transition-colors duration-200 group flex-1"
+							onClick={() => setShowAppSettings(true)}
+							title="点击打开设置和主题选择"
+						>
+							<div className="text-fluid-xl group-hover:scale-110 transition-transform duration-200">📊</div>
+							<h1 className="text-fluid-xl font-bold text-primary group-hover:text-primary-focus">BuBu</h1>
+							<div className="badge badge-primary badge-sm group-hover:badge-primary-focus">Excel AI助手</div>
+						</button>
+						
+						{/* 主题和语言快速切换器 */}
+						<div className="flex items-center gap-1">
+							<QuickLanguageSwitcher size="sm" className="btn-ghost" />
+							<QuickThemeSwitcher size="sm" className="btn-ghost" />
+						</div>
+					</div>
+					
+					<div className="text-fluid-xs text-base-content/60">
 						🤖一句话处理Excel，Make Excel Easy Again 🖖
 					</div>
 				</div>

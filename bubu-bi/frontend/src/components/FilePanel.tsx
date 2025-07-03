@@ -2,15 +2,15 @@
 import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { UploadFile } from '../../wailsjs/go/main/App';
 import FileList from './FileList';
-import type { File } from '../types';
+import type { FileInfo } from '../types';
 
 interface FilePanelProps {
-  files: File[];
+  files: FileInfo[];
   onRefresh: () => Promise<void>;
   analysisHistory?: any[];
   isRefreshing?: boolean;
-  selectedFiles?: File[];
-  onFileSelect?: (file: File | null) => void;
+  selectedFiles?: FileInfo[];
+  onFileSelect?: (file: FileInfo | null) => void;
   isProcessingFile?: boolean;
 }
 

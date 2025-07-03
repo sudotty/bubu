@@ -22,7 +22,8 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^19.1.0",
     "react-window": "^1.8.11",
-    "reactflow": "^11.10.1"
+    "reactflow": "^11.10.1",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.6",

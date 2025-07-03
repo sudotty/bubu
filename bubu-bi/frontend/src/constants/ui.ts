@@ -86,34 +86,31 @@ export const MESSAGE_TYPES = {
   ERROR: 'error' as const,
 };
 
-// 样式类名常量
-export const STYLE_CLASSES = {
-  // 布局
-  FLEX_COL: 'flex flex-col',
-  FLEX_ROW: 'flex flex-row',
-  FLEX_CENTER: 'flex items-center justify-center',
-  FLEX_BETWEEN: 'flex items-center justify-between',
-  
-  // 间距
-  SPACE_X_2: 'space-x-2',
-  SPACE_X_3: 'space-x-3',
-  SPACE_Y_3: 'space-y-3',
-  SPACE_Y_4: 'space-y-4',
-  
-  // 按钮
-  BTN_PRIMARY: 'btn btn-primary',
-  BTN_GHOST: 'btn btn-ghost',
-  BTN_SM: 'btn btn-sm',
-  BTN_XS: 'btn btn-xs',
-  
-  // 输入框
-  INPUT_BASE: 'w-full p-3 lg:p-4 border border-base-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-transparent bg-base-100',
-  
-  // 卡片
-  CARD_BASE: 'bg-base-100 rounded-lg border border-base-300',
-  
-  // 文本
-  TEXT_MUTED: 'text-base-content/60',
-  TEXT_SMALL: 'text-fluid-sm',
-  TEXT_XS: 'text-fluid-xs',
+
+
+// DaisyUI 组件样式常量
+export const DAISY_COMPONENTS = {
+  TABLE: {
+    CONTAINER: 'overflow-x-auto',
+    BASE: 'table table-zebra w-full',
+    HEADER: 'table-header-group',
+    BODY: 'table-row-group',
+    ROW: 'table-row hover:bg-base-200 cursor-pointer',
+    CELL: 'table-cell p-2',
+    SORT_BUTTON: 'btn btn-ghost btn-xs',
+  },
+  BUTTON: {
+    PRIMARY: 'btn btn-primary',
+    SECONDARY: 'btn btn-secondary',
+    GHOST: 'btn btn-ghost',
+    OUTLINE: 'btn btn-outline',
+    SM: 'btn-sm',
+    XS: 'btn-xs',
+  },
+  INPUT: {
+    BASE: 'input input-bordered w-full',
+    TEXTAREA: 'textarea textarea-bordered w-full',
+    PRIMARY: 'input-primary',
+    SECONDARY: 'input-secondary',
+  },
 };

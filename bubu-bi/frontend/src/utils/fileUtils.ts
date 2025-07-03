@@ -1,4 +1,4 @@
-import type { File } from '../types';
+// 文件工具函数
 
 export const formatFileSize = (bytes: number): string => {
   const k = 1024;

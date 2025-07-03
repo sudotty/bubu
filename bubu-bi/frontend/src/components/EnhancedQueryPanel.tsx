@@ -1,10 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useEnhancedQueryPanel } from '../hooks/useEnhancedQueryPanel';
-import type { File } from '../types';
-import { QueryInput } from './QueryInput';
-import { EnhancedResultDisplay } from './EnhancedResultDisplay';
+import type { FileInfo } from '../types';
+import { SmartInput } from './SmartInput';
 import { AIConversation } from './AIConversation';
-import EnhancedProcessingVisualization from './EnhancedProcessingVisualization';
 import EnhancedPromptModal from './EnhancedPromptModal';
 
 // 类型定义
@@ -20,16 +18,14 @@ const CommandIcon: React.FC<IconProps> = ({ className }) => <span className={cla
 const SettingsIcon: React.FC<IconProps> = ({ className }) => <span className={className}>⚙️</span>;
 
 interface EnhancedQueryPanelProps {
-  onTableDataChange: () => Promise<void>;
-  files?: File[];
-  selectedFiles?: File[];
+  files?: FileInfo[];
+  selectedFiles?: FileInfo[];
   onAnalysisComplete?: (analysis: any) => void;
   onProcessingStart?: () => void;
   onProcessingEnd?: () => void;
 }
 
 export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({ 
-  onTableDataChange, 
   files = [], 
   selectedFiles = [],
   onAnalysisComplete,
@@ -183,11 +179,9 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
     if (!showProcessing || processingSteps.length === 0) return null;
     return (
       <div className="mb-3">
-        <EnhancedProcessingVisualization
-          steps={processingSteps}
-          currentStep={currentStep || undefined}
-          compact={true}
-        />
+        <div className="text-sm text-base-content/70">
+          {currentStep && `正在处理: ${currentStep}`}
+        </div>
       </div>
     );
   }, [showProcessing, processingSteps, currentStep]);
@@ -195,27 +189,32 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
   // 查询模式组件
   const QueryModeContent: React.FC = useCallback(() => (
     <div className="space-y-3">
-      <QueryInput
-        query={query}
-        setQuery={setQuery}
-        queryMode={queryMode}
-        setQueryMode={setQueryMode}
-        queryHistory={queryHistory}
+      <SmartInput
+        value={query}
+        onChange={setQuery}
+        mode={queryMode === 'natural' ? 'natural' : 'sql'}
+        onModeChange={(mode) => setQueryMode(mode === 'natural' ? 'natural' : 'sql')}
+        history={[]}
         loading={loading}
-        onExecute={executeQuery}
-        onProcessNaturalLanguage={() => processNaturalLanguage(query)}
-        showSqlPreview={showSqlPreview}
-        selectedFile={''}
+        onSubmit={executeQuery}
+        
+        showModeSwitch={true}
+        placeholder={queryMode === 'natural' ? '请输入自然语言查询...' : '请输入SQL查询...'}
       />
       <ProcessingSection />
-      <EnhancedResultDisplay
-        result={result}
-        error={error}
-        loading={loading}
-        query={lastExecutedQuery ?? ''}
-        onExport={handleExportToExcel}
-        onCopy={handleCopy}
-      />
+      {result && (
+        <div className="bg-base-100 rounded border border-base-300 p-3">
+          <h3 className="text-sm font-medium text-base-content mb-2">查询结果</h3>
+          <div className="text-sm text-base-content/70">
+            查询已完成，结果已处理
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="bg-error/10 border border-error/20 rounded p-3">
+          <div className="text-error text-sm">{error}</div>
+        </div>
+      )}
     </div>
   ), [query, setQuery, queryMode, setQueryMode, queryHistory, loading, executeQuery, processNaturalLanguage, showSqlPreview, result, error, lastExecutedQuery, handleExportToExcel, handleCopy]);
 
@@ -235,14 +234,9 @@ export const EnhancedQueryPanel: React.FC<EnhancedQueryPanelProps> = ({
       {result && (
         <div className="bg-base-100 rounded border border-base-300 p-3">
           <h3 className="text-sm font-medium text-base-content mb-2">查询结果</h3>
-          <EnhancedResultDisplay
-            result={result}
-            error={error}
-            loading={loading}
-            query={lastExecutedQuery ?? ''}
-            onExport={handleExportToExcel}
-            onCopy={handleCopy}
-          />
+          <div className="text-sm text-base-content/70">
+             查询已完成，结果已处理
+           </div>
         </div>
       )}
     </div>

@@ -1,17 +1,17 @@
 import React, { memo } from 'react';
 import FileCard from './FileCard';
-import type { File } from '../types';
+import type { FileInfo } from '../types';
 
 interface FileListProps {
-  files: File[];
-  selectedFiles?: File[];
-  onFileSelect?: (file: File | null) => void;
+  files: FileInfo[];
+  selectedFiles?: FileInfo[];
+  onFileSelect?: (file: FileInfo | null) => void;
   isProcessingFile?: boolean;
 }
 
 interface FileGroupSectionProps {
   title: string;
-  files: File[];
+  files: FileInfo[];
   keyPrefix: string;
   badge?: number;
 }

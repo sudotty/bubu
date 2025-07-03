@@ -1,5 +1,6 @@
 import React from 'react';
-import { UI_CONSTANTS, STYLE_CLASSES } from '../constants/ui';
+import { UI_CONSTANTS } from '../constants/ui';
+// 已移除styles.ts，直接使用Tailwind CSS类名
 
 export const LoadingMessage: React.FC = () => {
   return (
@@ -9,9 +10,9 @@ export const LoadingMessage: React.FC = () => {
           {UI_CONSTANTS.ICONS.ROBOT}
         </div>
         <div className="bg-base-200 rounded-lg p-3 ml-2">
-          <div className={`flex items-center ${STYLE_CLASSES.SPACE_X_2}`}>
+          <div className="flex items-center space-x-2">
             <div className="loading loading-dots loading-sm"></div>
-            <span className={`${STYLE_CLASSES.TEXT_SMALL} text-base-content/70`}>
+            <span className="text-sm text-base-content/70">
               正在分析中...
             </span>
           </div>

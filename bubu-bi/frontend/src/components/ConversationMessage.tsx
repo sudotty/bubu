@@ -1,64 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { copyMessageContent } from '../utils/clipboard';
-import { UI_CONSTANTS, MESSAGE_TYPES, STYLE_CLASSES } from '../constants/ui';
+import { UI_CONSTANTS, MESSAGE_TYPES } from '../constants/ui';
+// 已移除styles.ts，直接使用Tailwind CSS类名
 import DebugInfoPanel from './DebugInfoPanel';
-import { DataContainer } from './DataContainer';
-import SimpleTable from './SimpleTable';
-import type { TableData as NewTableData } from '../types/table';
-
-// 适配器函数：将旧的TableData格式转换为新的格式
-const adaptTableData = (oldData: any): NewTableData => {
-  if (!oldData || !oldData.columns || !oldData.rows) {
-    return { columns: [], rows: [] };
-  }
-  
-  // 处理列数据 - 检查是否已经是对象格式
-  const columns = oldData.columns.map((col: any, index: number) => {
-    // 如果已经是列对象格式，直接使用
-    if (typeof col === 'object' && col !== null && col.key && col.title) {
-      return {
-        key: col.key,
-        title: col.title,
-        dataType: col.dataType || 'string' as const,
-        sortable: col.sortable !== false
-      };
-    }
-    // 如果是字符串，转换为对象格式
-    return {
-      key: `col_${index}`,
-      title: typeof col === 'string' ? col : String(col),
-      dataType: 'string' as const,
-      sortable: true
-    };
-  });
-  
-  return {
-    columns,
-    rows: oldData.rows.map((row: any) => {
-      const rowObj: Record<string, any> = {};
-      
-      // 如果 row 已经是对象格式，直接使用
-      if (typeof row === 'object' && !Array.isArray(row) && row !== null) {
-        return row;
-      }
-      
-      // 如果 row 是数组格式，转换为对象
-      if (Array.isArray(row)) {
-        row.forEach((cell, index) => {
-          rowObj[`col_${index}`] = cell;
-        });
-        return rowObj;
-      }
-      
-      // 其他情况，返回空对象
-      return {};
-    })
-  };
-};
-import { ChartVisualization } from './ChartVisualization';
-import { EnhancedInsights } from './EnhancedInsights';
-import { ErrorBoundary } from './ErrorBoundary';
-import { useDataContext } from '../context/DataContext';
+// 移除了不再使用的表格相关导入
 import type { ConversationMessage as MessageType } from '../types/data';
 import { DebugInfo } from '../types/debug';
 
@@ -78,12 +23,7 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
   const isUser = message.type === MESSAGE_TYPES.USER;
   const isError = message.type === MESSAGE_TYPES.ERROR;
   const [showDebug, setShowDebug] = useState(false);
-  const [showChartModal, setShowChartModal] = useState(false);
-  const [showInsightsModal, setShowInsightsModal] = useState(false);
-  const [isTableFullscreen, setIsTableFullscreen] = useState(false);
-  const [chartData, setChartData] = useState<any>(null);
-  const [insightsData, setInsightsData] = useState<any>(null);
-  const { dispatch } = useDataContext();
+  // 移除了未使用的DataContext
   
   // 调试日志
   useEffect(() => {
@@ -123,91 +63,37 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
           isError={isError}
         />
         
-        {/* 数据结果 */}
-         {message.data && (
-           <ErrorBoundary>
-             <DataContainer
-               data={message.data}
-               enableChart={!!message.chart}
-               enableInsights={!!(message.insights && message.insights.length > 0)}
-               initialChartType={message.chart?.type || 'bar'}
-             >
-               {({ optimizedData, chartConfig, insights, handleSort, handleFilter }) => (
-                 <div className="space-y-4">
-                   {/* 表格工具栏 */}
-                   <div className="flex justify-between items-center p-2 bg-base-100 border-b">
-                     <span className="text-sm font-medium">数据表格</span>
-                     <div className="flex space-x-2">
-                       {/* 图表按钮 */}
-                       {message.chart && (
-                         <button
-                           className="btn btn-sm btn-ghost"
-                           onClick={async () => {
-                             if (!chartData) {
-                               setChartData({ config: chartConfig, data: optimizedData });
-                             }
-                             setShowChartModal(true);
-                           }}
-                           title="查看图表"
-                         >
-                           📊
-                         </button>
-                       )}
-                       {/* 洞察按钮 */}
-                       {message.insights && message.insights.length > 0 && (
-                         <button
-                           className="btn btn-sm btn-ghost"
-                           onClick={async () => {
-                             if (!insightsData) {
-                               setInsightsData(optimizedData);
-                             }
-                             setShowInsightsModal(true);
-                           }}
-                           title="查看洞察"
-                         >
-                           💡
-                         </button>
-                       )}
-                       {/* 全屏按钮 */}
-                       <button
-                         className="btn btn-sm btn-ghost"
-                         onClick={() => setIsTableFullscreen(!isTableFullscreen)}
-                         title={isTableFullscreen ? '退出全屏' : '全屏显示'}
-                       >
-                         {isTableFullscreen ? '⤓' : '⤢'}
-                       </button>
-                     </div>
-                   </div>
-                   
-                   {/* 数据表格 */}
-                   <div className={isTableFullscreen ? 'fixed inset-0 z-50 bg-white flex flex-col' : 'relative'}>
-                     {isTableFullscreen && (
-                       <div className="flex justify-between items-center p-4 border-b bg-base-200">
-                         <h3 className="text-lg font-semibold">数据表格 - 全屏模式</h3>
-                         <button
-                           className="btn btn-sm btn-circle btn-ghost"
-                           onClick={() => setIsTableFullscreen(false)}
-                           title="退出全屏"
-                         >
-                           ✕
-                         </button>
-                       </div>
-                     )}
-                     <div className={isTableFullscreen ? 'flex-1 overflow-hidden' : ''}>
-                       <SimpleTable 
-                         data={adaptTableData(optimizedData)}
-                         features={{
-                           sortable: true,
-                           fullscreen: false
-                         }}
-                       />
-                     </div>
-                   </div>
+        {/* 数据结果摘要 */}
+        {message.data && (
+          <div className="mt-3 p-3 bg-base-100 rounded-lg border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-base-content">📊 查询结果</span>
+            </div>
+            <div className="space-y-2 text-sm text-base-content/70">
+              {/* 数据条数 */}
+              <div className="flex items-center space-x-2">
+                <span className="font-medium">数据条数:</span>
+                <span className="badge badge-primary badge-sm">{message.data.rows?.length || 0} 条</span>
+              </div>
+              
+              {/* 列定义 */}
+               <div>
+                 <span className="font-medium">列定义:</span>
+                 <div className="mt-1 flex flex-wrap gap-1">
+                   {message.data.columns?.map((column, index) => (
+                     <span 
+                       key={index} 
+                       className="badge badge-outline badge-xs"
+                       title={column}
+                     >
+                       {column}
+                     </span>
+                   )) || []}
                  </div>
-               )}
-             </DataContainer>
-           </ErrorBoundary>
-         )}
+               </div>
+            </div>
+          </div>
+        )}
         
         {/* 调试信息面板 */}
         {globalDebugMode && showDebug && message.debugInfo && (
@@ -218,40 +104,7 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
         )}
       </div>
       
-      {/* 图表弹框 */}
-      {showChartModal && chartData && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-4xl">
-            <h3 className="font-bold text-lg mb-4">数据图表</h3>
-            <ChartVisualization 
-              config={chartData.config}
-              data={chartData.data}
-              onChartTypeChange={(type) => console.log('Chart type changed:', type)}
-            />
-            <div className="modal-action">
-              <button className="btn" onClick={() => setShowChartModal(false)}>关闭</button>
-            </div>
-          </div>
-          <div className="modal-backdrop" onClick={() => setShowChartModal(false)}></div>
-        </div>
-      )}
-      
-      {/* 洞察弹框 */}
-      {showInsightsModal && insightsData && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-4xl">
-            <h3 className="font-bold text-lg mb-4">数据洞察</h3>
-            <EnhancedInsights 
-              data={insightsData}
-              onInsightAction={(insight, action) => console.log('Insight action:', insight, action)}
-            />
-            <div className="modal-action">
-              <button className="btn" onClick={() => setShowInsightsModal(false)}>关闭</button>
-            </div>
-          </div>
-          <div className="modal-backdrop" onClick={() => setShowInsightsModal(false)}></div>
-        </div>
-      )}
+      {/* 移除了图表和洞察弹框 */}
     </div>
   );
 };
@@ -276,7 +129,7 @@ const MessageHeader: React.FC<MessageHeaderProps> = ({
   showDebug,
   onToggleDebug
 }) => (
-  <div className={`flex items-center ${STYLE_CLASSES.SPACE_X_2} mb-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+  <div className={`flex items-center space-x-2 mb-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
     {!isUser && (
       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
         isError ? 'bg-error text-error-content' : 'bg-secondary text-secondary-content'
@@ -284,7 +137,7 @@ const MessageHeader: React.FC<MessageHeaderProps> = ({
         {isError ? UI_CONSTANTS.ICONS.ERROR : UI_CONSTANTS.ICONS.ROBOT}
       </div>
     )}
-    <span className={`${STYLE_CLASSES.TEXT_XS} text-base-content/50`}>
+    <span className="text-xs text-base-content/50">
       {timestamp.toLocaleTimeString()}
     </span>
     {/* 调试按钮（仅在调试模式下显示） */}
@@ -294,7 +147,7 @@ const MessageHeader: React.FC<MessageHeaderProps> = ({
           console.log('🔧 [DEBUG] 调试按钮被点击');
           onToggleDebug();
         }}
-        className={`${STYLE_CLASSES.TEXT_XS} px-2 py-1 bg-warning/20 text-warning rounded hover:bg-warning/30 transition-colors`}
+        className="text-xs px-2 py-1 bg-warning/20 text-warning rounded hover:bg-warning/30 transition-colors"
         title="查看调试信息"
       >
         {UI_CONSTANTS.ICONS.DEBUG} Debug

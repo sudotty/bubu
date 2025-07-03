@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ExportToExcel } from '../../wailsjs/go/main/App';
 import { useNotificationMethods } from './NotificationSystem';
-import { File } from '../types';
+import { FileInfo } from '../types';
 import { UI_CONSTANTS, MESSAGE_TYPES } from '../constants/ui';
 import { isEscapePressed } from '../utils/keyboard';
 import { ConversationMessage } from '../types/data';
@@ -9,18 +9,18 @@ import { ConversationMessage } from '../types/data';
 // 组件导入
 import { ConversationMessage as ConversationMessageComponent } from './ConversationMessage';
 import TemplatePanel from './TemplatePanel';
-import InputArea from './InputArea';
-import WelcomeScreen from './WelcomeScreen';
+import { SmartInput } from './SmartInput';
+// WelcomeScreen组件已被移除
 import LoadingMessage from './LoadingMessage';
 
-import { SimpleDataTable } from './SimpleDataTable';
+// 移除了DataTable导入
 
 interface ConversationInterfaceProps {
   onQuery: (query: string) => void;
   loading?: boolean;
   conversations: ConversationMessage[];
   onSuggestionClick?: (suggestion: string) => void;
-  selectedFiles?: File[];
+  selectedFiles?: FileInfo[];
   templates?: any[];
   showTemplates?: boolean;
   setShowTemplates?: (show: boolean) => void;
@@ -200,7 +200,11 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6">
         <div className="max-w-4xl mx-auto w-full">
         {conversations.length === 0 ? (
-          <WelcomeScreen />
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">💬</div>
+            <h3 className="text-xl font-medium text-base-content mb-2">欢迎使用智能数据分析</h3>
+            <p className="text-base-content/60">请在下方输入您的问题，我将帮助您分析数据</p>
+          </div>
         ) : (
           // 对话消息列表
           conversations.map((message) => (
@@ -236,15 +240,35 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
       )}
       
       {/* 输入区域 */}
-      <InputArea
-        input={input}
-        setInput={setInput}
-        loading={loading}
-        onSubmit={handleSubmit}
-        templatesCount={templates?.length || 0}
-        showTemplates={showTemplates}
-        onToggleTemplates={() => setShowTemplates?.(!showTemplates)}
-      />
+      <div className="border-t border-base-300 p-4 lg:p-6 xl:p-8">
+        <div className="max-w-4xl mx-auto">
+          <SmartInput
+            value={input}
+            onChange={setInput}
+            onSubmit={(query) => handleSubmit()}
+            mode="natural"
+            loading={loading}
+            placeholder="请输入您的问题..."
+            showModeSwitch={false}
+            className="mb-3"
+          />
+          
+          {/* 智能建议按钮 */}
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => setShowTemplates?.(!showTemplates)}
+              className={`btn btn-sm ${
+                showTemplates 
+                  ? 'btn-primary' 
+                  : 'btn-ghost'
+              }`}
+              title="智能建议"
+            >
+              💡 智能建议 ({templates?.length || 0})
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

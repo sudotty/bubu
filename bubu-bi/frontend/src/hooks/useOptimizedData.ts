@@ -1,227 +1,174 @@
-import { useMemo, useCallback, useState } from 'react';
-import type { TableData, ChartConfig, DataInsight } from '../types/data';
+import { useMemo } from 'react';
+import type { QueryResult, CellValue } from '../types/data';
 
 /**
- * 优化的数据处理hook
+ * 数据优化配置接口
  */
-export const useOptimizedData = (rawData: TableData) => {
-  const [sortConfig, setSortConfig] = useState<{
-    key: string;
-    direction: 'asc' | 'desc';
-  } | null>(null);
+interface OptimizationConfig {
+  enableVirtualization?: boolean;
+  maxRowsToRender?: number;
+  enableMemoization?: boolean;
+}
 
-  const [filterConfig, setFilterConfig] = useState<{
-    column: string;
-    value: string;
-  } | null>(null);
-
-  // 缓存处理后的数据
-  const processedData = useMemo(() => {
-    if (!rawData?.rows) return rawData;
-
-    let result = [...rawData.rows];
-
-    // 应用过滤
-    if (filterConfig) {
-      const columnIndex = rawData.columns.indexOf(filterConfig.column);
-      if (columnIndex !== -1) {
-        result = result.filter(row => {
-          const cellValue = row[columnIndex];
-          return String(cellValue).toLowerCase().includes(filterConfig.value.toLowerCase());
-        });
-      }
-    }
-
-    // 应用排序
-    if (sortConfig) {
-      const columnIndex = rawData.columns.indexOf(sortConfig.key);
-      if (columnIndex !== -1) {
-        result.sort((a, b) => {
-          const aVal = a[columnIndex];
-          const bVal = b[columnIndex];
-          
-          // 数值比较
-          if (typeof aVal === 'number' && typeof bVal === 'number') {
-            return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
-          }
-          
-          // 字符串比较
-          const aStr = String(aVal).toLowerCase();
-          const bStr = String(bVal).toLowerCase();
-          
-          if (sortConfig.direction === 'asc') {
-            return aStr.localeCompare(bStr);
-          } else {
-            return bStr.localeCompare(aStr);
-          }
-        });
-      }
-    }
-
-    return {
-      ...rawData,
-      rows: result
-    };
-  }, [rawData, sortConfig, filterConfig]);
-
-  // 缓存排序处理函数
-  const handleSort = useCallback((column: string) => {
-    setSortConfig(prev => {
-      if (prev?.key === column) {
-        // 切换排序方向
-        return {
-          key: column,
-          direction: prev.direction === 'asc' ? 'desc' : 'asc'
-        };
-      } else {
-        // 新列排序
-        return {
-          key: column,
-          direction: 'asc'
-        };
-      }
-    });
-  }, []);
-
-  // 缓存过滤处理函数
-  const handleFilter = useCallback((column: string, value: string) => {
-    setFilterConfig(value ? { column, value } : null);
-  }, []);
-
-  // 缓存重置函数
-  const resetFilters = useCallback(() => {
-    setSortConfig(null);
-    setFilterConfig(null);
-  }, []);
-
-  return {
-    data: processedData,
-    sortConfig,
-    filterConfig,
-    handleSort,
-    handleFilter,
-    resetFilters
+/**
+ * 优化后的数据结果接口
+ */
+interface OptimizedDataResult {
+  data: QueryResult | null;
+  displayData: CellValue[][];
+  totalRows: number;
+  isVirtualized: boolean;
+  performance: {
+    processingTime: number;
+    memoryUsage: number;
   };
-};
+}
 
 /**
- * 优化的图表配置hook
+ * 数据优化Hook
+ * 提供数据虚拟化、分页和性能优化功能
+ * 
+ * @param data 原始查询结果数据
+ * @param config 优化配置选项
+ * @returns 优化后的数据和性能信息
  */
-export const useOptimizedChart = (data: TableData, initialChartType: string = 'bar') => {
-  const [chartType, setChartType] = useState(initialChartType);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+export const useOptimizedData = (
+  data: QueryResult | null,
+  config: OptimizationConfig = {}
+): OptimizedDataResult => {
+  const {
+    enableVirtualization = true,
+    maxRowsToRender = 1000,
+    enableMemoization = true,
+  } = config;
 
-  // 缓存图表配置
-  const chartConfig = useMemo((): ChartConfig => {
-    if (!data?.columns || !data?.rows) {
+  // 使用useMemo优化数据处理性能
+  const optimizedResult = useMemo(() => {
+    const startTime = performance.now();
+    
+    if (!data) {
       return {
-        type: chartType as any,
-        options: {}
+        data: null,
+        displayData: [],
+        totalRows: 0,
+        isVirtualized: false,
+        performance: {
+          processingTime: 0,
+          memoryUsage: 0,
+        },
       };
     }
 
-    const columnsToUse = selectedColumns.length > 0 ? selectedColumns : data.columns.slice(0, 2);
+    const { rows } = data;
+    const totalRows = rows.length;
+    let displayData = rows;
+    let isVirtualized = false;
+
+    // 如果启用虚拟化且数据量超过阈值，则只渲染部分数据
+    if (enableVirtualization && totalRows > maxRowsToRender) {
+      displayData = rows.slice(0, maxRowsToRender);
+      isVirtualized = true;
+    }
+
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
     
+    // 估算内存使用量（简化计算）
+    const memoryUsage = JSON.stringify(displayData).length * 2; // 粗略估算
+
     return {
-      type: chartType as any,
-      title: `${chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart`,
-      xAxis: columnsToUse[0],
-      yAxis: columnsToUse.slice(1),
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top' as const,
-          }
-        }
-      }
+      data,
+      displayData,
+      totalRows,
+      isVirtualized,
+      performance: {
+        processingTime,
+        memoryUsage,
+      },
     };
-  }, [data, chartType, selectedColumns]);
+  }, [data, enableVirtualization, maxRowsToRender, enableMemoization]);
 
-  // 缓存图表类型变更函数
-  const handleChartTypeChange = useCallback((newType: string) => {
-    setChartType(newType);
-  }, []);
-
-  // 缓存列选择函数
-  const handleColumnSelection = useCallback((columns: string[]) => {
-    setSelectedColumns(columns);
-  }, []);
-
-  return {
-    chartConfig,
-    chartType,
-    selectedColumns,
-    handleChartTypeChange,
-    handleColumnSelection
-  };
+  return optimizedResult;
 };
 
 /**
- * 优化的洞察数据hook
+ * 数据分页Hook
+ * 提供分页功能的数据处理
+ * 
+ * @param data 原始数据
+ * @param page 当前页码（从1开始）
+ * @param pageSize 每页大小
+ * @returns 分页后的数据和分页信息
  */
-export const useOptimizedInsights = (data: TableData) => {
-  // 缓存洞察计算
-  const insights = useMemo((): DataInsight[] => {
-    if (!data?.rows || !data?.columns) return [];
-
-    const insights: DataInsight[] = [];
-    const numericColumns: string[] = [];
-    
-    // 识别数值列
-    data.columns.forEach((header: string, index: number) => {
-      const firstValue = data.rows[0]?.[index];
-      if (typeof firstValue === 'number') {
-        numericColumns.push(header);
-      }
-    });
-
-    // 生成基本统计洞察
-    numericColumns.forEach(column => {
-      const columnIndex = data.columns.indexOf(column);
-      const values = data.rows
-        .map(row => row[columnIndex])
-        .filter(val => typeof val === 'number') as number[];
-      
-      if (values.length > 0) {
-        const sum = values.reduce((a, b) => a + b, 0);
-        const avg = sum / values.length;
-        const max = Math.max(...values);
-        const min = Math.min(...values);
-        
-        insights.push({
-          id: `stat-${column}-${Date.now()}`,
-          type: 'summary',
-          title: `${column} 统计信息`,
-          description: `平均值: ${avg.toFixed(2)}, 最大值: ${max}, 最小值: ${min}`,
-          confidence: 0.9,
-          severity: 'low',
-          timestamp: new Date()
-        });
-      }
-    });
-
-    // 数据质量洞察
-    const totalRows = data.rows.length;
-    const emptyCount = data.rows.reduce((count, row) => {
-      return count + row.filter(cell => cell === null || cell === undefined || cell === '').length;
-    }, 0);
-    
-    if (emptyCount > 0) {
-      insights.push({
-        id: `quality-${Date.now()}`,
-        type: 'recommendation',
-        title: '数据质量提醒',
-        description: `发现 ${emptyCount} 个空值，占总数据的 ${((emptyCount / (totalRows * data.columns.length)) * 100).toFixed(1)}%`,
-        confidence: 1.0,
-        severity: 'medium',
-        timestamp: new Date()
-      });
+export const usePaginatedData = (
+  data: QueryResult | null,
+  page: number = 1,
+  pageSize: number = 50
+) => {
+  return useMemo(() => {
+    if (!data) {
+      return {
+        paginatedData: [],
+        totalPages: 0,
+        currentPage: 1,
+        hasNext: false,
+        hasPrev: false,
+      };
     }
 
-    return insights;
-  }, [data]);
+    const { rows } = data;
+    const totalRows = rows.length;
+    const totalPages = Math.ceil(totalRows / pageSize);
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalRows);
+    const paginatedData = rows.slice(startIndex, endIndex);
 
-  return { insights };
+    return {
+      paginatedData,
+      totalPages,
+      currentPage: page,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+      totalRows,
+    };
+  }, [data, page, pageSize]);
+};
+
+/**
+ * 数据搜索Hook
+ * 提供数据搜索和过滤功能
+ * 
+ * @param data 原始数据
+ * @param searchTerm 搜索词
+ * @param searchColumns 搜索的列索引数组
+ * @returns 过滤后的数据
+ */
+export const useSearchableData = (
+  data: QueryResult | null,
+  searchTerm: string = '',
+  searchColumns?: number[]
+) => {
+  return useMemo(() => {
+    if (!data || !searchTerm.trim()) {
+      return data;
+    }
+
+    const { rows, columns } = data;
+    const term = searchTerm.toLowerCase();
+    const columnsToSearch = searchColumns || Array.from({ length: columns.length }, (_, i) => i);
+
+    const filteredRows = rows.filter(row => {
+      return columnsToSearch.some(colIndex => {
+        const cellValue = row[colIndex];
+        if (cellValue === null || cellValue === undefined) return false;
+        return String(cellValue).toLowerCase().includes(term);
+      });
+    });
+
+    return {
+      ...data,
+      rows: filteredRows,
+      totalRows: filteredRows.length,
+    };
+  }, [data, searchTerm, searchColumns]);
 };

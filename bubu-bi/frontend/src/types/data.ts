@@ -3,67 +3,6 @@
 // 基础数据类型
 export type CellValue = string | number | boolean | null;
 
-// 表格数据接口
-export interface TableData {
-  columns: string[];
-  rows: CellValue[][];
-  total?: number;
-  metadata?: {
-    source: string;
-    timestamp: Date;
-    queryId: string;
-    fileSize?: number;
-    processingTime?: number;
-  };
-}
-
-// 图表配置接口
-export interface ChartConfig {
-  type: 'bar' | 'line' | 'pie' | 'scatter';
-  title?: string;
-  xAxis?: string;
-  yAxis?: string[];
-  colors?: string[];
-  options?: {
-    responsive?: boolean;
-    maintainAspectRatio?: boolean;
-    plugins?: {
-      legend?: {
-        display?: boolean;
-        position?: 'top' | 'bottom' | 'left' | 'right';
-      };
-      tooltip?: {
-        enabled?: boolean;
-      };
-    };
-  };
-}
-
-// 数据洞察接口
-export interface DataInsight {
-  id: string;
-  type: 'trend' | 'anomaly' | 'correlation' | 'summary' | 'recommendation';
-  title: string;
-  description: string;
-  confidence: number; // 0-1
-  severity: 'low' | 'medium' | 'high';
-  data?: {
-    value?: number;
-    change?: number;
-    comparison?: string;
-    details?: Record<string, any>;
-  };
-  timestamp: Date;
-}
-
-// 分析洞察接口
-export interface AnalysisInsight {
-  category: string;
-  insights: DataInsight[];
-  timestamp: number;
-  dataSize: number;
-}
-
 // 调试信息接口
 export interface DebugInfo {
   queryId: string;
@@ -86,11 +25,12 @@ export interface ConversationMessage {
   type: 'user' | 'assistant' | 'error';
   content: string;
   timestamp: Date;
-  data?: TableData;
-  chart?: ChartConfig;
-  insights?: DataInsight[];
   suggestions?: string[];
   debugInfo?: import('../types/debug').DebugInfo;
+  data?: {
+    columns: string[];
+    rows: CellValue[][];
+  };
 }
 
 // 查询状态接口
@@ -113,7 +53,6 @@ export interface FileUpload {
   status: 'pending' | 'uploading' | 'processing' | 'completed' | 'error';
   progress: number;
   error?: string;
-  result?: TableData;
 }
 
 // 导出选项接口
@@ -188,10 +127,25 @@ export interface ThemeConfig {
   density: 'compact' | 'standard' | 'comfortable';
 }
 
+// 查询结果接口
+export interface QueryResult {
+  id: string;
+  query: string;
+  columns: string[];
+  rows: CellValue[][];
+  totalRows: number;
+  executionTime: number;
+  timestamp: Date;
+  metadata?: {
+    dataSource: string;
+    cacheHit: boolean;
+    warnings?: string[];
+  };
+}
+
 // 用户偏好设置接口
 export interface UserPreferences {
   theme: ThemeConfig;
-  defaultChartType: ChartConfig['type'];
   autoSave: boolean;
   showDebugInfo: boolean;
   maxRowsPerPage: number;

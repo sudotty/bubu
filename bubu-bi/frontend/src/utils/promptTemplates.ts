@@ -101,23 +101,14 @@ export class PromptTemplates {
   }
 
   /**
-   * 构建数据洞察提示模板
-   * 业务意义：指导用户理解数据分析结果
+   * 构建查询结果提示模板
+   * 业务意义：指导用户理解查询结果
    * 应用场景：结果展示、用户教育
-   * @param dataType 数据类型
    * @param recordCount 记录数量
-   * @returns 数据洞察提示
+   * @returns 查询结果提示
    */
-  static buildDataInsightPrompt(dataType: 'table' | 'chart' | 'summary', recordCount: number): string {
-    const basePrompt = `本次查询返回了 ${recordCount} 条记录`;
-    
-    const typeSpecificPrompts = {
-      table: '，您可以查看详细的数据表格，或尝试不同的筛选条件',
-      chart: '，建议查看可视化图表以获得更直观的数据洞察',
-      summary: '，以下是数据的统计摘要和关键指标'
-    };
-    
-    return basePrompt + typeSpecificPrompts[dataType];
+  static buildQueryResultPrompt(recordCount: number): string {
+    return `本次查询返回了 ${recordCount} 条记录，您可以继续提问或尝试其他查询条件`;
   }
 
   /**
