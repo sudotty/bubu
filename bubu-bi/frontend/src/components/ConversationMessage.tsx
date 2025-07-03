@@ -80,6 +80,7 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
   const [showDebug, setShowDebug] = useState(false);
   const [showChartModal, setShowChartModal] = useState(false);
   const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [isTableFullscreen, setIsTableFullscreen] = useState(false);
   const [chartData, setChartData] = useState<any>(null);
   const [insightsData, setInsightsData] = useState<any>(null);
   const { dispatch } = useDataContext();
@@ -167,17 +168,41 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
                            💡
                          </button>
                        )}
+                       {/* 全屏按钮 */}
+                       <button
+                         className="btn btn-sm btn-ghost"
+                         onClick={() => setIsTableFullscreen(!isTableFullscreen)}
+                         title={isTableFullscreen ? '退出全屏' : '全屏显示'}
+                       >
+                         {isTableFullscreen ? '⤓' : '⤢'}
+                       </button>
                      </div>
                    </div>
                    
                    {/* 数据表格 */}
-                   <SimpleTable 
-                     data={adaptTableData(optimizedData)}
-                     features={{
-                       sortable: true,
-                       fullscreen: true
-                     }}
-                   />
+                   <div className={isTableFullscreen ? 'fixed inset-0 z-50 bg-white flex flex-col' : 'relative'}>
+                     {isTableFullscreen && (
+                       <div className="flex justify-between items-center p-4 border-b bg-base-200">
+                         <h3 className="text-lg font-semibold">数据表格 - 全屏模式</h3>
+                         <button
+                           className="btn btn-sm btn-circle btn-ghost"
+                           onClick={() => setIsTableFullscreen(false)}
+                           title="退出全屏"
+                         >
+                           ✕
+                         </button>
+                       </div>
+                     )}
+                     <div className={isTableFullscreen ? 'flex-1 overflow-hidden' : ''}>
+                       <SimpleTable 
+                         data={adaptTableData(optimizedData)}
+                         features={{
+                           sortable: true,
+                           fullscreen: false
+                         }}
+                       />
+                     </div>
+                   </div>
                  </div>
                )}
              </DataContainer>

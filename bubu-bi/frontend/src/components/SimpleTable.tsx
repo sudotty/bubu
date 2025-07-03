@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronUp, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { VirtualizedTableProps, TableRow, SortConfig, CellValue } from '../types/table';
 
 const SimpleTable = <T extends TableRow = TableRow>({
@@ -10,7 +10,7 @@ const SimpleTable = <T extends TableRow = TableRow>({
   i18n = {},
 }: VirtualizedTableProps<T>) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+
 
   // 默认文本
   const defaultTexts = {
@@ -69,10 +69,7 @@ const SimpleTable = <T extends TableRow = TableRow>({
     setSortConfig(null);
   };
 
-  // 全屏切换
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-  };
+
 
   // 渲染单元格内容
   const renderCellContent = (value: CellValue): React.ReactNode => {
@@ -109,33 +106,7 @@ const SimpleTable = <T extends TableRow = TableRow>({
   }
 
   return (
-    <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-white' : 'relative'} ${styling.className || ''}`}>
-      {/* 工具栏 */}
-      {(features.fullscreen || sortConfig) && (
-        <div className="flex justify-between items-center p-2 border-b">
-          <div className="flex items-center gap-2">
-            {sortConfig && (
-              <button
-                onClick={handleClearSort}
-                className="btn btn-sm btn-outline"
-              >
-                清除排序
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {features.fullscreen && (
-              <button
-                onClick={toggleFullscreen}
-                className="btn btn-sm btn-ghost"
-                title={isFullscreen ? '退出全屏' : '全屏显示'}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+    <div className={`relative ${styling.className || ''}`}>
 
       {/* 表格容器 */}
       <div className="overflow-auto max-h-[600px]">
