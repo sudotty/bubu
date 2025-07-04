@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { ExportToExcel } from '../../wailsjs/go/main/App';
 import { useNotificationMethods } from './NotificationSystem';
 import { FileInfo } from '../types';
 import { UI_CONSTANTS, MESSAGE_TYPES } from '../constants/ui';
 import { isEscapePressed } from '../utils/keyboard';
 import { ConversationMessage } from '../types/data';
+import { useConversation } from '../store';
 
 // 组件导入
 import { ConversationMessage as ConversationMessageComponent } from './ConversationMessage';
@@ -42,22 +43,15 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   onUseTemplate,
   onDeleteTemplate
 }) => {
-  const [input, setInput] = useState('');
+  // 使用 Zustand store 替代 useState
+  const { input, globalDebugMode, setInput, toggleDebugMode } = useConversation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [globalDebugMode, setGlobalDebugMode] = useState(() => {
-    return localStorage.getItem('bubu-debug-mode') === 'true' || 
-           window.location.search.includes('debug=true');
-  });
   const { success, error } = useNotificationMethods();
 
   
-  // 切换调试模式
-  const toggleDebugMode = useCallback(() => {
-    const newMode = !globalDebugMode;
-    setGlobalDebugMode(newMode);
-    localStorage.setItem('bubu-debug-mode', newMode.toString());
-  }, [globalDebugMode]);
+  // 切换调试模式 - 使用 Zustand store
+  // toggleDebugMode 已从 store 中获取，无需重新定义
 
   // 下载数据功能
   const handleExportData = useCallback(async (message: ConversationMessage) => {
@@ -130,7 +124,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   const handleSubmit = () => {
     if (input.trim() && !loading) {
       onQuery(input.trim());
-      setInput('');
+      setInput(''); // 使用 store 的 setInput 清空输入
     }
   };
 

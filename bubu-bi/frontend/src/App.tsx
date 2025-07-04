@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { GetUploadedFiles } from '../wailsjs/go/main/App';
 import FilePanel from './components/FilePanel';
 import ConversationInterface from './components/ConversationInterface';
@@ -12,6 +12,7 @@ import { parseDebugInfo } from './types/debug';
 import { DataProvider } from './context/DataContext';
 import { NotificationProvider, useNotificationMethods } from './components/NotificationSystem';
 import { useI18n } from './hooks/useI18n';
+import { useAppState, useAppActions, useFileManagement, useConversationManagement } from './store';
 import type { FileInfo } from './types';
 
 // 扩展Window接口以包含go对象
@@ -26,15 +27,34 @@ declare global {
 }
 
 const AppContent = () => {
-	const [files, setFiles] = useState<FileInfo[]>([]);
-	const [showAppSettings, setShowAppSettings] = useState(false);
-	const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
-	const [isRefreshing, setIsRefreshing] = useState(false);
-	const [selectedFiles, setSelectedFiles] = useState<FileInfo[]>([]);
-	const [isProcessingFile, setIsProcessingFile] = useState(false);
-	const [showConversationSelector, setShowConversationSelector] = useState(false);
+	// 使用 Zustand store 替代分散的 useState
+	const {
+		files,
+		selectedFiles,
+		isRefreshing,
+		isProcessingFile,
+		showAppSettings,
+		analysisHistory
+	} = useAppState();
+	
+	const {
+		setFiles,
+		setIsRefreshing,
+		setShowAppSettings,
+		selectFile
+	} = useAppActions();
+	
+	const {
+		showConversationSelector,
+		currentConversationId,
+		currentMessages,
+		setShowConversationSelector,
+		setCurrentConversationId,
+		setCurrentMessages,
+		resetConversationState
+	} = useConversationManagement();
 
-	// 检查并创建会话的函数
+	// 检查并创建会话的函数 - 使用 Zustand store 状态
 	const checkAndCreateConversation = async (files: any[]) => {
 		if (files.length === 0) return;
 		
@@ -79,8 +99,6 @@ const AppContent = () => {
 			}
 		}
 	};
-	const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
-	const [currentMessages, setCurrentMessages] = useState<any[]>([]);
 	const { success, error, info } = useNotificationMethods();
 	
 	// 对话查询功能 - 使用 useMemo 避免每次渲染都创建新数组
@@ -110,7 +128,21 @@ const AppContent = () => {
 	// }, [selectedFiles]);
 
 
-	// 加载文件和表列表
+	// 加载文件列表 - 使用 Zustand store
+	const loadFiles = useCallback(async () => {
+		setIsRefreshing(true);
+		try {
+			const uploadedFiles = await GetUploadedFiles();
+			setFiles(uploadedFiles || []);
+		} catch (err) {
+			console.error('Failed to load files:', err);
+			error('加载文件列表失败');
+		} finally {
+			setIsRefreshing(false);
+		}
+	}, [setFiles, setIsRefreshing, error]);
+
+	// 加载文件和表列表 - 使用 Zustand store
 	const loadData = useCallback(async (showNotification = false) => {
 		try {
 			// 检查wails运行时是否已初始化
@@ -130,13 +162,13 @@ const AppContent = () => {
 				error('数据刷新失败', '请检查网络连接或稍后重试');
 			}
 		}
-	}, [success, error]);
+	}, [setFiles, success, error]);
 
 	useEffect(() => {
 		loadData();
 	}, []); // 只在组件挂载时执行一次
 
-	// 全局刷新函数
+	// 全局刷新函数 - 使用 Zustand store
 	const handleGlobalRefresh = useCallback(async () => {
 		if (isRefreshing) return;
 		
@@ -150,11 +182,20 @@ const AppContent = () => {
 		} finally {
 			setIsRefreshing(false);
 		}
-	}, [isRefreshing, info]); // 移除loadData依赖，避免无限循环
+	}, [isRefreshing, setIsRefreshing, info, loadData]);
 
 	const handleFileUploaded = useCallback(() => {
 		loadData(true); // 重新加载数据并显示通知
-	}, []); // 移除loadData依赖，避免无限循环
+	}, [loadData]);
+
+	// 文件选择处理函数 - 使用 Zustand store
+	const handleFileSelect = useCallback((file: FileInfo | null) => {
+		if (file) {
+			selectFile(file);
+			// 检查并创建会话
+			checkAndCreateConversation([file]);
+		}
+	}, [selectFile, checkAndCreateConversation]);
 
 
 
@@ -195,30 +236,7 @@ const AppContent = () => {
 						analysisHistory={analysisHistory}
 						isRefreshing={isRefreshing}
 						selectedFiles={selectedFiles}
-						onFileSelect={(file) => {
-				if (!file) return;
-				if (selectedFiles.some(f => f.filename === file.filename && f.file_path === file.file_path)) {
-					// 如果文件已选中，则取消选择
-					setSelectedFiles(prev => {
-						const newSelection = prev.filter(f => !(f.filename === file.filename && f.file_path === file.file_path));
-						// 如果没有选中的文件了，隐藏会话选择器
-						if (newSelection.length === 0) {
-							setShowConversationSelector(false);
-							setCurrentConversationId(null);
-							setCurrentMessages([]);
-						}
-						return newSelection;
-					});
-				} else {
-					// 如果文件未选中，则添加到选择列表
-					setSelectedFiles(prev => {
-						const newSelection = [...prev, file];
-						// 检查是否有历史会话，没有则自动创建新会话
-						checkAndCreateConversation(newSelection);
-						return newSelection;
-					});
-				}
-			}}
+						onFileSelect={handleFileSelect}
 						isProcessingFile={isProcessingFile}
 					/>
 				</div>

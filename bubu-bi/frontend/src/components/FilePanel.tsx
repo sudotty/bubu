@@ -1,8 +1,9 @@
 
-import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import { UploadFile } from '../../wailsjs/go/main/App';
 import FileList from './FileList';
 import type { FileInfo } from '../types';
+import { useFilePanel } from '../store';
 
 interface FilePanelProps {
   files: FileInfo[];
@@ -17,9 +18,8 @@ interface FilePanelProps {
 const FilePanel = ({ files, onRefresh, analysisHistory = [], isRefreshing: globalIsRefreshing = false, selectedFiles = [], onFileSelect, isProcessingFile = false }: FilePanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-
-  const [localIsRefreshing, setLocalIsRefreshing] = useState(false);
+  // 从 Zustand store 获取 FilePanel 状态和 actions
+  const { localIsRefreshing, setLocalIsRefreshing } = useFilePanel();
   
   // 使用全局刷新状态或本地刷新状态
   const isRefreshing = globalIsRefreshing || localIsRefreshing;

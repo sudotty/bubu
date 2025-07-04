@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { GetConversationsByFiles, CreateConversation, GetConversationMessages } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
+import { useConversationSelector } from '../store';
+import type { ConversationListItem } from '../store/slices/conversationSelectorSlice';
 
 interface ConversationSelectorProps {
   fileKey: string;
@@ -10,14 +12,7 @@ interface ConversationSelectorProps {
   onCreateNewConversation: (conversationId: number) => void;
 }
 
-interface ConversationListItem {
-  id: number;
-  session_id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  message_count?: number;
-}
+
 
 export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
   fileKey,
@@ -26,42 +21,47 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
   onSelectConversation,
   onCreateNewConversation,
 }) => {
-  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    conversationList,
+    conversationLoading,
+    setConversationList,
+    setConversationLoading,
+    sortConversationsByTime,
+    addConversationToList
+  } = useConversationSelector();
 
   // 生成会话ID
   const generateSessionId = () => {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // 加载会话列表
+  // 加载会话列表 - 使用 Zustand store
   const loadConversations = async () => {
     if (!fileKey) return;
     
-    setLoading(true);
+    setConversationLoading(true);
     try {
       const fileKeys = selectedFiles.length > 0 
         ? selectedFiles.map(f => f.filename)
         : [fileKey];
       const result = await GetConversationsByFiles(fileKeys);
       
-      // 按时间倒序排列，最新的在最上面
-      const sortedConversations = result.sort((a: any, b: any) => 
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
+      // 设置会话列表到 store
+      setConversationList(result);
+      // 使用 store 方法按时间排序
+      sortConversationsByTime();
       
-      setConversations(sortedConversations);
     } catch (error) {
       console.error('Failed to load conversations:', error);
       alert('加载会话列表失败');
     } finally {
-      setLoading(false);
+      setConversationLoading(false);
     }
   };
 
-  // 创建新会话
+  // 创建新会话 - 使用 Zustand store
   const handleCreateNewConversation = async () => {
-    setLoading(true);
+    setConversationLoading(true);
     try {
       const sessionId = generateSessionId();
       const title = selectedFiles.length > 1 
@@ -73,19 +73,28 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
       
       onCreateNewConversation(conversation.id);
       
-      // 刷新会话列表
-      await loadConversations();
+      // 使用 store 方法添加新会话到列表顶部
+      const newConversationItem: ConversationListItem = {
+        id: conversation.id,
+        title: conversation.title || title,
+        session_id: sessionId,
+        file_key: primaryFileKey,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      addConversationToList(newConversationItem);
+      
     } catch (error) {
       console.error('Failed to create conversation:', error);
       alert('创建新会话失败');
     } finally {
-      setLoading(false);
+      setConversationLoading(false);
     }
   };
 
   // 选择历史会话
   const handleSelectConversation = async (conversationId: number) => {
-    setLoading(true);
+    setConversationLoading(true);
     try {
       const messages = await GetConversationMessages(conversationId);
       onSelectConversation(conversationId, messages);
@@ -94,7 +103,7 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
       console.error('Failed to load conversation messages:', error);
       alert('加载会话消息失败');
     } finally {
-      setLoading(false);
+      setConversationLoading(false);
     }
   };
 
@@ -170,10 +179,10 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
                 </div>
                 <button
                   onClick={handleCreateNewConversation}
-                  disabled={loading}
+                  disabled={conversationLoading}
                   className="btn btn-primary w-full font-semibold py-4 px-6 transition-all duration-200 transform hover:scale-105 disabled:scale-100"
                 >
-                  {loading ? (
+                  {conversationLoading ? (
                     <div className="flex items-center justify-center">
                       <span className="loading loading-spinner loading-sm mr-2"></span>
                       创建中...
@@ -196,12 +205,12 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
               </h3>
               
               <div className="bg-base-200 rounded-xl p-6 border border-base-300 max-h-96 overflow-y-auto card">
-                {loading ? (
+                {conversationLoading ? (
                   <div className="text-center py-8">
                     <span className="loading loading-spinner loading-lg mb-4"></span>
                     <div className="text-base-content/60">加载中...</div>
                   </div>
-                ) : conversations.length === 0 ? (
+                ) : conversationList.length === 0 ? (
                   <div className="text-center py-8">
                     <div className="text-6xl mb-4 opacity-50">📭</div>
                     <div className="text-base-content/60 text-lg">暂无历史会话</div>
@@ -209,7 +218,7 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {conversations.map((conversation) => (
+                    {conversationList.map((conversation) => (
                       <div
                         key={conversation.id}
                         className="bg-base-100 border border-base-300 rounded-xl p-4 hover:shadow-md transition-all duration-200 hover:border-primary card"
@@ -232,7 +241,7 @@ export const ConversationSelector: React.FC<ConversationSelectorProps> = ({
                           </div>
                           <button
                             onClick={() => handleSelectConversation(conversation.id)}
-                            disabled={loading}
+                            disabled={conversationLoading}
                             className="btn btn-success ml-4 transition-all duration-200 transform hover:scale-105 disabled:scale-100 flex items-center whitespace-nowrap"
                           >
                             <span className="mr-1">💬</span>

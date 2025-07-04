@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { DAISY_COMPONENTS, UI_CONSTANTS } from '../constants/ui';
 import { isEnterPressed } from '../utils/keyboard';
-
-// 输入模式类型
-export type InputMode = 'natural' | 'sql' | 'mixed';
+import { useSmartInput } from '../store';
+import type { InputMode } from '../store/slices/smartInputSlice';
 
 // 建议项类型
 export interface Suggestion {
@@ -70,11 +69,30 @@ export const SmartInput: React.FC<SmartInputProps> = ({
   maxHeight = UI_CONSTANTS.INPUT.MAX_HEIGHT,
   className = '',
 }) => {
-  const [currentMode, setCurrentMode] = useState<InputMode>(mode);
-  const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
-  const [activeTab, setActiveTab] = useState<'suggestions' | 'history' | 'templates'>('suggestions');
+  // 使用 Zustand store 替代 useState
+  const {
+    currentMode: storeMode,
+    showSuggestionsPanel,
+    activeTab,
+    setCurrentMode,
+    setShowSuggestionsPanel,
+    setActiveTab,
+    closeSuggestionsPanel,
+    openSuggestionsPanel
+  } = useSmartInput();
+  
+  // 使用 props 中的 mode 或 store 中的 mode
+  const currentMode = mode || storeMode;
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // 同步 props mode 到 store
+  useEffect(() => {
+    if (mode && mode !== storeMode) {
+      setCurrentMode(mode as any);
+    }
+  }, [mode, storeMode, setCurrentMode]);
 
   // 获取当前模式的占位符
   const getPlaceholder = useCallback(() => {
@@ -109,12 +127,12 @@ export const SmartInput: React.FC<SmartInputProps> = ({
     onModeChange?.(newMode);
   };
 
-  // 处理输入变化
+  // 处理输入变化 - 使用 Zustand store
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
     
-    // 显示建议面板
+    // 显示建议面板 - 使用 store 状态管理
     if (newValue.trim() && showSuggestions) {
       setShowSuggestionsPanel(true);
     } else {
@@ -135,9 +153,9 @@ export const SmartInput: React.FC<SmartInputProps> = ({
         }
       }
       
-      // ESC 键关闭建议面板
+      // ESC 键关闭建议面板 - 使用 store 方法
       if (e.key === 'Escape') {
-        setShowSuggestionsPanel(false);
+        closeSuggestionsPanel();
       }
     };
     
@@ -148,30 +166,30 @@ export const SmartInput: React.FC<SmartInputProps> = ({
     };
   }, [value, currentMode, loading, onSubmit]);
 
-  // 处理建议选择
+  // 处理建议选择 - 使用 Zustand store
   const handleSuggestionSelect = (suggestion: Suggestion) => {
     onChange(suggestion.text);
-    setShowSuggestionsPanel(false);
+    closeSuggestionsPanel();
     textareaRef.current?.focus();
   };
 
-  // 处理历史记录选择
+  // 处理历史记录选择 - 使用 Zustand store
   const handleHistorySelect = (item: HistoryItem) => {
     onChange(item.query);
     if (item.mode !== currentMode) {
       handleModeChange(item.mode);
     }
-    setShowSuggestionsPanel(false);
+    closeSuggestionsPanel();
     textareaRef.current?.focus();
   };
 
-  // 处理模板选择
+  // 处理模板选择 - 使用 Zustand store
   const handleTemplateSelect = (template: Template) => {
     onChange(template.content);
     if (template.mode !== currentMode) {
       handleModeChange(template.mode);
     }
-    setShowSuggestionsPanel(false);
+    closeSuggestionsPanel();
     textareaRef.current?.focus();
   };
 
