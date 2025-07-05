@@ -3,7 +3,7 @@ import { copyMessageContent } from '../utils/clipboard';
 import { UI_CONSTANTS, MESSAGE_TYPES } from '../constants/ui';
 // 已移除styles.ts，直接使用Tailwind CSS类名
 import DebugInfoPanel from './DebugInfoPanel';
-// 移除了不再使用的表格相关导入
+import DataTable from './DataTable';
 import type { ConversationMessage as MessageType } from '../types/data';
 import { DebugInfo } from '../types/debug';
 
@@ -63,35 +63,18 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
           isError={isError}
         />
         
-        {/* 数据结果摘要 */}
+        {/* 数据结果表格 */}
         {message.data && (
           <div className="mt-3 p-3 bg-base-100 rounded-lg border">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-base-content">📊 查询结果</span>
+              <span className="badge badge-primary badge-sm">{message.data.rows?.length || 0} 条数据</span>
             </div>
-            <div className="space-y-2 text-sm text-base-content/70">
-              {/* 数据条数 */}
-              <div className="flex items-center space-x-2">
-                <span className="font-medium">数据条数:</span>
-                <span className="badge badge-primary badge-sm">{message.data.rows?.length || 0} 条</span>
-              </div>
-              
-              {/* 列定义 */}
-               <div>
-                 <span className="font-medium">列定义:</span>
-                 <div className="mt-1 flex flex-wrap gap-1">
-                   {message.data.columns?.map((column, index) => (
-                     <span 
-                       key={index} 
-                       className="badge badge-outline badge-xs"
-                       title={column}
-                     >
-                       {column}
-                     </span>
-                   )) || []}
-                 </div>
-               </div>
-            </div>
+            <DataTable 
+              columns={message.data.columns || []}
+              rows={message.data.rows || []}
+              className="max-h-96"
+            />
           </div>
         )}
         
