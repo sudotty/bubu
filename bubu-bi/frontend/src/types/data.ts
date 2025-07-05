@@ -26,10 +26,12 @@ export interface ConversationMessage {
   content: string;
   timestamp: Date;
   suggestions?: string[];
+  insights?: string[];
   debugInfo?: import('../types/debug').DebugInfo;
   data?: {
     columns: string[];
     rows: CellValue[][];
+    total?: number;
   };
 }
 

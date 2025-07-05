@@ -258,7 +258,30 @@ func (ds *DatabaseService) initTables() error {
 
 // ExecuteQuery 执行SQL查询
 func (ds *DatabaseService) ExecuteQuery(query string) (*QueryResult, error) {
-	rows, err := ds.db.Query(query)
+	return ds.ExecuteQueryWithPagination(query, 10, 0)
+}
+
+// ExecuteQueryWithPagination 执行分页查询
+func (ds *DatabaseService) ExecuteQueryWithPagination(query string, limit, offset int) (*QueryResult, error) {
+	// 首先获取总数
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
+	var total int
+	err := ds.db.QueryRow(countQuery).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("获取总数失败: %v", err)
+	}
+
+	// 执行分页查询 - 检查是否已经包含LIMIT子句
+	var paginatedQuery string
+	queryUpper := strings.ToUpper(strings.TrimSpace(query))
+	if strings.Contains(queryUpper, "LIMIT") {
+		// 如果SQL已经包含LIMIT，直接使用原查询
+		paginatedQuery = query
+	} else {
+		// 如果没有LIMIT，添加分页参数
+		paginatedQuery = fmt.Sprintf("%s LIMIT %d OFFSET %d", query, limit, offset)
+	}
+	rows, err := ds.db.Query(paginatedQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -274,9 +297,10 @@ func (ds *DatabaseService) ExecuteQuery(query string) (*QueryResult, error) {
 	result := &QueryResult{
 		Columns: columns,
 		Rows:    make([][]interface{}, 0),
+		Total:   total, // 设置真实总数
 	}
 
-	// 读取所有数据
+	// 读取分页数据
 	for rows.Next() {
 		values := make([]interface{}, len(columns))
 		valuePtrs := make([]interface{}, len(columns))
@@ -299,7 +323,6 @@ func (ds *DatabaseService) ExecuteQuery(query string) (*QueryResult, error) {
 		result.Rows = append(result.Rows, values)
 	}
 
-	result.Total = len(result.Rows)
 	return result, nil
 }
 

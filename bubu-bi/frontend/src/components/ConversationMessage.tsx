@@ -56,23 +56,33 @@ export const ConversationMessage: React.FC<ConversationMessageProps> = ({
           }}
         />
         
-        {/* 消息内容 */}
-        <MessageContent 
-          content={message.content}
-          isUser={isUser}
-          isError={isError}
-        />
+        {/* 消息内容 - 仅对用户消息和错误消息显示 */}
+        {(isUser || isError) && (
+          <MessageContent 
+            content={message.content}
+            isUser={isUser}
+            isError={isError}
+          />
+        )}
         
         {/* 数据结果表格 */}
         {message.data && (
           <div className="mt-3 p-3 bg-base-100 rounded-lg border">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-base-content">📊 查询结果</span>
-              <span className="badge badge-primary badge-sm">{message.data.rows?.length || 0} 条数据</span>
+              <span className="text-sm font-medium text-base-content">
+                {message.insights && message.insights.length > 1 ? message.insights[1] : 'Definition'}
+              </span>
+              <span className="badge badge-primary badge-sm">
+                {message.data.rows?.length || 0} 条数据
+                {message.data.total && message.data.total > (message.data.rows?.length || 0) && (
+                  <span className="ml-1">/ 共 {message.data.total} 条</span>
+                )}
+              </span>
             </div>
             <DataTable 
               columns={message.data.columns || []}
               rows={message.data.rows || []}
+              total={message.data.total}
               className="max-h-96"
             />
           </div>

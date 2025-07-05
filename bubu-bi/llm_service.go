@@ -130,7 +130,7 @@ func (llm *LLMService) callLLMAPI(ctx context.Context, input, tableSchema string
 					StringValue: &input,
 				},
 			},
-		}, 
+		},
 		Thinking: &model.Thinking{
 			Type: model.ThinkingTypeDisabled, // 关闭深度思考能力
 			// Type: model.ThinkingTypeEnabled, //开启深度思考能力
@@ -143,7 +143,6 @@ func (llm *LLMService) callLLMAPI(ctx context.Context, input, tableSchema string
 	if err != nil {
 		return nil, fmt.Errorf("调用LLM API失败: %v", err)
 	}
-	
 
 	// 解析响应
 	result, err := llm.parseResponse(&response, input)
@@ -173,10 +172,10 @@ func (llm *LLMService) parseResponse(response *model.ChatCompletionResponse, ori
 	}
 
 	content := *response.Choices[0].Message.Content.StringValue
- // 检查是否触发深度思考，触发则打印思维链内容
-    // if response.Choices[0].Message.ReasoningContent != nil {
-    //     thinkChain = *response.Choices[0].Message.ReasoningContent
-    // }
+	// 检查是否触发深度思考，触发则打印思维链内容
+	// if response.Choices[0].Message.ReasoningContent != nil {
+	//     thinkChain = *response.Choices[0].Message.ReasoningContent
+	// }
 	// 提取JSON部分
 	jsonStr := llm.extractJSON(content)
 	if jsonStr == "" {
