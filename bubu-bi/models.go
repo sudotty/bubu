@@ -276,9 +276,8 @@ func (ds *DatabaseService) ExecuteQuery(query string) (*QueryResult, error) {
 		Rows:    make([][]interface{}, 0),
 	}
 
-	// 读取数据，限制为前10条
-	rowCount := 0
-	for rows.Next() && rowCount < 10 {
+	// 读取所有数据
+	for rows.Next() {
 		values := make([]interface{}, len(columns))
 		valuePtrs := make([]interface{}, len(columns))
 		for i := range values {
@@ -298,7 +297,6 @@ func (ds *DatabaseService) ExecuteQuery(query string) (*QueryResult, error) {
 		}
 
 		result.Rows = append(result.Rows, values)
-		rowCount++
 	}
 
 	result.Total = len(result.Rows)

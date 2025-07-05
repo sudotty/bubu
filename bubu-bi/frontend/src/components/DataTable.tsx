@@ -18,11 +18,11 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, rows, className =
 
   return (
     <div className={`overflow-x-auto ${className}`}>
-      <table className="table table-zebra table-pin-rows table-pin-cols">
+      <table className="table table-zebra">
         <thead>
           <tr>
             {columns.map((column, index) => (
-              <th key={index} className="bg-base-200 text-base-content font-semibold">
+              <th key={index} className="text-base-content font-semibold">
                 {column}
               </th>
             ))}
