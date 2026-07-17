@@ -5,6 +5,7 @@ import {
   parseDatasetGroupSaveInput,
   parseDatasetId,
   parseDatasetReplacementMappingInput,
+  parseDatasetValidationSaveInput,
   parseDatasetPreviewRequest,
   parseConversationTarget,
   parseGroupQueryRequest,
@@ -127,6 +128,14 @@ export function registerDesktopApi({
       pending.sourcePath,
       input.mappings,
     );
+  });
+  ipcMain.handle(desktopChannels.getDatasetQuality, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.getDatasetQuality(parseDatasetId(value));
+  });
+  ipcMain.handle(desktopChannels.saveDatasetValidation, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.saveDatasetValidation(parseDatasetValidationSaveInput(value));
   });
   ipcMain.handle(desktopChannels.listProviders, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

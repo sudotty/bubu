@@ -27,6 +27,7 @@ Use **替换数据版本** on an existing contact for a recurring file. If the n
 
 - Use one header row with meaningful, unique names when possible.
 - Keep identifiers formatted as text if leading zeros are meaningful.
+- Keep a table at or below 500 columns; this bounds local profiling, validation, model-context, and mapping surfaces.
 - Remove decorative title rows above tabular Excel data.
 - Split unrelated tables into separate sheets or files.
 - Save formula results before import if other software has not refreshed the workbook's cached values.

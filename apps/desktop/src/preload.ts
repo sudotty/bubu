@@ -10,10 +10,12 @@ import {
   type DatasetReplacementMappingInput,
   type DatasetReplacementResult,
   type DatasetImportResult,
+  type DatasetQualityReport,
   type DatasetGroup,
   type DatasetGroupId,
   type DatasetGroupSaveInput,
   type DatasetSummary,
+  type DatasetValidationSaveInput,
   type ProviderConfigurationInput,
   type ProviderConnectionResult,
   type ProviderId,
@@ -44,6 +46,10 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.replaceDataset, datasetId) as Promise<DatasetReplacementSelectionResult>,
     applyReplacementMapping: (value: DatasetReplacementMappingInput) =>
       ipcRenderer.invoke(desktopChannels.applyReplacementMapping, value) as Promise<DatasetReplacementResult>,
+    quality: (datasetId: string) =>
+      ipcRenderer.invoke(desktopChannels.getDatasetQuality, datasetId) as Promise<DatasetQualityReport>,
+    saveValidation: (value: DatasetValidationSaveInput) =>
+      ipcRenderer.invoke(desktopChannels.saveDatasetValidation, value) as Promise<DatasetQualityReport>,
   },
   providers: {
     list: () =>

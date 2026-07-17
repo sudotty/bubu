@@ -16,7 +16,8 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: natural-language group lookup/join plans, connected-tree enforcement, unique right-side lookup keys, disclosure review, explicit approval, and bounded local multi-table execution.
 - Implemented: deterministic local bar/time-series visualizations for numeric query results, with no result round-trip to a model and a 20-point readability bound.
 - Implemented: append-only local dataset/group conversation history for typed questions, disclosure-bound plans, bounded results, and errors, restored after restart.
-- In progress: richer quality profiles, validation, relationships, deletion, and export.
+- Implemented: local quality scoring and profiles plus persistent required/unique/range/pattern/allowed-value rules, with only bounded failure row numbers shown.
+- In progress: richer distributions, reusable relationships, deletion, and export.
 - Not complete yet: richer charts and reports, full privacy usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.

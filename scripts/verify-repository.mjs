@@ -18,6 +18,7 @@ const requiredFiles = [
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
   "docs/plans/2026-07-17-electron-migration-implementation.md",
   "docs/product/importing-data.md",
+  "docs/product/data-quality-and-validation.md",
   "docs/product/querying-and-visualizations.md",
 ];
 
@@ -92,6 +93,9 @@ for (const required of [
   "same-schema-replacement: implemented",
   "schema-drift-detection: implemented",
   "schema-drift-mapping: implemented",
+  "local-quality-report: implemented",
+  "persistent-validation-rules: implemented",
+  "validation: implemented",
   "model-context-boundary: implemented",
   "synthetic-examples: implemented",
   "model-provider-registry: implemented",

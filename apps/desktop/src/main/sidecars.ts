@@ -11,6 +11,7 @@ import {
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
+  parseDatasetQualityReport,
   parseConversationThread,
   parseOptionalConversationThread,
   parseModelCompletion,
@@ -25,6 +26,8 @@ import {
   type DatasetPreview,
   type DatasetPreviewRequest,
   type DatasetReplacementResult,
+  type DatasetQualityReport,
+  type DatasetValidationSaveInput,
   type DatasetSummary,
   type ConversationAppendInput,
   type ConversationTarget,
@@ -110,6 +113,18 @@ class DataCoreClient implements RuntimeClient {
   ): Promise<DatasetReplacementResult> {
     return parseDatasetReplacementResult(
       await this.#broker.request("dataset.replace.mapped", { datasetId: datasetID, sourcePath, mappings }),
+    );
+  }
+
+  async quality(datasetID: string): Promise<DatasetQualityReport> {
+    return parseDatasetQualityReport(
+      await this.#broker.request("dataset.quality.get", { datasetId: datasetID }),
+    );
+  }
+
+  async saveValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport> {
+    return parseDatasetQualityReport(
+      await this.#broker.request("dataset.validation.save", { input }),
     );
   }
 
@@ -237,6 +252,8 @@ export interface SidecarSupervisor {
     sourcePath: string,
     mappings: readonly ColumnMapping[],
   ): Promise<DatasetReplacementResult>;
+  getDatasetQuality(datasetID: string): Promise<DatasetQualityReport>;
+  saveDatasetValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
   modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
@@ -279,6 +296,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),
     replaceDatasetWithMapping: (datasetID, sourcePath, mappings) =>
       dataCore.replaceFileWithMapping(datasetID, sourcePath, mappings),
+    getDatasetQuality: (datasetID) => dataCore.quality(datasetID),
+    saveDatasetValidation: (input) => dataCore.saveValidation(input),
     modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
     generateModel: (invocation) => aiRuntime.generate(invocation),
     executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),

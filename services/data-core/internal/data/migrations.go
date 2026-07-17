@@ -119,6 +119,28 @@ CREATE TABLE conversation_entries (
 CREATE INDEX conversation_entries_thread_id_idx ON conversation_entries(thread_id, ordinal);
 `,
 	},
+	{
+		version: 5,
+		sql: `
+CREATE TABLE dataset_validation_rules (
+    dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    kind TEXT NOT NULL CHECK (kind IN ('required', 'unique', 'number-range', 'pattern', 'allowed-values')),
+    column_name TEXT NOT NULL,
+    minimum REAL,
+    maximum REAL,
+    pattern TEXT,
+    values_json TEXT,
+    PRIMARY KEY (dataset_id, ordinal),
+    CHECK (
+        (kind IN ('required', 'unique') AND minimum IS NULL AND maximum IS NULL AND pattern IS NULL AND values_json IS NULL) OR
+        (kind = 'number-range' AND (minimum IS NOT NULL OR maximum IS NOT NULL) AND pattern IS NULL AND values_json IS NULL) OR
+        (kind = 'pattern' AND minimum IS NULL AND maximum IS NULL AND pattern IS NOT NULL AND values_json IS NULL) OR
+        (kind = 'allowed-values' AND minimum IS NULL AND maximum IS NULL AND pattern IS NULL AND values_json IS NOT NULL)
+    )
+);
+`,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

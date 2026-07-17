@@ -56,6 +56,8 @@ type DatasetService interface {
 	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
 	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
 	ReplaceFileWithMapping(ctx context.Context, datasetID string, sourcePath string, mappings []data.ColumnMapping) (data.ReplacementResult, error)
+	GetQualityReport(ctx context.Context, datasetID string) (data.DatasetQualityReport, error)
+	SaveValidationRules(ctx context.Context, datasetID string, rules []data.ValidationRule) (data.DatasetQualityReport, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
@@ -88,6 +90,8 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"preview",
 				"version-replacement",
 				"schema-drift",
+				"local-quality-report",
+				"validation-rules",
 				"privacy-context",
 				"safe-query-plan",
 				"dataset-groups",
@@ -158,6 +162,26 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ModelContext(ctx, datasetID, data.DisclosureLevel(disclosure))
 		if err != nil {
 			return failure(request.ID, "CONTEXT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.quality.get":
+		datasetID, ok := stringParam(request.Params, "datasetId")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId is required", false)
+		}
+		result, err := datasets.GetQualityReport(ctx, datasetID)
+		if err != nil {
+			return failure(request.ID, "QUALITY_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.validation.save":
+		input, ok := objectParam[validationSaveInput](request.Params, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "input must contain a datasetId and strict validation rules", false)
+		}
+		result, err := datasets.SaveValidationRules(ctx, input.DatasetID, input.Rules)
+		if err != nil {
+			return failure(request.ID, "VALIDATION_SAVE_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.query.execute":
@@ -262,63 +286,6 @@ func stringParam(params map[string]any, key string) (string, bool) {
 		return "", false
 	}
 	return value, true
-}
-
-func integerParam(params map[string]any, key string) (int, bool) {
-	value, ok := params[key].(float64)
-	if !ok || value != float64(int(value)) {
-		return 0, false
-	}
-	return int(value), true
-}
-
-func optionalStringParam(params map[string]any, key string) (string, bool) {
-	value, exists := params[key]
-	if !exists {
-		return "", true
-	}
-	text, ok := value.(string)
-	if !ok || strings.TrimSpace(text) == "" {
-		return "", false
-	}
-	return text, true
-}
-
-func stringSliceParam(params map[string]any, key string, maximum int) ([]string, bool) {
-	values, ok := params[key].([]any)
-	if !ok || len(values) == 0 || len(values) > maximum {
-		return nil, false
-	}
-	result := make([]string, len(values))
-	for index, value := range values {
-		text, ok := value.(string)
-		if !ok || strings.TrimSpace(text) == "" || len(text) > 32*1024 {
-			return nil, false
-		}
-		result[index] = text
-	}
-	return result, true
-}
-
-func objectParam[T any](params map[string]any, key string) (T, bool) {
-	var result T
-	value, ok := params[key]
-	if !ok {
-		return result, false
-	}
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return result, false
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&result); err != nil {
-		return result, false
-	}
-	if err := ensureJSONEnd(decoder); err != nil {
-		return result, false
-	}
-	return result, true
 }
 
 func success(id string, result any) Response {

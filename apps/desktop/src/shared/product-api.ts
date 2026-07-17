@@ -5,12 +5,14 @@ import type {
   DatasetGroupId,
   DatasetGroupSaveInput,
   DatasetImportResult,
+  DatasetQualityReport,
   DatasetPreview,
   DatasetPreviewRequest,
   DatasetReplacementResult,
   DatasetReplacementMappingInput,
   DatasetReplacementSelectionResult,
   DatasetSummary,
+  DatasetValidationSaveInput,
   GroupQueryPlanProposal,
   GroupQueryRequest,
   ProviderConfigurationInput,
@@ -32,6 +34,8 @@ export const desktopChannels = {
   previewDataset: "bubu:datasets:preview",
   replaceDataset: "bubu:datasets:replace",
   applyReplacementMapping: "bubu:datasets:apply-replacement-mapping",
+  getDatasetQuality: "bubu:datasets:get-quality",
+  saveDatasetValidation: "bubu:datasets:save-validation",
   listProviders: "bubu:providers:list",
   saveProvider: "bubu:providers:save",
   selectProvider: "bubu:providers:select",
@@ -73,6 +77,8 @@ export interface BuBuDesktopApi {
     preview(request: DatasetPreviewRequest): Promise<DatasetPreview>;
     replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
     applyReplacementMapping(value: DatasetReplacementMappingInput): Promise<DatasetReplacementResult>;
+    quality(datasetId: string): Promise<DatasetQualityReport>;
+    saveValidation(value: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
   };
   readonly providers: {
     list(): Promise<ProviderRegistryState>;
@@ -106,12 +112,14 @@ export type {
   DatasetGroupId,
   DatasetGroupSaveInput,
   DatasetImportResult,
+  DatasetQualityReport,
   DatasetPreview,
   DatasetPreviewRequest,
   DatasetReplacementResult,
   DatasetReplacementMappingInput,
   DatasetReplacementSelectionResult,
   DatasetSummary,
+  DatasetValidationSaveInput,
   GroupQueryPlanProposal,
   GroupQueryRequest,
   ProviderConfigurationInput,
@@ -128,4 +136,5 @@ export type {
   SafeQueryPlan,
   SafeQueryResult,
   SchemaDrift,
+  ValidationRule,
 } from "@bubu/contracts";
