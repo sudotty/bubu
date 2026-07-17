@@ -23,6 +23,7 @@ const requiredFiles = [
   "docs/plans/2026-07-17-local-mcp-inspection-implementation.md",
   "docs/plans/2026-07-17-approved-mcp-resource-read-implementation.md",
   "docs/plans/2026-07-17-approved-mcp-prompt-get-implementation.md",
+  "docs/plans/2026-07-17-approved-mcp-tool-call-implementation.md",
   "docs/performance/reference-desktop-2026-07-17.md",
   "docs/product/importing-data.md",
   "docs/product/data-quality-and-validation.md",
