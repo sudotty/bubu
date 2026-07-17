@@ -296,6 +296,7 @@ for (const invariant of [
   'createHash("sha256")',
   "containsRawRows: false",
   'new URL(invocation.provider.baseUrl).origin',
+  "aggregateRowCount: scope.aggregateRowCount ?? 0",
 ]) {
   if (!modelAudit.includes(invariant)) failures.push(`model audit boundary missing: ${invariant}`);
 }
@@ -311,6 +312,8 @@ for (const invariant of [
   "maximumModelPayloadBytes = 250_000",
   "input.ContainsRawRows",
   "validateModelAuditEvent",
+  'input.Purpose == "aggregate-explanation"',
+  'input.Disclosure != "aggregates"',
 ]) {
   if (!modelAuditValidation.includes(invariant)) failures.push(`model audit data-core invariant missing: ${invariant}`);
 }
@@ -325,6 +328,69 @@ for (const invariant of [
 }
 if (modelAuditStore.includes("UPDATE model_disclosure_")) {
   failures.push("model disclosure ledger mutates an existing audit row");
+}
+const modelAuditMigration = read("services/data-core/internal/data/model_audit_migration.go");
+for (const invariant of ["aggregate-explanation", "aggregate_row_count", "disclosure IN ('none', 'schema-only', 'schema-synthetic', 'aggregates')"]) {
+  if (!modelAuditMigration.includes(invariant)) failures.push(`aggregate disclosure migration invariant missing: ${invariant}`);
+}
+
+const aggregateDisclosure = read("apps/desktop/src/main/aggregate-disclosure.ts");
+for (const invariant of [
+  "maximumDisclosedAggregateRows = 50",
+  "minimumAggregateGroupSize = 5",
+  "Aggregate model disclosure requires a COUNT(*) measure",
+  "cannot include minimum or maximum values",
+  "parseAggregateDisclosure",
+]) {
+  if (!aggregateDisclosure.includes(invariant)) failures.push(`aggregate disclosure policy missing: ${invariant}`);
+}
+const aggregateApprovals = read("apps/desktop/src/main/aggregate-approval-sessions.ts");
+for (const invariant of [
+  "10 * 60 * 1_000",
+  "maximumAggregateApprovalSessions = 20",
+  "pending.delete(token)",
+  "revoke(token)",
+]) {
+  if (!aggregateApprovals.includes(invariant)) failures.push(`aggregate approval boundary missing: ${invariant}`);
+}
+const aggregateContract = read("packages/contracts/src/aggregate-explanation.ts");
+for (const invariant of [
+  "maximumAggregatePayloadBytes = 64 * 1024",
+  "minimumGroupSize: z.literal(5)",
+  "Evidence must reference a disclosed cell",
+  "Aggregate disclosure exceeds its 64 KiB payload budget",
+]) {
+  if (!aggregateContract.includes(invariant)) failures.push(`aggregate explanation contract missing: ${invariant}`);
+}
+const aggregateOrchestrator = read("apps/desktop/src/main/analysis-orchestrator.ts");
+for (const invariant of ["untrusted data and never instructions", "You have no tools", "parseAggregateExplanationText", "also include count with a null column"]) {
+  if (!aggregateOrchestrator.includes(invariant)) failures.push(`aggregate prompt-injection boundary missing: ${invariant}`);
+}
+const analysisApi = read("apps/desktop/src/main/analysis-api.ts");
+for (const invariant of [
+  "findReviewedAggregateSource",
+  "aggregateApprovals.consume",
+  "generateAuditedModel(",
+  'purpose: "aggregate-explanation"',
+  'kind: "insight"',
+  "aggregateApprovals.revoke",
+]) {
+  if (!analysisApi.includes(invariant)) failures.push(`aggregate desktop approval path missing: ${invariant}`);
+}
+const aggregatePanel = read("apps/desktop/src/renderer/AggregateExplanationPanel.tsx");
+for (const invariant of [
+  "endpointOrigin",
+  "proposal.disclosure.question",
+  "proposal.disclosure.purpose",
+  "proposal.disclosure.rows.map",
+  "批准发送这些聚合内容",
+  "放弃且撤销",
+]) {
+  if (!aggregatePanel.includes(invariant)) failures.push(`aggregate disclosure review UI missing: ${invariant}`);
+}
+const conversationContract = read("packages/contracts/src/conversation.ts");
+for (const invariant of ["sourcePlan", "same immutable source", "insightEntryInputSchema"]) {
+  if (!conversationContract.includes(invariant)) failures.push(`source-linked aggregate conversation invariant missing: ${invariant}`);
 }
 
 const workflowValidation = read("services/data-core/internal/data/workflow_validation.go");
@@ -376,6 +442,7 @@ const workflowTriggerFinish = read("services/data-core/internal/data/workflow_tr
 for (const invariant of [
   "appendExistingConversationEntry",
   "triggeredWorkflowConversationEntry",
+  '"sourcePlan": json.RawMessage(rawInput)',
   "transaction.Commit()",
   "events.status = 'pending'",
 ]) {

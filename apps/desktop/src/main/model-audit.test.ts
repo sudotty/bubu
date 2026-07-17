@@ -39,10 +39,33 @@ describe("audited model invocation", () => {
       datasetCount: 1,
       columnCount: 1,
       syntheticRowCount: 3,
+      aggregateRowCount: 0,
       containsRawRows: false,
     });
     expect(JSON.stringify(audit)).not.toContain("total");
     expect(JSON.stringify(audit)).not.toContain("secret");
+  });
+
+  it("summarizes an aggregate payload without misclassifying it as model context", () => {
+    const audit = buildModelAuditStart(invocation, {
+      purpose: "aggregate-explanation",
+      target: { kind: "dataset", id: context.datasetId },
+      contexts: [],
+      relationshipCount: 0,
+      disclosure: "aggregates",
+      datasetCount: 1,
+      columnCount: 3,
+      aggregateRowCount: 2,
+    });
+    expect(audit).toMatchObject({
+      purpose: "aggregate-explanation",
+      disclosure: "aggregates",
+      datasetCount: 1,
+      columnCount: 3,
+      syntheticRowCount: 0,
+      aggregateRowCount: 2,
+      containsRawRows: false,
+    });
   });
 
   it("starts before provider I/O and persists terminal usage", async () => {

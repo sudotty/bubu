@@ -90,18 +90,24 @@ SELECT status, error FROM workflow_runs WHERE id = ? AND workflow_id = ?`,
 		payload, _ := json.Marshal(map[string]string{"message": runError.String})
 		return ConversationEntryInput{Kind: "error", Role: "system", Payload: payload}, nil
 	}
-	var rawResult string
+	var kind, rawInput, rawResult string
 	if err := transaction.QueryRowContext(ctx, `
-SELECT result_json FROM workflow_step_runs
+SELECT kind, resolved_input_json, result_json FROM workflow_step_runs
 WHERE run_id = ? AND status = 'succeeded' AND result_json IS NOT NULL
-ORDER BY ordinal DESC, attempt DESC LIMIT 1`, *input.RunID).Scan(&rawResult); err != nil {
+ORDER BY ordinal DESC, attempt DESC LIMIT 1`, *input.RunID).Scan(&kind, &rawInput, &rawResult); err != nil {
 		return ConversationEntryInput{}, errors.New("successful workflow trigger has no result artifact")
 	}
 	artifact, err := decodeWorkflowStepResult(rawResult)
 	if err != nil {
 		return ConversationEntryInput{}, err
 	}
-	payload, err := json.Marshal(map[string]any{"result": artifact.Value})
+	if artifact.Kind != kind || validateWorkflowResolvedInput(kind, rawInput) != nil {
+		return ConversationEntryInput{}, errors.New("successful workflow trigger has an invalid source plan")
+	}
+	payload, err := json.Marshal(map[string]any{
+		"result":     artifact.Value,
+		"sourcePlan": json.RawMessage(rawInput),
+	})
 	if err != nil {
 		return ConversationEntryInput{}, errors.New("encode triggered workflow result")
 	}

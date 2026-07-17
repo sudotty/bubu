@@ -288,6 +288,10 @@ CREATE INDEX workflow_trigger_events_status_idx
 ON workflow_trigger_events(status, due_at, id);
 `,
 	},
+	{
+		version: 10,
+		sql:     modelAuditAggregateMigrationSQL,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

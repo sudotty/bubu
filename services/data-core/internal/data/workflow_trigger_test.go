@@ -54,6 +54,13 @@ func TestIntervalWorkflowTriggerPersistsAndRunsIdempotently(t *testing.T) {
 	if err != nil || thread == nil || len(thread.Entries) != 2 || thread.Entries[1].Kind != "result" {
 		t.Fatalf("triggered result was not delivered atomically to the conversation: %#v, %v", thread, err)
 	}
+	var delivered struct {
+		SourcePlan *SafeQueryPlan `json:"sourcePlan"`
+	}
+	if err := json.Unmarshal(thread.Entries[1].Payload, &delivered); err != nil || delivered.SourcePlan == nil ||
+		delivered.SourcePlan.DatasetID != dataset.ID || delivered.SourcePlan.VersionID != dataset.VersionID {
+		t.Fatalf("triggered result did not retain its immutable source plan: %#v, %v", delivered, err)
+	}
 }
 
 func TestDatasetVersionTriggerFiresOnlyAfterReplacement(t *testing.T) {

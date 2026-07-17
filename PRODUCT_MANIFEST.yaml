@@ -71,6 +71,10 @@ capabilities:
   append-only-model-disclosure-ledger: implemented
   provider-usage-accounting: implemented
   crash-recovered-model-audits: implemented
+  bounded-aggregate-model-disclosure: implemented
+  exact-aggregate-disclosure-preview: implemented
+  one-time-aggregate-approval: implemented
+  cited-aggregate-explanations: implemented
   safe-query-plan: implemented
   natural-language-query-planning: implemented
   visible-query-approval: implemented

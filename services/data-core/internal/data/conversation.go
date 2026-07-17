@@ -25,7 +25,7 @@ func validateConversationTarget(target ConversationTarget) error {
 
 func validateConversationEntry(input ConversationEntryInput) error {
 	validRole := (input.Kind == "question" && input.Role == "user") ||
-		((input.Kind == "plan" || input.Kind == "result") && input.Role == "assistant") ||
+		((input.Kind == "plan" || input.Kind == "result" || input.Kind == "insight") && input.Role == "assistant") ||
 		(input.Kind == "error" && input.Role == "system")
 	if !validRole {
 		return errors.New("conversation entry kind and role are invalid")

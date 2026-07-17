@@ -2,6 +2,9 @@ package data
 
 import (
 	"context"
+	"database/sql"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -70,5 +73,76 @@ func TestModelAuditFailsClosedAndRecoversInterruptedRequests(t *testing.T) {
 	}
 	if recovered.Status != "failed" || recovered.Error == nil || recovered.FinishedAt == nil {
 		t.Fatalf("interrupted model audit was not closed: %#v", recovered)
+	}
+}
+
+func TestModelAuditAcceptsOnlyBoundedAggregateExplanations(t *testing.T) {
+	service, dataset := importQueryFixture(t)
+	input := datasetModelAuditInput(dataset)
+	input.Purpose = "aggregate-explanation"
+	input.Disclosure = "aggregates"
+	input.SyntheticRowCount = 0
+	input.AggregateRowCount = 2
+	event, err := service.StartModelAudit(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.AggregateRowCount != 2 || event.Disclosure != "aggregates" {
+		t.Fatalf("aggregate audit scope was not persisted: %#v", event)
+	}
+	invalid := input
+	invalid.AggregateRowCount = 0
+	if _, err := service.StartModelAudit(context.Background(), invalid); err == nil {
+		t.Fatal("empty aggregate disclosure was accepted")
+	}
+}
+
+func TestModelAuditMigrationPreservesVersionNineLedger(t *testing.T) {
+	dataDirectory := filepath.Join(t.TempDir(), "data")
+	if err := os.MkdirAll(dataDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", filepath.Join(dataDirectory, "bubu.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`); err != nil {
+		t.Fatal(err)
+	}
+	for _, migration := range migrations[:9] {
+		if _, err := database.Exec(migration.sql); err != nil {
+			t.Fatalf("apply setup migration %d: %v", migration.version, err)
+		}
+		if _, err := database.Exec("INSERT INTO schema_migrations(version) VALUES (?)", migration.version); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := database.Exec(`
+INSERT INTO model_disclosure_events(
+  id, purpose, target_kind, target_id, disclosure, provider_id, provider_kind,
+  provider_name, model, endpoint_origin, dataset_count, column_count,
+  synthetic_row_count, relationship_count, payload_bytes, estimated_input_tokens,
+  max_output_tokens, payload_sha256, contains_raw_rows, started_at
+) VALUES (?, 'provider-connection-test', 'system', '', 'none', ?, 'openai',
+          'Provider', 'model', 'https://api.example.com', 0, 0, 0, 0, 100, 34, 16, ?, 0, ?)`,
+		"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1", "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+		"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "2026-07-17T00:00:00Z",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBackupModelAudits(context.Background(), database, 9); err != nil {
+		t.Fatalf("version-nine ledger is no longer backup-compatible: %v", err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	service := openTestService(t, dataDirectory)
+	audits, err := service.ListModelAudits(context.Background())
+	if err != nil || len(audits) != 1 || audits[0].AggregateRowCount != 0 {
+		t.Fatalf("version-nine model ledger did not migrate: %#v, %v", audits, err)
 	}
 }

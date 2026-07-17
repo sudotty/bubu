@@ -13,6 +13,7 @@ const purposeLabel: Readonly<Record<ModelAuditEvent["purpose"], string>> = {
   "provider-connection-test": "连接测试",
   "query-plan": "单表计划",
   "group-query-plan": "群组计划",
+  "aggregate-explanation": "聚合结果解释",
 };
 
 export function PrivacyLedgerPanel({ refreshKey }: { readonly refreshKey: number }) {
@@ -51,7 +52,7 @@ export function PrivacyLedgerPanel({ refreshKey }: { readonly refreshKey: number
               <small>{event.providerName} / {event.model} · {event.endpointOrigin}</small>
             </div>
             <div className="privacy-ledger-metrics">
-              <small>{event.disclosure} · {event.datasetCount} 数据集 · {event.columnCount} 列 · {event.syntheticRowCount} 合成行</small>
+              <small>{event.disclosure} · {event.datasetCount} 数据集 · {event.columnCount} 列 · {event.syntheticRowCount} 合成行 · {event.aggregateRowCount} 聚合行</small>
               <small>估算 {event.estimatedInputTokens} tokens · 实际 {event.totalTokens ?? "—"} · {event.payloadBytes} bytes</small>
               <small>{new Date(event.startedAt).toLocaleString("zh-CN")} · SHA-256 {event.payloadSha256.slice(0, 12)}…</small>
             </div>

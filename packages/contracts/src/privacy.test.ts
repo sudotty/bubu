@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseModelContext } from "./privacy.js";
+import { modelDisclosureLevelSchema, parseModelContext } from "./privacy.js";
 
 const base = {
   datasetId: "a".repeat(32),
@@ -8,6 +8,17 @@ const base = {
 };
 
 describe("model disclosure boundary", () => {
+  it("keeps aggregate and explicit-row vocabulary outside model context construction", () => {
+    expect(modelDisclosureLevelSchema.options).toEqual([
+      "schema-only", "schema-synthetic", "aggregates", "explicit-rows",
+    ]);
+    expect(() => parseModelContext({
+      ...base,
+      disclosure: "aggregates",
+      syntheticRows: [],
+    })).toThrow();
+  });
+
   it("accepts bounded synthetic examples and no source metadata", () => {
     const value = {
       ...base,

@@ -26,7 +26,8 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: reviewed single/group plans can be saved as versioned manual workflows with current-version rebinding, UUID idempotency, bounded retries/deadlines, cancellable runs, typed step checkpoints, local audit, and backup/restore coverage.
 - Implemented: saved workflows can run every 24 hours, every 7 days, or after a dataset/group member version changes; a persistent deduplicated queue survives restarts, trigger terminal state plus the result/error chat message commit atomically, and an open chat refreshes from local state within 30 seconds.
 - Implemented: every data-planning and provider-test request fails closed unless Go first records a local disclosure summary; terminal status, endpoint origin, prompt fingerprint/size, estimated and provider-reported token usage are auditable without storing prompts, credentials, model text, or raw rows.
-- Not complete yet: aggregate/explicit-row disclosure policies, richer charts and reports, wall-clock/OS notifications, approval/side-effect workflow nodes, resumable partial runs, bounded Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
+- Implemented: an already executed aggregate result can be explained by the selected model only after an exact destination/payload preview and one-use approval; disclosure requires `COUNT(*)`, k>=5, forbids extrema, caps at 50 rows, records its row count in the local ledger, and returns cell-cited structured findings.
+- Not complete yet: explicit-row disclosure, generalized aggregate use inside agents/workflows, richer charts and reports, wall-clock/OS notifications, approval/side-effect workflow nodes, resumable partial runs, bounded Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
 
