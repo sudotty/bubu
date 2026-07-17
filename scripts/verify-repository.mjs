@@ -86,6 +86,8 @@ for (const required of [
   "xlsx-import: implemented",
   "atomic-batch-import: implemented",
   "dataset-preview: implemented",
+  "same-schema-replacement: implemented",
+  "schema-drift-detection: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

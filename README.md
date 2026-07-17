@@ -9,8 +9,8 @@ The product interaction treats a dataset as a contact and a dataset group as a g
 The repository is migrating from the historical Wails prototype to a hardened Electron product:
 
 - Implemented: Electron 43 secure shell, sandboxed React renderer, typed preload API, supervised Node AI utility process, Go data-core sidecar, authenticated versioned RPC, packaging, and packaged smoke verification.
-- Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, first immutable dataset versions, bounded previews, type inference, and baseline column profiles.
-- In progress: replacement versions, schema drift, richer quality profiles, validation, relationships, deletion, and export.
+- Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable same-schema replacement versions, schema-drift blocking, bounded previews, type inference, and baseline column profiles.
+- In progress: interactive drift mapping, richer quality profiles, validation, relationships, deletion, and export.
 - Not complete yet: privacy gateway, safe query planning, production model adapters, dataset conversations, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.

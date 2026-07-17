@@ -39,6 +39,27 @@ type ImportResult struct {
 	Datasets []DatasetSummary `json:"datasets"`
 }
 
+type ReplacementStatus string
+
+const (
+	ReplacementApplied         ReplacementStatus = "replaced"
+	ReplacementMappingRequired ReplacementStatus = "mapping-required"
+)
+
+type SchemaDrift struct {
+	CurrentColumns  []string `json:"currentColumns"`
+	IncomingColumns []string `json:"incomingColumns"`
+	MissingColumns  []string `json:"missingColumns"`
+	AddedColumns    []string `json:"addedColumns"`
+	Reordered       bool     `json:"reordered"`
+}
+
+type ReplacementResult struct {
+	Status  ReplacementStatus `json:"status"`
+	Dataset *DatasetSummary   `json:"dataset,omitempty"`
+	Drift   *SchemaDrift      `json:"drift,omitempty"`
+}
+
 type PreviewResult struct {
 	DatasetID string          `json:"datasetId"`
 	VersionID string          `json:"versionId"`

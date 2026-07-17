@@ -41,7 +41,7 @@ flowchart LR
 
 `schema_migrations` records monotonic migrations. `datasets` is the stable contact identity. `dataset_versions` records immutable materializations and points to a validated internal table name. `dataset_columns` stores ordered semantic names, physical names, inferred types, nullability, null count, distinct count, and lexical minimum/maximum.
 
-Every imported dataset currently starts at version 1. Replacement is intentionally not emulated by creating an unrelated contact; it remains unavailable until schema-drift and mapping behavior are implemented together.
+Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping for that drift remains unavailable.
 
 ## Security and privacy invariants
 
@@ -56,10 +56,11 @@ Every imported dataset currently starts at version 1. Replacement is intentional
 
 - CSV, TSV, multi-sheet XLSX, header normalization, type inference, and leading-zero preservation.
 - Transaction rollback for malformed rows and for an entire multi-file selection.
+- Same-schema replacement, monotonic version numbers, schema-drift blocking, and migration from the version-1 catalog.
 - Catalog and preview integration through temporary SQLite databases.
 - Built-sidecar smoke for import, list, inference, preview, file permissions, and absolute-path non-persistence.
 - Architecture fitness rule that rejects whole-file CSV delimiter sampling.
 
 ## Not implemented yet
 
-Dataset replacement and drift, richer distributions and anomaly findings, validation rules, relationships, read-only analytical queries, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Interactive schema-drift mapping, richer distributions and anomaly findings, validation rules, relationships, read-only analytical queries, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseDatasetImportResult,
   parseDatasetPreviewRequest,
+  parseDatasetReplacementResult,
   parseDatasetSummary,
 } from "./dataset.js";
 
@@ -36,5 +37,26 @@ describe("dataset boundary", () => {
     });
     expect(() => parseDatasetPreviewRequest({ datasetId: "../secrets", limit: 50 })).toThrow();
     expect(() => parseDatasetPreviewRequest({ datasetId: summary.id, limit: 501 })).toThrow();
+  });
+
+  it("parses replacement outcomes without accepting a source path", () => {
+    expect(parseDatasetReplacementResult({ status: "replaced", dataset: { ...summary, version: 2 } })).toEqual({
+      status: "replaced",
+      dataset: { ...summary, version: 2 },
+    });
+    const mappingRequired = {
+      status: "mapping-required",
+      drift: {
+        currentColumns: ["Order", "Amount"],
+        incomingColumns: ["Order", "Total"],
+        missingColumns: ["Amount"],
+        addedColumns: ["Total"],
+        reordered: false,
+      },
+    } as const;
+    expect(parseDatasetReplacementResult(mappingRequired)).toEqual(mappingRequired);
+    expect(() =>
+      parseDatasetReplacementResult({ ...mappingRequired, sourcePath: "/private/drifted.csv" }),
+    ).toThrow();
   });
 });

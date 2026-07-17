@@ -9,7 +9,7 @@ import {
   protocol,
   session,
 } from "electron";
-import { parseDatasetPreviewRequest } from "@bubu/contracts";
+import { parseDatasetId, parseDatasetPreviewRequest } from "@bubu/contracts";
 import started from "electron-squirrel-startup";
 import { desktopChannels } from "./shared/product-api.js";
 import {
@@ -109,6 +109,24 @@ function registerDesktopApi(): void {
     if (!sidecars) throw new Error("Desktop services have not started");
     return sidecars.previewDataset(parseDatasetPreviewRequest(value));
   });
+  ipcMain.handle(desktopChannels.replaceDataset, async (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    if (!sidecars) throw new Error("Desktop services have not started");
+    const datasetID = parseDatasetId(value);
+    const selection = await dialog.showOpenDialog({
+      title: "替换数据版本",
+      buttonLabel: "创建新版本",
+      properties: ["openFile"],
+      filters: [
+        { name: "表格文件", extensions: ["csv", "tsv", "xlsx"] },
+        { name: "CSV", extensions: ["csv", "tsv"] },
+        { name: "Excel", extensions: ["xlsx"] },
+      ],
+    });
+    const sourcePath = selection.filePaths[0];
+    if (selection.canceled || !sourcePath) return { status: "cancelled" } as const;
+    return sidecars.replaceDataset(datasetID, sourcePath);
+  });
 }
 
 async function createMainWindow(showWhenReady = true): Promise<BrowserWindow> {
@@ -143,7 +161,8 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         "128.50",
         "文本",
         "数值",
-        "日期时间"
+        "日期时间",
+        "替换数据版本"
       ];
       const deadline = Date.now() + 5000;
       const inspect = () => {

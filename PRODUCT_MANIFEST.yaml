@@ -32,6 +32,9 @@ capabilities:
   xlsx-import: implemented
   atomic-batch-import: implemented
   dataset-versioning: in-progress
+  same-schema-replacement: implemented
+  schema-drift-detection: implemented
+  schema-drift-mapping: planned
   column-profiling-baseline: implemented
   profiling: in-progress
   validation: planned

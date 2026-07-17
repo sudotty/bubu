@@ -3,14 +3,10 @@ package data
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -50,48 +46,41 @@ func (service *Service) ImportFiles(ctx context.Context, sourcePaths []string) (
 }
 
 func importSource(ctx context.Context, transaction *sql.Tx, sourcePath string) ([]DatasetSummary, error) {
-	absolutePath, err := filepath.Abs(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("resolve source path: %w", err)
-	}
-	info, err := os.Stat(absolutePath)
-	if err != nil {
-		return nil, fmt.Errorf("inspect source file: %w", err)
-	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.New("source must be a regular file")
-	}
-	hash, err := hashFile(absolutePath)
+	prepared, err := prepareSource(sourcePath)
 	if err != nil {
 		return nil, err
 	}
-	source, err := openTabularSource(absolutePath)
-	if err != nil {
-		return nil, err
-	}
-	closed := false
-	defer func() {
-		if !closed {
-			_ = source.close()
-		}
-	}()
-	if len(source.tables) == 0 {
-		return nil, errors.New("source contains no non-empty tables")
-	}
+	defer prepared.close()
 
-	result := make([]DatasetSummary, 0, len(source.tables))
-	for _, table := range source.tables {
-		dataset, importErr := importTable(ctx, transaction, source, table, hash, info.Size())
+	result := make([]DatasetSummary, 0, len(prepared.source.tables))
+	for _, table := range prepared.source.tables {
+		dataset, importErr := importTable(
+			ctx,
+			transaction,
+			prepared.source,
+			table,
+			prepared.hash,
+			prepared.size,
+		)
 		if importErr != nil {
 			return nil, importErr
 		}
 		result = append(result, dataset)
 	}
-	if err := source.close(); err != nil {
+	if err := prepared.close(); err != nil {
 		return nil, fmt.Errorf("close source: %w", err)
 	}
-	closed = true
 	return result, nil
+}
+
+type versionTarget struct {
+	datasetID   string
+	versionID   string
+	version     int
+	displayName string
+	sourceKind  string
+	sourceName  string
+	importedAt  string
 }
 
 func importTable(
@@ -102,9 +91,6 @@ func importTable(
 	fileHash string,
 	fileSize int64,
 ) (DatasetSummary, error) {
-	if len(table.header) == 0 {
-		return DatasetSummary{}, errors.New("table header is empty")
-	}
 	datasetID, err := newID()
 	if err != nil {
 		return DatasetSummary{}, err
@@ -113,7 +99,45 @@ func importTable(
 	if err != nil {
 		return DatasetSummary{}, err
 	}
-	tableName := "data_" + versionID
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO datasets(
+    id, display_name, source_kind, source_name, source_locator, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		datasetID, table.displayName, source.kind, source.name, table.sheetName, now, now); err != nil {
+		return DatasetSummary{}, fmt.Errorf("create dataset: %w", err)
+	}
+	target := versionTarget{
+		datasetID:   datasetID,
+		versionID:   versionID,
+		version:     1,
+		displayName: table.displayName,
+		sourceKind:  source.kind,
+		sourceName:  source.name,
+		importedAt:  now,
+	}
+	dataset, err := materializeVersion(ctx, transaction, target, table, fileHash, fileSize)
+	if err != nil {
+		return DatasetSummary{}, err
+	}
+	if err := activateVersion(ctx, transaction, target, table.sheetName); err != nil {
+		return DatasetSummary{}, err
+	}
+	return dataset, nil
+}
+
+func materializeVersion(
+	ctx context.Context,
+	transaction *sql.Tx,
+	target versionTarget,
+	table sourceTable,
+	fileHash string,
+	fileSize int64,
+) (DatasetSummary, error) {
+	if len(table.header) == 0 {
+		return DatasetSummary{}, errors.New("table header is empty")
+	}
+	tableName := "data_" + target.versionID
 	if !internalTableName.MatchString(tableName) {
 		return DatasetSummary{}, errors.New("generated table name is invalid")
 	}
@@ -132,19 +156,20 @@ func importTable(
 	if _, err := transaction.ExecContext(ctx, createTableSQL); err != nil {
 		return DatasetSummary{}, fmt.Errorf("create local data table: %w", err)
 	}
-
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO datasets(id, display_name, source_kind, source_name, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?)`, datasetID, table.displayName, source.kind, source.name, now, now); err != nil {
-		return DatasetSummary{}, fmt.Errorf("create dataset: %w", err)
-	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO dataset_versions(
     id, dataset_id, ordinal, table_name, source_sha256, source_size,
     imported_at, row_count, column_count, status
-) VALUES (?, ?, 1, ?, ?, ?, ?, 0, ?, 'importing')`,
-		versionID, datasetID, tableName, fileHash, fileSize, now, len(names)); err != nil {
+) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'importing')`,
+		target.versionID,
+		target.datasetID,
+		target.version,
+		tableName,
+		fileHash,
+		fileSize,
+		target.importedAt,
+		len(names),
+	); err != nil {
 		return DatasetSummary{}, fmt.Errorf("create dataset version: %w", err)
 	}
 
@@ -210,7 +235,7 @@ INSERT INTO dataset_columns(
     version_id, ordinal, source_name, name, physical_name, inferred_type,
     nullable, null_count, distinct_count, min_value, max_value
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			versionID,
+			target.versionID,
 			index,
 			table.header[index],
 			names[index],
@@ -227,25 +252,41 @@ INSERT INTO dataset_columns(
 	}
 
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE dataset_versions SET row_count = ?, status = 'ready' WHERE id = ?`, rowCount, versionID); err != nil {
+UPDATE dataset_versions SET row_count = ?, status = 'ready' WHERE id = ?`, rowCount, target.versionID); err != nil {
 		return DatasetSummary{}, fmt.Errorf("finish dataset version: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE datasets SET current_version_id = ?, updated_at = ? WHERE id = ?`, versionID, now, datasetID); err != nil {
-		return DatasetSummary{}, fmt.Errorf("activate dataset version: %w", err)
-	}
-
 	return DatasetSummary{
-		ID:          datasetID,
-		VersionID:   versionID,
-		DisplayName: table.displayName,
-		SourceKind:  source.kind,
-		SourceName:  source.name,
+		ID:          target.datasetID,
+		VersionID:   target.versionID,
+		DisplayName: target.displayName,
+		SourceKind:  target.sourceKind,
+		SourceName:  target.sourceName,
 		RowCount:    rowCount,
 		ColumnCount: len(names),
-		ImportedAt:  now,
-		Version:     1,
+		ImportedAt:  target.importedAt,
+		Version:     target.version,
 	}, nil
+}
+
+func activateVersion(
+	ctx context.Context,
+	transaction *sql.Tx,
+	target versionTarget,
+	sourceLocator string,
+) error {
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE datasets
+SET current_version_id = ?, source_name = ?, source_locator = ?, updated_at = ?
+WHERE id = ?`,
+		target.versionID,
+		target.sourceName,
+		sourceLocator,
+		target.importedAt,
+		target.datasetID,
+	); err != nil {
+		return fmt.Errorf("activate dataset version: %w", err)
+	}
+	return nil
 }
 
 func newID() (string, error) {
@@ -254,17 +295,4 @@ func newID() (string, error) {
 		return "", fmt.Errorf("generate id: %w", err)
 	}
 	return hex.EncodeToString(buffer), nil
-}
-
-func hashFile(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("open source for hashing: %w", err)
-	}
-	defer file.Close()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("hash source file: %w", err)
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
 }

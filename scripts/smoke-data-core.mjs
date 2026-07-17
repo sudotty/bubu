@@ -9,12 +9,15 @@ import {
   parseDatasetImportResult,
   parseDatasetList,
   parseDatasetPreview,
+  parseDatasetReplacementResult,
   parseRpcResponse,
 } from "../packages/contracts/dist/index.js";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
 const dataDirectory = resolve(root, "data");
 const sourcePath = resolve(root, "synthetic-sales.csv");
+const replacementPath = resolve(root, "synthetic-sales-week-2.csv");
+const driftedPath = resolve(root, "synthetic-sales-drifted.csv");
 const executable = resolve("services", "data-core", "bin", "bubu-data-core");
 const auth = randomBytes(32).toString("hex");
 let stderr = "";
@@ -22,6 +25,16 @@ let stderr = "";
 await writeFile(
   sourcePath,
   "Order ID,Region,Amount,Date\n001,North,128.50,2026-07-15\n002,South,256.00,2026-07-16\n003,North,64.25,2026-07-17\n",
+  { mode: 0o600 },
+);
+await writeFile(
+  replacementPath,
+  "Order ID,Region,Amount,Date\n004,West,512.00,2026-07-18\n005,North,32.00,2026-07-19\n",
+  { mode: 0o600 },
+);
+await writeFile(
+  driftedPath,
+  "Order ID,Zone,Amount,Date\n006,East,12.00,2026-07-20\n",
   { mode: 0o600 },
 );
 
@@ -103,6 +116,29 @@ try {
     throw new Error("Preview did not preserve source values");
   }
 
+  const replacement = parseDatasetReplacementResult(
+    await request("dataset.replace", { datasetId: dataset.id, sourcePath: replacementPath }),
+  );
+  if (replacement.status !== "replaced" || replacement.dataset.version !== 2) {
+    throw new Error("Replacement did not advance the immutable dataset version");
+  }
+  const replacedPreview = parseDatasetPreview(
+    await request("dataset.preview", { datasetId: dataset.id, limit: 50, offset: 0 }),
+  );
+  if (replacedPreview.rows[0]?.[0] !== "004" || replacedPreview.totalRows !== 2) {
+    throw new Error("Replacement did not atomically switch the current preview");
+  }
+  const drifted = parseDatasetReplacementResult(
+    await request("dataset.replace", { datasetId: dataset.id, sourcePath: driftedPath }),
+  );
+  if (
+    drifted.status !== "mapping-required" ||
+    drifted.drift.missingColumns.join(",") !== "Region" ||
+    drifted.drift.addedColumns.join(",") !== "Zone"
+  ) {
+    throw new Error("Schema drift did not block incompatible replacement");
+  }
+
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
     child.once("error", rejectExit);
@@ -115,11 +151,14 @@ try {
   if ((database.mode & 0o777) !== 0o600) {
     throw new Error(`Database permissions are ${(database.mode & 0o777).toString(8)}, want 600`);
   }
-  if ((await readFile(databasePath)).includes(Buffer.from(sourcePath))) {
-    throw new Error("Database persisted the absolute source path");
+  const databaseBytes = await readFile(databasePath);
+  for (const privatePath of [sourcePath, replacementPath, driftedPath]) {
+    if (databaseBytes.includes(Buffer.from(privatePath))) {
+      throw new Error("Database persisted an absolute source path");
+    }
   }
 
-  console.log("Data-core smoke passed: import, catalog, inference, preview, and path privacy.");
+  console.log("Data-core smoke passed: import, catalog, inference, preview, replacement, drift, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

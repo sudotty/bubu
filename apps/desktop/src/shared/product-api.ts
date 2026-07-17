@@ -2,6 +2,7 @@ import type {
   DatasetImportResult,
   DatasetPreview,
   DatasetPreviewRequest,
+  DatasetReplacementResult,
   DatasetSummary,
 } from "@bubu/contracts";
 
@@ -10,7 +11,12 @@ export const desktopChannels = {
   importDatasets: "bubu:datasets:import",
   listDatasets: "bubu:datasets:list",
   previewDataset: "bubu:datasets:preview",
+  replaceDataset: "bubu:datasets:replace",
 } as const;
+
+export type DatasetReplacementSelectionResult =
+  | DatasetReplacementResult
+  | { readonly status: "cancelled" };
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
 export type DesktopServiceStatus = "ready" | "degraded" | "unavailable";
@@ -36,6 +42,7 @@ export interface BuBuDesktopApi {
     importFiles(): Promise<DatasetImportResult>;
     list(): Promise<readonly DatasetSummary[]>;
     preview(request: DatasetPreviewRequest): Promise<DatasetPreview>;
+    replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
   };
 }
 
@@ -44,5 +51,7 @@ export type {
   DatasetImportResult,
   DatasetPreview,
   DatasetPreviewRequest,
+  DatasetReplacementResult,
   DatasetSummary,
+  SchemaDrift,
 } from "@bubu/contracts";
