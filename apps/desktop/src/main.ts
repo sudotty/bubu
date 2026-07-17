@@ -3,37 +3,21 @@ import { pathToFileURL } from "node:url";
 import {
   app,
   BrowserWindow,
-  dialog,
-  ipcMain,
   net,
   protocol,
   safeStorage,
   session,
 } from "electron";
-import {
-  parseDatasetId,
-  parseDatasetPreviewRequest,
-  parseProviderConfigurationInput,
-  parseProviderConnectionResult,
-  parseProviderId,
-  parseQueryPlanRequest,
-  parseSafeQueryPlan,
-} from "@bubu/contracts";
 import started from "electron-squirrel-startup";
-import { desktopChannels } from "./shared/product-api.js";
 import {
   contentSecurityPolicy,
-  isTrustedFrameUrl,
   resolveRendererAsset,
   secureWebPreferences,
 } from "./main/security.js";
 import { parseLaunchMode } from "./main/launch-mode.js";
 import { startSidecars, type SidecarSupervisor } from "./main/sidecars.js";
-import { createProviderStore, type ProviderStore } from "./main/provider-store.js";
-import {
-  buildQueryPlanInvocation,
-  createQueryPlanProposal,
-} from "./main/analysis-orchestrator.js";
+import { createProviderStore } from "./main/provider-store.js";
+import { registerDesktopApi } from "./main/desktop-api.js";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -81,123 +65,6 @@ function installSecurityPolicy(): void {
     contents.setWindowOpenHandler(() => ({ action: "deny" }));
     contents.on("will-attach-webview", (event) => event.preventDefault());
     contents.on("will-navigate", (event) => event.preventDefault());
-  });
-}
-
-function registerDesktopApi(providerStore: ProviderStore): void {
-  const assertTrustedSender = (frameUrl: string) => {
-    if (!isTrustedFrameUrl(frameUrl, MAIN_WINDOW_VITE_DEV_SERVER_URL)) {
-      throw new Error("Untrusted renderer attempted to call the desktop API");
-    }
-  };
-
-  ipcMain.handle(desktopChannels.getReadiness, (event) => {
-    const frameUrl = event.senderFrame?.url ?? "";
-    assertTrustedSender(frameUrl);
-    if (!sidecars) throw new Error("Desktop services have not started");
-    return sidecars.readiness();
-  });
-  ipcMain.handle(desktopChannels.listDatasets, (event) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    return sidecars.listDatasets();
-  });
-  ipcMain.handle(desktopChannels.importDatasets, async (event) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    const selection = await dialog.showOpenDialog({
-      title: "导入 Excel 或 CSV",
-      buttonLabel: "导入到 BuBu",
-      properties: ["openFile", "multiSelections"],
-      filters: [
-        { name: "表格文件", extensions: ["csv", "tsv", "xlsx"] },
-        { name: "CSV", extensions: ["csv", "tsv"] },
-        { name: "Excel", extensions: ["xlsx"] },
-      ],
-    });
-    if (selection.canceled || selection.filePaths.length === 0) return { datasets: [] };
-    return sidecars.importFiles(selection.filePaths);
-  });
-  ipcMain.handle(desktopChannels.previewDataset, (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    return sidecars.previewDataset(parseDatasetPreviewRequest(value));
-  });
-  ipcMain.handle(desktopChannels.replaceDataset, async (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    const datasetID = parseDatasetId(value);
-    const selection = await dialog.showOpenDialog({
-      title: "替换数据版本",
-      buttonLabel: "创建新版本",
-      properties: ["openFile"],
-      filters: [
-        { name: "表格文件", extensions: ["csv", "tsv", "xlsx"] },
-        { name: "CSV", extensions: ["csv", "tsv"] },
-        { name: "Excel", extensions: ["xlsx"] },
-      ],
-    });
-    const sourcePath = selection.filePaths[0];
-    if (selection.canceled || !sourcePath) return { status: "cancelled" } as const;
-    return sidecars.replaceDataset(datasetID, sourcePath);
-  });
-  ipcMain.handle(desktopChannels.listProviders, (event) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    return providerStore.state();
-  });
-  ipcMain.handle(desktopChannels.saveProvider, (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    return providerStore.save(parseProviderConfigurationInput(value));
-  });
-  ipcMain.handle(desktopChannels.selectProvider, (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    return providerStore.select(parseProviderId(value));
-  });
-  ipcMain.handle(desktopChannels.removeProvider, (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    return providerStore.remove(parseProviderId(value));
-  });
-  ipcMain.handle(desktopChannels.testProvider, async (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    const resolved = providerStore.resolve(parseProviderId(value));
-    const startedAt = Date.now();
-    const completion = await sidecars.generateModel({
-      provider: resolved.profile,
-      credential: resolved.credential,
-      system: "You are a connectivity check. Return a short confirmation.",
-      user: "Confirm that this model endpoint is reachable.",
-      maxOutputTokens: 16,
-    });
-    return parseProviderConnectionResult({
-      status: "connected",
-      providerId: completion.providerId,
-      providerKind: completion.providerKind,
-      model: completion.model,
-      latencyMs: Date.now() - startedAt,
-    });
-  });
-  ipcMain.handle(desktopChannels.proposeQueryPlan, async (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    const request = parseQueryPlanRequest(value);
-    const activeProviderId = providerStore.state().activeProviderId;
-    if (activeProviderId === null) {
-      throw new Error("请先在模型设置中配置并选择一个模型");
-    }
-    const [context, resolved] = await Promise.all([
-      sidecars.modelContext(request.datasetId, "schema-synthetic"),
-      Promise.resolve(providerStore.resolve(activeProviderId)),
-    ]);
-    const completion = await sidecars.generateModel(
-      buildQueryPlanInvocation(resolved, context, request.question),
-    );
-    return createQueryPlanProposal(request.question, context, completion);
-  });
-  ipcMain.handle(desktopChannels.executeQueryPlan, (event, value: unknown) => {
-    assertTrustedSender(event.senderFrame?.url ?? "");
-    if (!sidecars) throw new Error("Desktop services have not started");
-    return sidecars.executeQueryPlan(parseSafeQueryPlan(value));
   });
 }
 
@@ -251,6 +118,28 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
   if (!result.ok) {
     throw new Error(`Packaged renderer is missing imported data: ${result.missing.join(", ")}`);
   }
+  const groupResult = await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const groupButton = document.querySelector('button[title="数据群组"]');
+      if (!(groupButton instanceof HTMLButtonElement)) {
+        return resolve({ ok: false, missing: ["数据群组按钮"] });
+      }
+      groupButton.click();
+      const expected = ["synthetic-group", "2 个数据联系人", "群组只保存成员关系"];
+      const deadline = Date.now() + 5000;
+      const inspect = () => {
+        const contents = document.body.innerText;
+        const missing = expected.filter((value) => !contents.includes(value));
+        if (missing.length === 0) return resolve({ ok: true, missing: [] });
+        if (Date.now() >= deadline) return resolve({ ok: false, missing });
+        setTimeout(inspect, 50);
+      };
+      inspect();
+    })
+  `) as { readonly ok: boolean; readonly missing: readonly string[] };
+  if (!groupResult.ok) {
+    throw new Error(`Packaged renderer is missing dataset groups: ${groupResult.missing.join(", ")}`);
+  }
   const settingsResult = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const settingsButton = document.querySelector('button[title="模型设置"]');
@@ -290,8 +179,18 @@ void app
         decrypt: (value) => safeStorage.decryptString(value),
       },
     });
-    registerDesktopApi(providerStore);
-    if (launchMode.kind === "smoke") await sidecars.importFiles([launchMode.sourcePath]);
+    registerDesktopApi({
+      sidecars,
+      providerStore,
+      developmentServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
+    });
+    if (launchMode.kind === "smoke") {
+      const imported = await sidecars.importFiles([launchMode.sourcePath, launchMode.sourcePath]);
+      await sidecars.saveGroup({
+        name: "synthetic-group",
+        datasetIds: imported.datasets.map(({ id }) => id),
+      });
+    }
     const window = await createMainWindow(launchMode.kind !== "smoke");
 
     if (launchMode.kind === "smoke") {

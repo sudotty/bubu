@@ -99,6 +99,7 @@ for (const required of [
   "natural-language-query-planning: implemented",
   "visible-query-approval: implemented",
   "local-bounded-query-execution: implemented",
+  "dataset-groups: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

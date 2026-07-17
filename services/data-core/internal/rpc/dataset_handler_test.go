@@ -15,6 +15,24 @@ type fakeDatasets struct {
 	replacedPath  string
 }
 
+func (fake *fakeDatasets) SaveGroup(
+	_ context.Context,
+	groupID string,
+	name string,
+	datasetIDs []string,
+) (data.DatasetGroup, error) {
+	if groupID == "" {
+		groupID = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	}
+	return data.DatasetGroup{ID: groupID, Name: name, Members: make([]data.DatasetSummary, len(datasetIDs))}, nil
+}
+
+func (fake *fakeDatasets) ListGroups(context.Context) ([]data.DatasetGroup, error) {
+	return []data.DatasetGroup{}, nil
+}
+
+func (fake *fakeDatasets) DeleteGroup(context.Context, string) error { return nil }
+
 func (fake *fakeDatasets) ExecuteQueryPlan(
 	_ context.Context,
 	plan data.SafeQueryPlan,
@@ -188,5 +206,34 @@ func TestDatasetQueryAcceptsOnlyATypedPlan(t *testing.T) {
 	}, testToken, fake)
 	if response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
 		t.Fatalf("raw SQL escaped strict plan decoding: %#v", response)
+	}
+}
+
+func TestDatasetGroupSaveRequiresBoundedMembership(t *testing.T) {
+	fake := &fakeDatasets{}
+	datasetIDs := []any{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	}
+	response := HandleWithData(context.Background(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "group-1",
+		Method:          "dataset.group.save",
+		Params:          map[string]any{"name": "经营群", "datasetIds": datasetIDs},
+	}, testToken, fake)
+	if !response.OK {
+		t.Fatalf("unexpected group response: %#v", response)
+	}
+
+	response = HandleWithData(context.Background(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "group-2",
+		Method:          "dataset.group.save",
+		Params:          map[string]any{"name": "空群", "datasetIds": []any{}},
+	}, testToken, fake)
+	if response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("empty group escaped RPC bounds: %#v", response)
 	}
 }

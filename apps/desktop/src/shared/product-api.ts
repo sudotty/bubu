@@ -1,4 +1,7 @@
 import type {
+  DatasetGroup,
+  DatasetGroupId,
+  DatasetGroupSaveInput,
   DatasetImportResult,
   DatasetPreview,
   DatasetPreviewRequest,
@@ -27,6 +30,9 @@ export const desktopChannels = {
   testProvider: "bubu:providers:test",
   proposeQueryPlan: "bubu:analysis:propose-query-plan",
   executeQueryPlan: "bubu:analysis:execute-query-plan",
+  listDatasetGroups: "bubu:dataset-groups:list",
+  saveDatasetGroup: "bubu:dataset-groups:save",
+  removeDatasetGroup: "bubu:dataset-groups:remove",
 } as const;
 
 export type DatasetReplacementSelectionResult =
@@ -70,10 +76,18 @@ export interface BuBuDesktopApi {
     propose(value: QueryPlanRequest): Promise<QueryPlanProposal>;
     execute(plan: SafeQueryPlan): Promise<SafeQueryResult>;
   };
+  readonly datasetGroups: {
+    list(): Promise<readonly DatasetGroup[]>;
+    save(value: DatasetGroupSaveInput): Promise<DatasetGroup>;
+    remove(groupId: DatasetGroupId): Promise<readonly DatasetGroup[]>;
+  };
 }
 
 export type {
   ColumnProfile,
+  DatasetGroup,
+  DatasetGroupId,
+  DatasetGroupSaveInput,
   DatasetImportResult,
   DatasetPreview,
   DatasetPreviewRequest,

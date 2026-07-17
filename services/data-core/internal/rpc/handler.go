@@ -57,6 +57,9 @@ type DatasetService interface {
 	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
+	SaveGroup(ctx context.Context, groupID string, name string, datasetIDs []string) (data.DatasetGroup, error)
+	ListGroups(ctx context.Context) ([]data.DatasetGroup, error)
+	DeleteGroup(ctx context.Context, groupID string) error
 	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
 	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
 }
@@ -83,6 +86,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"schema-drift",
 				"privacy-context",
 				"safe-query-plan",
+				"dataset-groups",
 			}
 		}
 		return success(request.ID, ServiceHealth{
@@ -149,6 +153,33 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 			return failure(request.ID, "QUERY_REJECTED", err.Error(), false)
 		}
 		return success(request.ID, result)
+	case "dataset.group.save":
+		name, nameOK := stringParam(request.Params, "name")
+		datasetIDs, datasetsOK := stringSliceParam(request.Params, "datasetIds", 8)
+		groupID, idOK := optionalStringParam(request.Params, "id")
+		if !nameOK || !datasetsOK || !idOK {
+			return failure(request.ID, "INVALID_ARGUMENT", "group name, optional id, and datasetIds are invalid", false)
+		}
+		result, err := datasets.SaveGroup(ctx, groupID, name, datasetIDs)
+		if err != nil {
+			return failure(request.ID, "GROUP_SAVE_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.group.list":
+		result, err := datasets.ListGroups(ctx)
+		if err != nil {
+			return failure(request.ID, "GROUP_ACCESS_FAILED", err.Error(), true)
+		}
+		return success(request.ID, result)
+	case "dataset.group.delete":
+		groupID, ok := stringParam(request.Params, "id")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "group id is required", false)
+		}
+		if err := datasets.DeleteGroup(ctx, groupID); err != nil {
+			return failure(request.ID, "GROUP_DELETE_FAILED", err.Error(), false)
+		}
+		return success(request.ID, map[string]bool{"deleted": true})
 	case "dataset.list":
 		result, err := datasets.ListDatasets(ctx)
 		if err != nil {
@@ -192,6 +223,18 @@ func integerParam(params map[string]any, key string) (int, bool) {
 		return 0, false
 	}
 	return int(value), true
+}
+
+func optionalStringParam(params map[string]any, key string) (string, bool) {
+	value, exists := params[key]
+	if !exists {
+		return "", true
+	}
+	text, ok := value.(string)
+	if !ok || strings.TrimSpace(text) == "" {
+		return "", false
+	}
+	return text, true
 }
 
 func stringSliceParam(params map[string]any, key string, maximum int) ([]string, bool) {

@@ -12,6 +12,7 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable same-schema replacement versions, schema-drift blocking, bounded previews, type inference, and baseline column profiles.
 - Implemented: schema-only/synthetic model context, a local provider registry, OS-encrypted write-only credentials, active-model selection, connection tests, and bounded OpenAI, Anthropic, Gemini, compatible, and Ollama adapters.
 - Implemented: single-dataset natural-language planning with an exact disclosure preview, explicit user approval, a no-raw-SQL typed plan, and bounded local execution in Go.
+- Implemented: local data groups with 2–8 current dataset contacts, create/edit/delete UI, stable member order, and no raw-data copying.
 - In progress: interactive drift mapping, richer quality profiles, validation, relationships, deletion, and export.
 - Not complete yet: persisted/group conversations, charts and reports, multi-dataset joins, full privacy audit/usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
