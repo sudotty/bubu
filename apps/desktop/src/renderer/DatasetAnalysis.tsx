@@ -10,6 +10,7 @@ import { createOperationId, operationErrorMessage } from "./operation.js";
 import { WorkflowPanel } from "./WorkflowPanel.js";
 import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
+import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -193,6 +194,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
       )}
 
       {result && proposal && <AggregateExplanationPanel plan={proposal.plan} />}
+      {result && proposal && <AggregateAgentPanel plan={proposal.plan} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
         <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。表格内容只自动发送列结构与本地合成示例。</p>

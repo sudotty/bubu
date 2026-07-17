@@ -168,6 +168,9 @@ func backupSchemaObjects(schemaVersion int) (map[string]bool, map[string]bool) {
 		tables["workflow_trigger_events"] = true
 		indexes["workflow_trigger_events_status_idx"] = true
 	}
+	if schemaVersion >= 12 {
+		tables["model_disclosure_purposes"] = true
+	}
 	return tables, indexes
 }
 

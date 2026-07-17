@@ -8,6 +8,7 @@ import type {
 } from "../shared/product-api.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { AggregateExplanationCard } from "./AggregateExplanationCard.js";
+import { AggregateDisclosurePreview } from "./AggregateDisclosurePreview.js";
 
 export function AggregateExplanationPanel({
   plan,
@@ -66,22 +67,12 @@ export function AggregateExplanationPanel({
       <header><div><p className="hero-kicker">EXPLICIT AGGREGATE DISCLOSURE</p><h3>让 AI 解读聚合结果</h3></div>{!proposal && !operationId && <button type="button" className="secondary-action" onClick={() => void prepare()}>检查并预览发送内容</button>}</header>
       <p className="settings-copy">只有包含 COUNT(*)、每组至少 5 条、没有最小值/最大值且最多 50 行的聚合结果可以进入这个流程。原始明细仍留在本地。</p>
       {notice && <div className="notice" role="status">{notice}</div>}
-      {proposal && <article className="aggregate-disclosure-review">
-        <header><div><strong>发送前逐项审查</strong><small>{proposal.destination.providerName} / {proposal.destination.model}</small></div><span>{proposal.disclosure.rows.length} 行 · {proposal.disclosure.columns.length} 列</span></header>
-        <p>目标端点：<code>{proposal.destination.endpointOrigin}</code>。下表全部内容、你的问题和结果用途将发送给该模型；表外数据不会发送。批准在 {new Date(proposal.expiresAt).toLocaleTimeString("zh-CN")} 失效。</p>
-        <dl className="aggregate-disclosure-context">
-          <div><dt>发送的问题</dt><dd>{proposal.disclosure.question}</dd></div>
-          <div><dt>结果用途</dt><dd>{proposal.disclosure.purpose}</dd></div>
-        </dl>
-        <div className="table-scroll"><table>
-          <thead><tr><th>引用</th>{proposal.disclosure.columns.map((column) => <th key={column.label}>{column.label}<small>{column.type}</small></th>)}</tr></thead>
-          <tbody>{proposal.disclosure.rows.map((row, rowIndex) => <tr key={rowIndex}><th>R{rowIndex + 1}</th>{row.map((cell, columnIndex) => <td key={proposal.disclosure.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? "—" : String(cell)}</td>)}</tr>)}</tbody>
-        </table></div>
+      {proposal && <AggregateDisclosurePreview proposal={proposal}>
         <div className="plan-actions">
           <button type="button" className="primary-action" onClick={() => void approve()}>批准发送这些聚合内容</button>
           <button type="button" className="secondary-action" onClick={() => void dismiss()}>放弃且撤销</button>
         </div>
-      </article>}
+      </AggregateDisclosurePreview>}
       {operationId && <div className="analysis-progress">正在分析已批准的聚合内容… <button type="button" className="secondary-action" onClick={() => void window.bubu.operations.cancel(operationId)}>取消</button></div>}
       {explanation && <AggregateExplanationCard explanation={explanation} />}
     </section>

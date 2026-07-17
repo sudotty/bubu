@@ -53,6 +53,15 @@ describe("model disclosure audit contracts", () => {
       syntheticRowCount: 0,
       aggregateRowCount: 0,
     })).toThrow("Aggregate");
+    expect(parseModelAuditStartInput({
+      ...start,
+      purpose: "aggregate-agent",
+      disclosure: "aggregates",
+      syntheticRowCount: 0,
+      aggregateRowCount: 2,
+      columnCount: 3,
+      maxOutputTokens: 2_048,
+    })).toMatchObject({ purpose: "aggregate-agent", disclosure: "aggregates" });
   });
 
   it("requires terminal audit consistency", () => {

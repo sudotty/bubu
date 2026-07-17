@@ -333,6 +333,10 @@ const modelAuditMigration = read("services/data-core/internal/data/model_audit_m
 for (const invariant of ["aggregate-explanation", "aggregate_row_count", "disclosure IN ('none', 'schema-only', 'schema-synthetic', 'aggregates')"]) {
   if (!modelAuditMigration.includes(invariant)) failures.push(`aggregate disclosure migration invariant missing: ${invariant}`);
 }
+const modelAuditPurposeMigration = read("services/data-core/internal/data/model_audit_purpose_migration.go");
+for (const invariant of ["model_disclosure_purposes", "'aggregate-agent'", "FROM model_disclosure_events_v11"]) {
+  if (!modelAuditPurposeMigration.includes(invariant)) failures.push(`evolvable model audit purpose migration missing: ${invariant}`);
+}
 
 const aggregateDisclosure = read("apps/desktop/src/main/aggregate-disclosure.ts");
 for (const invariant of [
@@ -377,19 +381,81 @@ for (const invariant of [
 ]) {
   if (!analysisApi.includes(invariant)) failures.push(`aggregate desktop approval path missing: ${invariant}`);
 }
-const aggregatePanel = read("apps/desktop/src/renderer/AggregateExplanationPanel.tsx");
+const aggregatePanel = read("apps/desktop/src/renderer/AggregateDisclosurePreview.tsx");
 for (const invariant of [
   "endpointOrigin",
   "proposal.disclosure.question",
   "proposal.disclosure.purpose",
   "proposal.disclosure.rows.map",
-  "批准发送这些聚合内容",
-  "放弃且撤销",
 ]) {
   if (!aggregatePanel.includes(invariant)) failures.push(`aggregate disclosure review UI missing: ${invariant}`);
 }
+const aggregateExplanationPanel = read("apps/desktop/src/renderer/AggregateExplanationPanel.tsx");
+for (const invariant of ["批准发送这些聚合内容", "放弃且撤销", "AggregateDisclosurePreview"]) {
+  if (!aggregateExplanationPanel.includes(invariant)) failures.push(`aggregate explanation approval UI missing: ${invariant}`);
+}
+const aggregateAgentContract = read("packages/contracts/src/aggregate-agent.ts");
+for (const invariant of [
+  "maxTurns: 4 as const",
+  "maxToolCalls: 3 as const",
+  "maxDurationMs: 60_000 as const",
+  "maxTotalOutputTokens: 8_192 as const",
+  'z.literal("rank")',
+  'z.literal("compare")',
+  'z.literal("column-summary")',
+  "Every agent turn must cite a distinct audit event",
+]) {
+  if (!aggregateAgentContract.includes(invariant)) failures.push(`bounded aggregate agent contract missing: ${invariant}`);
+}
+const aggregateAgentTools = read("apps/desktop/src/main/aggregate-agent-tools.ts");
+for (const invariant of [
+  "parseAggregateAgentToolCall(value)",
+  "approved numeric cell",
+  "numericColumn(disclosure",
+  "parseAggregateAgentToolObservation",
+]) {
+  if (!aggregateAgentTools.includes(invariant)) failures.push(`least-privilege aggregate agent tool missing: ${invariant}`);
+}
+const aggregateAgentRunner = read("apps/desktop/src/main/aggregate-agent-runner.ts");
+for (const invariant of [
+  "AbortSignal.timeout(aggregateAgentBudget.maxDurationMs)",
+  "AbortSignal.any([signal, timeoutSignal])",
+  "turn <= aggregateAgentBudget.maxTurns",
+  "observations.length >= aggregateAgentBudget.maxToolCalls",
+  "parseAggregateAgentDecisionText",
+]) {
+  if (!aggregateAgentRunner.includes(invariant)) failures.push(`bounded aggregate agent runner missing: ${invariant}`);
+}
+const aggregateAgentApprovals = read("apps/desktop/src/main/aggregate-agent-approval-sessions.ts");
+for (const invariant of [
+  "10 * 60 * 1_000",
+  "maximumAggregateAgentApprovalSessions = 20",
+  "pending.delete(token)",
+  "budget: aggregateAgentBudget",
+]) {
+  if (!aggregateAgentApprovals.includes(invariant)) failures.push(`aggregate agent approval boundary missing: ${invariant}`);
+}
+for (const invariant of [
+  "aggregateAgentApprovals.consume",
+  "runBoundedAggregateAgent",
+  "generateAuditedModelWithAudit",
+  'purpose: "aggregate-agent"',
+  "auditId: generated.audit.id",
+  "aggregateAgentApprovals.revoke",
+]) {
+  if (!analysisApi.includes(invariant)) failures.push(`audited aggregate agent desktop path missing: ${invariant}`);
+}
+const aggregateAgentPanel = read("apps/desktop/src/renderer/AggregateAgentPanel.tsx");
+for (const invariant of [
+  "审查 Agent 的数据与预算",
+  "proposal.budget.maxTurns",
+  "固定只读工具",
+  "批准此数据、模型与固定预算",
+]) {
+  if (!aggregateAgentPanel.includes(invariant)) failures.push(`aggregate agent review UI missing: ${invariant}`);
+}
 const conversationContract = read("packages/contracts/src/conversation.ts");
-for (const invariant of ["sourcePlan", "same immutable source", "insightEntryInputSchema"]) {
+for (const invariant of ["sourcePlan", "same immutable source", "insightEntryInputSchema", "agentRun: aggregateAgentRunSchema"]) {
   if (!conversationContract.includes(invariant)) failures.push(`source-linked aggregate conversation invariant missing: ${invariant}`);
 }
 const conversationMigration = read("services/data-core/internal/data/conversation_migration.go");

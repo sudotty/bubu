@@ -52,7 +52,7 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 	} else if input.Target.Kind != "dataset" {
 		return errors.New("model audit target kind is invalid")
 	}
-	if input.Purpose == "aggregate-explanation" {
+	if input.Purpose == "aggregate-explanation" || input.Purpose == "aggregate-agent" {
 		if input.Disclosure != "aggregates" || !validDatasetCount || input.ColumnCount < 2 ||
 			input.SyntheticRowCount != 0 || input.AggregateRowCount < 1 || input.RelationshipCount != 0 {
 			return errors.New("model audit aggregate scope is inconsistent")

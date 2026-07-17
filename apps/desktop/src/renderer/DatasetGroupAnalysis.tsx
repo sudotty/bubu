@@ -11,6 +11,7 @@ import { createOperationId, operationErrorMessage } from "./operation.js";
 import { WorkflowPanel } from "./WorkflowPanel.js";
 import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
+import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -169,6 +170,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
       </>}
 
       {result && proposal && <AggregateExplanationPanel plan={proposal.plan} />}
+      {result && proposal && <AggregateAgentPanel plan={proposal.plan} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
         <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。群组数据只自动发送结构、合成示例和有效关系。</p>

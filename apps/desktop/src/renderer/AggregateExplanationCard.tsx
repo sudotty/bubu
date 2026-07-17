@@ -11,12 +11,18 @@ function evidenceLabel(
 
 export function AggregateExplanationCard({
   explanation,
+  kicker = "APPROVED AGGREGATE INSIGHT",
+  title = "AI 聚合解读",
+  metric,
 }: {
   readonly explanation: AggregateExplanation;
+  readonly kicker?: string;
+  readonly title?: string;
+  readonly metric?: string;
 }) {
   return (
     <article className="aggregate-explanation-card">
-      <header><div><p className="hero-kicker">APPROVED AGGREGATE INSIGHT</p><h3>AI 聚合解读</h3></div><span>{explanation.disclosure.rows.length} 个已批准聚合行</span></header>
+      <header><div><p className="hero-kicker">{kicker}</p><h3>{title}</h3></div><span>{metric ?? `${explanation.disclosure.rows.length} 个已批准聚合行`}</span></header>
       <p className="aggregate-summary">{explanation.summary}</p>
       <div className="aggregate-findings">
         {explanation.findings.map((finding, index) => <section key={`${finding.title}-${index}`}>

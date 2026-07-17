@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseConversationAppendInput, parseConversationThread } from "./conversation.js";
+import { aggregateAgentBudget } from "./aggregate-agent.js";
 
 const target = { kind: "dataset", id: "a".repeat(32) } as const;
 
@@ -73,6 +74,26 @@ describe("conversation boundary", () => {
       target,
       entry: { kind: "insight", role: "assistant", payload: { explanation } },
     })).toMatchObject({ entry: { kind: "insight" } });
+    const agentRun = {
+      schemaVersion: 1 as const,
+      id: "f".repeat(32),
+      disclosure,
+      budget: aggregateAgentBudget,
+      startedAt: "2026-07-17T00:00:00Z",
+      finishedAt: "2026-07-17T00:00:01Z",
+      turns: [{ turn: 1, auditId: "1".repeat(32), action: "finish" as const }],
+      report: {
+        schemaVersion: 1 as const,
+        summary: explanation.summary,
+        findings: explanation.findings,
+        caveats: explanation.caveats,
+        nextQuestions: explanation.nextQuestions,
+      },
+    };
+    expect(parseConversationAppendInput({
+      target,
+      entry: { kind: "insight", role: "assistant", payload: { agentRun } },
+    })).toMatchObject({ entry: { payload: { agentRun: { id: agentRun.id } } } });
     expect(() => parseConversationAppendInput({
       target,
       entry: { kind: "insight", role: "system", payload: { explanation } },

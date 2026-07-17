@@ -14,6 +14,7 @@ const purposeLabel: Readonly<Record<ModelAuditEvent["purpose"], string>> = {
   "query-plan": "单表计划",
   "group-query-plan": "群组计划",
   "aggregate-explanation": "聚合结果解释",
+  "aggregate-agent": "受限聚合 Agent",
 };
 
 export function PrivacyLedgerPanel({ refreshKey }: { readonly refreshKey: number }) {

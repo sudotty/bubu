@@ -5,7 +5,12 @@ import type {
   ModelAuditStartInput,
   ModelInvocation,
 } from "@bubu/contracts";
-import { buildModelAuditStart, generateAuditedModel, type AuditedModelRuntime } from "./model-audit.js";
+import {
+  buildModelAuditStart,
+  generateAuditedModel,
+  generateAuditedModelWithAudit,
+  type AuditedModelRuntime,
+} from "./model-audit.js";
 
 const invocation: ModelInvocation = {
   provider: {
@@ -66,6 +71,16 @@ describe("audited model invocation", () => {
       aggregateRowCount: 2,
       containsRawRows: false,
     });
+    expect(buildModelAuditStart({ ...invocation, maxOutputTokens: 2_048 }, {
+      purpose: "aggregate-agent",
+      target: { kind: "dataset", id: context.datasetId },
+      contexts: [],
+      relationshipCount: 0,
+      disclosure: "aggregates",
+      datasetCount: 1,
+      columnCount: 3,
+      aggregateRowCount: 2,
+    })).toMatchObject({ purpose: "aggregate-agent", aggregateRowCount: 2, maxOutputTokens: 2_048 });
   });
 
   it("starts before provider I/O and persists terminal usage", async () => {
@@ -94,6 +109,13 @@ describe("audited model invocation", () => {
     });
     expect(order).toEqual(["audit", "provider"]);
     expect(finish).toHaveBeenCalledWith(expect.objectContaining({ status: "succeeded", totalTokens: 12 }));
+
+    const correlated = await generateAuditedModelWithAudit(runtime, invocation, {
+      purpose: "query-plan", target: { kind: "dataset", id: context.datasetId },
+      contexts: [context], relationshipCount: 0,
+    });
+    expect(correlated.audit.id).toBe(started.id);
+    expect(correlated.completion.text).toBe("{}");
   });
 
   it("persists cancellation instead of leaving a started request", async () => {

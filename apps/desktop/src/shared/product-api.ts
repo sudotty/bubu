@@ -1,4 +1,8 @@
 import type {
+  AggregateAgentApproval,
+  AggregateAgentPreparation,
+  AggregateAgentProposal,
+  AggregateAgentRun,
   AggregateExplanation,
   AggregateExplanationApproval,
   AggregateExplanationPreparation,
@@ -78,6 +82,9 @@ export const desktopChannels = {
   prepareAggregateExplanation: "bubu:analysis:prepare-aggregate-explanation",
   approveAggregateExplanation: "bubu:analysis:approve-aggregate-explanation",
   dismissAggregateExplanation: "bubu:analysis:dismiss-aggregate-explanation",
+  prepareAggregateAgent: "bubu:analysis:prepare-aggregate-agent",
+  approveAggregateAgent: "bubu:analysis:approve-aggregate-agent",
+  dismissAggregateAgent: "bubu:analysis:dismiss-aggregate-agent",
   getConversation: "bubu:conversations:get",
   getGroupRelationships: "bubu:relationships:group-overview",
   saveDatasetRelationship: "bubu:relationships:save",
@@ -144,6 +151,9 @@ export interface BuBuDesktopApi {
     prepareAggregateExplanation(value: AggregateExplanationPreparation): Promise<AggregateExplanationProposal>;
     approveAggregateExplanation(value: AggregateExplanationApproval, operationId: OperationId): Promise<AggregateExplanation>;
     dismissAggregateExplanation(value: AggregateExplanationApproval): Promise<void>;
+    prepareAggregateAgent(value: AggregateAgentPreparation): Promise<AggregateAgentProposal>;
+    approveAggregateAgent(value: AggregateAgentApproval, operationId: OperationId): Promise<AggregateAgentRun>;
+    dismissAggregateAgent(value: AggregateAgentApproval): Promise<void>;
   };
   readonly datasetGroups: {
     list(): Promise<readonly DatasetGroup[]>;
@@ -171,6 +181,12 @@ export interface BuBuDesktopApi {
 }
 
 export type {
+  AggregateAgentApproval,
+  AggregateAgentBudget,
+  AggregateAgentPreparation,
+  AggregateAgentProposal,
+  AggregateAgentRun,
+  AggregateAgentToolObservation,
   AggregateDisclosure,
   AggregateExplanation,
   AggregateExplanationApproval,
