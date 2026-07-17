@@ -32,7 +32,16 @@ func validateWorkflowDefinitionInput(input WorkflowDefinitionInput) error {
 	if !objectID.MatchString(input.Target.ID) || (input.Target.Kind != "dataset" && input.Target.Kind != "group") {
 		return errors.New("workflow target is invalid")
 	}
-	if input.Trigger.Kind != "manual" {
+	switch input.Trigger.Kind {
+	case "manual", "dataset-version":
+		if input.Trigger.EveryMinutes != 0 {
+			return errors.New("workflow trigger contains irrelevant schedule fields")
+		}
+	case "interval":
+		if input.Trigger.EveryMinutes < 60 || input.Trigger.EveryMinutes > 7*24*60 {
+			return errors.New("workflow interval is outside the bounded range")
+		}
+	default:
 		return errors.New("workflow trigger is unsupported")
 	}
 	if input.TimeoutMS < 1_000 || input.TimeoutMS > 10*60_000 {

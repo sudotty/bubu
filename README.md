@@ -24,8 +24,9 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: named cancellation for imports, replacements, exports, backup/restore, local scans, model planning, and single/group queries, propagated through authenticated RPC into Go contexts and provider fetch signals.
 - Implemented: an executable 100 MiB/183,246-row reference-device gate; the recorded M1 Max run imported and profiled in 3.77s at 33.11 MiB peak data-core RSS, while the safe aggregation query measured 164.36ms p95 against a 3s budget.
 - Implemented: reviewed single/group plans can be saved as versioned manual workflows with current-version rebinding, UUID idempotency, bounded retries/deadlines, cancellable runs, typed step checkpoints, local audit, and backup/restore coverage.
+- Implemented: saved workflows can run every 24 hours, every 7 days, or after a dataset/group member version changes; a persistent deduplicated queue survives restarts, trigger terminal state plus the result/error chat message commit atomically, and an open chat refreshes from local state within 30 seconds.
 - Implemented: every data-planning and provider-test request fails closed unless Go first records a local disclosure summary; terminal status, endpoint origin, prompt fingerprint/size, estimated and provider-reported token usage are auditable without storing prompts, credentials, model text, or raw rows.
-- Not complete yet: aggregate/explicit-row disclosure policies, richer charts and reports, workflow triggers/approvals/crash resume, bounded Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
+- Not complete yet: aggregate/explicit-row disclosure policies, richer charts and reports, wall-clock/OS notifications, approval/side-effect workflow nodes, resumable partial runs, bounded Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
 

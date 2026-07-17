@@ -3,13 +3,13 @@ import type {
   DatasetGroup,
   GroupQueryPlanProposal,
   SafeGroupQueryResult,
-  ConversationThread,
   OperationId,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { WorkflowPanel } from "./WorkflowPanel.js";
+import { useConversationThread } from "./useConversationThread.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -39,8 +39,8 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
   const [result, setResult] = useState<SafeGroupQueryResult>();
   const [state, setState] = useState<GroupAnalysisState>("idle");
   const [error, setError] = useState<string>();
-  const [history, setHistory] = useState<ConversationThread | null>();
   const [operationId, setOperationId] = useState<OperationId>();
+  const history = useConversationThread({ kind: "group", id: group.id });
 
   useEffect(() => {
     setQuestion("");
@@ -49,13 +49,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     setResult(undefined);
     setState("idle");
     setError(undefined);
-    setHistory(undefined);
     setOperationId(undefined);
-    let active = true;
-    void window.bubu.conversations.get({ kind: "group", id: group.id })
-      .then((thread) => { if (active) setHistory(thread); })
-      .catch(() => { if (active) setHistory(null); });
-    return () => { active = false; };
   }, [group.id, group.updatedAt]);
 
   async function propose(): Promise<void> {

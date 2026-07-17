@@ -40,6 +40,7 @@ import type {
   WorkflowDefinitionInput,
   WorkflowRun,
   WorkflowTarget,
+  WorkflowTrigger,
   ModelAuditEvent,
 } from "@bubu/contracts";
 
@@ -209,6 +210,7 @@ export type {
   WorkflowRun,
   WorkflowStepDefinition,
   WorkflowTarget,
+  WorkflowTrigger,
   ModelAuditEvent,
   RelationshipCandidate,
   RelationshipEndpoint,

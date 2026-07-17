@@ -77,6 +77,10 @@ func openLocalDatabase(databasePath string) (*sql.DB, error) {
 		database.Close()
 		return nil, err
 	}
+	if err := recoverInterruptedWorkflowRuns(context.Background(), database); err != nil {
+		database.Close()
+		return nil, err
+	}
 	if err := os.Chmod(databasePath, 0o600); err != nil {
 		database.Close()
 		return nil, fmt.Errorf("restrict database permissions: %w", err)

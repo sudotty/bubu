@@ -12,6 +12,8 @@ type workflowService interface {
 	DeleteWorkflow(context.Context, string) error
 	RunWorkflow(context.Context, string, string) (data.WorkflowRun, error)
 	ListWorkflowRuns(context.Context, string) ([]data.WorkflowRun, error)
+	ClaimDueWorkflowTriggers(context.Context, string) ([]data.WorkflowTriggerEvent, error)
+	FinishWorkflowTrigger(context.Context, data.WorkflowTriggerFinishInput) (data.WorkflowTriggerEvent, error)
 }
 
 func handleWorkflow(
@@ -76,6 +78,26 @@ func handleWorkflow(
 		result, err := workflows.ListWorkflowRuns(ctx, workflowID)
 		if err != nil {
 			return failure(request.ID, "WORKFLOW_RUN_ACCESS_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
+	case "workflow.triggers.claim":
+		now, ok := stringParam(request.Params, "now")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "trigger clock is required", false), true
+		}
+		result, err := workflows.ClaimDueWorkflowTriggers(ctx, now)
+		if err != nil {
+			return failure(request.ID, "WORKFLOW_TRIGGER_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
+	case "workflow.triggers.finish":
+		input, ok := objectParam[data.WorkflowTriggerFinishInput](request.Params, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "trigger completion is invalid", false), true
+		}
+		result, err := workflows.FinishWorkflowTrigger(ctx, input)
+		if err != nil {
+			return failure(request.ID, "WORKFLOW_TRIGGER_FAILED", err.Error(), false), true
 		}
 		return success(request.ID, result), true
 	default:

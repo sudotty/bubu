@@ -18,6 +18,7 @@ import { parseLaunchMode } from "./main/launch-mode.js";
 import { startSidecars, type SidecarSupervisor } from "./main/sidecars.js";
 import { createProviderStore } from "./main/provider-store.js";
 import { registerDesktopApi } from "./main/desktop-api.js";
+import { startWorkflowTriggerScheduler } from "./main/workflow-trigger-scheduler.js";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -34,6 +35,7 @@ protocol.registerSchemesAsPrivileged([
 if (started) app.quit();
 
 let sidecars: SidecarSupervisor | undefined;
+let stopWorkflowTriggerScheduler: (() => void) | undefined;
 
 function registerApplicationProtocol(): void {
   const rendererRoot = join(__dirname, "..", "renderer", MAIN_WINDOW_VITE_NAME);
@@ -243,6 +245,10 @@ void app
       return;
     }
 
+    stopWorkflowTriggerScheduler = startWorkflowTriggerScheduler(sidecars, {
+      onError: (error) => console.warn("BuBu workflow trigger tick failed", error),
+    });
+
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
     });
@@ -253,6 +259,8 @@ void app
   });
 
 app.on("before-quit", () => {
+  stopWorkflowTriggerScheduler?.();
+  stopWorkflowTriggerScheduler = undefined;
   sidecars?.stop();
   sidecars = undefined;
 });

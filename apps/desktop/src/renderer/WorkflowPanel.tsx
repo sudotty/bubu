@@ -6,13 +6,32 @@ import type {
   WorkflowDefinition,
   WorkflowRun,
   WorkflowTarget,
+  WorkflowTrigger,
 } from "../shared/product-api.js";
+import { AUTOMATION_POLL_INTERVAL_MILLISECONDS } from "../shared/automation.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 
 type WorkflowDraft =
   | { readonly kind: "dataset-query"; readonly plan: SafeQueryPlan }
   | { readonly kind: "group-query"; readonly groupPlan: SafeGroupQueryPlan };
+
+type TriggerPreset = "manual" | "daily" | "weekly" | "dataset-version";
+
+function triggerFromPreset(preset: TriggerPreset): WorkflowTrigger {
+  if (preset === "daily") return { kind: "interval", everyMinutes: 24 * 60 };
+  if (preset === "weekly") return { kind: "interval", everyMinutes: 7 * 24 * 60 };
+  if (preset === "dataset-version") return { kind: "dataset-version" };
+  return { kind: "manual" };
+}
+
+function workflowTriggerLabel(workflow: WorkflowDefinition): string {
+  if (workflow.trigger.kind === "dataset-version") return "数据更新后";
+  if (workflow.trigger.kind === "interval") {
+    return workflow.trigger.everyMinutes === 24 * 60 ? "每 24 小时" : "每 7 天";
+  }
+  return "手动";
+}
 
 function runLabel(status: WorkflowRun["status"]): string {
   return {
@@ -35,6 +54,7 @@ export function WorkflowPanel({
   const [activeWorkflowId, setActiveWorkflowId] = useState<string>();
   const [latestRun, setLatestRun] = useState<WorkflowRun>();
   const [notice, setNotice] = useState<string>();
+  const [triggerPreset, setTriggerPreset] = useState<TriggerPreset>("manual");
 
   async function reload(): Promise<void> {
     setWorkflows(await window.bubu.workflows.list(target));
@@ -42,12 +62,30 @@ export function WorkflowPanel({
 
   useEffect(() => {
     let active = true;
-    void window.bubu.workflows.list(target)
-      .then((value) => { if (active) setWorkflows(value); })
-      .catch((error: unknown) => {
-        if (active) setNotice(operationErrorMessage(error, "读取工作流失败"));
-      });
-    return () => { active = false; };
+    let inFlight = false;
+    let hasLoaded = false;
+    setWorkflows([]);
+    async function load(): Promise<void> {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const value = await window.bubu.workflows.list(target);
+        if (active) {
+          setWorkflows(value);
+          hasLoaded = true;
+        }
+      } catch (error: unknown) {
+        if (active && !hasLoaded) setNotice(operationErrorMessage(error, "读取工作流失败"));
+      } finally {
+        inFlight = false;
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => { void load(); }, AUTOMATION_POLL_INTERVAL_MILLISECONDS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [target.id, target.kind]);
 
   async function saveDraft(): Promise<void> {
@@ -61,7 +99,7 @@ export function WorkflowPanel({
       const saved = await window.bubu.workflows.save({
         name,
         target,
-        trigger: { kind: "manual" },
+        trigger: triggerFromPreset(triggerPreset),
         timeoutMs: 60_000,
         steps: [step],
       });
@@ -114,7 +152,15 @@ export function WorkflowPanel({
     <section className="workflow-panel" aria-label="可重复工作流">
       <header className="workflow-header">
         <div><p className="hero-kicker">REPEATABLE LOCAL AUTOMATION</p><h3>工作流</h3></div>
-        {draft && <button type="button" className="secondary-action" onClick={() => void saveDraft()}>保存当前计划</button>}
+        {draft && <div className="workflow-save-controls">
+          <select value={triggerPreset} onChange={(event) => setTriggerPreset(event.target.value as TriggerPreset)} aria-label="工作流触发方式">
+            <option value="manual">仅手动运行</option>
+            <option value="daily">每 24 小时</option>
+            <option value="weekly">每 7 天</option>
+            <option value="dataset-version">数据版本更新后</option>
+          </select>
+          <button type="button" className="secondary-action" onClick={() => void saveDraft()}>保存当前计划</button>
+        </div>}
       </header>
       <p className="settings-copy">保存的是经过审查的类型化计划，不是模型生成的 SQL。运行时会绑定当前兼容版本，并写入幂等运行记录与步骤检查点。</p>
       {notice && <div className="notice" role="status">{notice}</div>}
@@ -124,7 +170,7 @@ export function WorkflowPanel({
           <article className="workflow-row" key={workflow.id}>
             <div>
               <strong>{workflow.name}</strong>
-              <small>v{workflow.version} · {workflow.steps.length} 步 · {workflow.timeoutMs / 1_000} 秒预算</small>
+              <small>v{workflow.version} · {workflow.steps.length} 步 · {workflow.timeoutMs / 1_000} 秒预算 · {workflowTriggerLabel(workflow)}{workflow.nextDueAt ? ` · 下次 ${new Date(workflow.nextDueAt).toLocaleString("zh-CN")}` : ""}</small>
             </div>
             <div>
               <button type="button" className="primary-action" disabled={activeOperationId !== undefined} onClick={() => void runWorkflow(workflow.id)}>

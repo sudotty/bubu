@@ -334,7 +334,8 @@ for (const invariant of [
   "maximumWorkflowAttempts    = 3",
   "maximumWorkflowRuns        = 10_000",
   "maximumWorkflowJSONBytes   = 1024 * 1024",
-  'input.Trigger.Kind != "manual"',
+  'case "manual", "dataset-version":',
+  'case "interval":',
 ]) {
   if (!workflowValidation.includes(invariant)) failures.push(`workflow budget invariant missing: ${invariant}`);
 }
@@ -356,8 +357,45 @@ for (const invariant of [
   "CREATE TABLE workflow_step_runs",
   "UNIQUE (workflow_id, idempotency_key)",
   "UNIQUE (run_id, ordinal, attempt)",
+  "CREATE TABLE workflow_trigger_events",
+  "UNIQUE (workflow_id, dedupe_key)",
 ]) {
   if (!workflowMigration.includes(invariant)) failures.push(`workflow persistence invariant missing: ${invariant}`);
+}
+const workflowTrigger = read("services/data-core/internal/data/workflow_trigger.go");
+for (const invariant of [
+  "maximumWorkflowTriggerEvents = 10_000",
+  "currentWorkflowTargetSignature",
+  "newOperationID",
+  "INSERT OR IGNORE INTO workflow_trigger_events",
+  "listPendingWorkflowTriggers",
+]) {
+  if (!workflowTrigger.includes(invariant)) failures.push(`workflow trigger invariant missing: ${invariant}`);
+}
+const workflowTriggerFinish = read("services/data-core/internal/data/workflow_trigger_finish.go");
+for (const invariant of [
+  "appendExistingConversationEntry",
+  "triggeredWorkflowConversationEntry",
+  "transaction.Commit()",
+  "events.status = 'pending'",
+]) {
+  if (!workflowTriggerFinish.includes(invariant)) failures.push(`workflow trigger delivery invariant missing: ${invariant}`);
+}
+const workflowScheduler = read("apps/desktop/src/main/workflow-trigger-scheduler.ts");
+for (const invariant of ["claimDueWorkflowTriggers", "event.operationId", "finishWorkflowTrigger", "AUTOMATION_POLL_INTERVAL_MILLISECONDS"]) {
+  if (!workflowScheduler.includes(invariant)) failures.push(`workflow trigger scheduler invariant missing: ${invariant}`);
+}
+const automationRefresh = read("apps/desktop/src/shared/automation.ts");
+if (!automationRefresh.includes("AUTOMATION_POLL_INTERVAL_MILLISECONDS = 30_000")) {
+  failures.push("automation scheduling and renderer refresh do not share the bounded 30-second interval");
+}
+const conversationRefresh = read("apps/desktop/src/renderer/useConversationThread.ts");
+for (const invariant of ["window.bubu.conversations.get(target)", "inFlight", "AUTOMATION_POLL_INTERVAL_MILLISECONDS"]) {
+  if (!conversationRefresh.includes(invariant)) failures.push(`in-app automation reminder refresh missing: ${invariant}`);
+}
+const workflowPanel = read("apps/desktop/src/renderer/WorkflowPanel.tsx");
+if (!workflowPanel.includes("AUTOMATION_POLL_INTERVAL_MILLISECONDS")) {
+  failures.push("workflow due state does not refresh on the shared automation interval");
 }
 const workflowApi = read("apps/desktop/src/main/workflow-api.ts");
 for (const invariant of ["containsProposedPlan", "parseWorkflowDefinitionInput", "operations.run", "envelope.operationId"]) {

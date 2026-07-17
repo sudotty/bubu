@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import type {
   QueryPlanProposal,
   SafeQueryResult,
-  ConversationThread,
   OperationId,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { WorkflowPanel } from "./WorkflowPanel.js";
+import { useConversationThread } from "./useConversationThread.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -51,8 +51,8 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
   const [result, setResult] = useState<SafeQueryResult>();
   const [state, setState] = useState<AnalysisState>("idle");
   const [error, setError] = useState<string>();
-  const [history, setHistory] = useState<ConversationThread | null>();
   const [operationId, setOperationId] = useState<OperationId>();
+  const history = useConversationThread({ kind: "dataset", id: datasetId });
 
   useEffect(() => {
     setQuestion("");
@@ -61,13 +61,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     setResult(undefined);
     setState("idle");
     setError(undefined);
-    setHistory(undefined);
     setOperationId(undefined);
-    let active = true;
-    void window.bubu.conversations.get({ kind: "dataset", id: datasetId })
-      .then((thread) => { if (active) setHistory(thread); })
-      .catch(() => { if (active) setHistory(null); });
-    return () => { active = false; };
   }, [datasetId]);
 
   async function propose(): Promise<void> {
