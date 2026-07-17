@@ -3,14 +3,16 @@ import type {
   QueryPlanProposal,
   SafeQueryResult,
   ConversationThread,
+  OperationId,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
+import { createOperationId, operationErrorMessage } from "./operation.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
 function messageFrom(error: unknown): string {
-  return error instanceof Error ? error.message : "数据分析失败，请重试";
+  return operationErrorMessage(error, "数据分析失败，请重试");
 }
 
 function measureLabel(measure: QueryPlanProposal["plan"]["measures"][number]): string {
@@ -49,6 +51,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
   const [state, setState] = useState<AnalysisState>("idle");
   const [error, setError] = useState<string>();
   const [history, setHistory] = useState<ConversationThread | null>();
+  const [operationId, setOperationId] = useState<OperationId>();
 
   useEffect(() => {
     setQuestion("");
@@ -58,6 +61,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     setState("idle");
     setError(undefined);
     setHistory(undefined);
+    setOperationId(undefined);
     let active = true;
     void window.bubu.conversations.get({ kind: "dataset", id: datasetId })
       .then((thread) => { if (active) setHistory(thread); })
@@ -73,13 +77,20 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     setResult(undefined);
     setError(undefined);
     setState("planning");
+    const nextOperationId = createOperationId();
+    setOperationId(nextOperationId);
     try {
-      const next = await window.bubu.analysis.propose({ datasetId, question: normalizedQuestion });
+      const next = await window.bubu.analysis.propose(
+        { datasetId, question: normalizedQuestion },
+        nextOperationId,
+      );
       setProposal(next);
       setState("proposed");
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+    } finally {
+      setOperationId((current) => current === nextOperationId ? undefined : current);
     }
   }
 
@@ -87,13 +98,22 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     if (!proposal) return;
     setState("executing");
     setError(undefined);
+    const nextOperationId = createOperationId();
+    setOperationId(nextOperationId);
     try {
-      setResult(await window.bubu.analysis.execute(proposal.plan));
+      setResult(await window.bubu.analysis.execute(proposal.plan, nextOperationId));
       setState("complete");
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+    } finally {
+      setOperationId((current) => current === nextOperationId ? undefined : current);
     }
+  }
+
+  async function cancelOperation(): Promise<void> {
+    if (!operationId) return;
+    await window.bubu.operations.cancel(operationId);
   }
 
   return (
@@ -189,6 +209,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
         <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>
           {state === "planning" ? "生成中…" : "先生成计划"}
         </button>
+        {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
     </section>
   );

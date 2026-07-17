@@ -62,7 +62,11 @@ import type {
   DesktopServiceHealth,
   ProductReadiness,
 } from "../shared/product-api.js";
-import { RpcRequestBroker } from "./rpc-broker.js";
+import { RpcRequestBroker, type RpcRequestOptions } from "./rpc-broker.js";
+
+function requestOptions(signal: AbortSignal | undefined): RpcRequestOptions {
+  return signal ? { signal } : {};
+}
 
 interface RuntimeClient {
   health(): Promise<DesktopServiceHealth>;
@@ -80,7 +84,7 @@ class DataCoreClient implements RuntimeClient {
     });
     this.#broker = new RpcRequestBroker(auth, (message) => {
       this.#process.stdin.write(`${JSON.stringify(message)}\n`);
-    });
+    }, 10 * 60_000);
 
     const responses = createInterface({ input: this.#process.stdout, crlfDelay: Infinity });
     responses.on("line", (line) => {
@@ -103,9 +107,9 @@ class DataCoreClient implements RuntimeClient {
     return { name: "data-core", status: health.status, capabilities: health.capabilities };
   }
 
-  async importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult> {
+  async importFiles(sourcePaths: readonly string[], signal?: AbortSignal): Promise<DatasetImportResult> {
     return parseDatasetImportResult(
-      await this.#broker.request("dataset.import.batch", { sourcePaths }),
+      await this.#broker.request("dataset.import.batch", { sourcePaths }, requestOptions(signal)),
     );
   }
 
@@ -113,9 +117,9 @@ class DataCoreClient implements RuntimeClient {
     return parseDatasetList(await this.#broker.request("dataset.list", {}));
   }
 
-  async exportDataset(datasetID: string, targetPath: string): Promise<DatasetExportResult> {
+  async exportDataset(datasetID: string, targetPath: string, signal?: AbortSignal): Promise<DatasetExportResult> {
     return parseDatasetExportResult(
-      await this.#broker.request("dataset.export", { datasetId: datasetID, targetPath }),
+      await this.#broker.request("dataset.export", { datasetId: datasetID, targetPath }, requestOptions(signal)),
     );
   }
 
@@ -125,15 +129,15 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
-  async createBackup(targetPath: string): Promise<DataBackupResult> {
+  async createBackup(targetPath: string, signal?: AbortSignal): Promise<DataBackupResult> {
     return parseDataBackupResult(
-      await this.#broker.request("data.backup.create", { targetPath }),
+      await this.#broker.request("data.backup.create", { targetPath }, requestOptions(signal)),
     );
   }
 
-  async restoreBackup(sourcePath: string): Promise<DataRestoreResult> {
+  async restoreBackup(sourcePath: string, signal?: AbortSignal): Promise<DataRestoreResult> {
     return parseDataRestoreResult(
-      await this.#broker.request("data.backup.restore", { sourcePath }),
+      await this.#broker.request("data.backup.restore", { sourcePath }, requestOptions(signal)),
     );
   }
 
@@ -141,9 +145,9 @@ class DataCoreClient implements RuntimeClient {
     return parseDatasetPreview(await this.#broker.request("dataset.preview", request));
   }
 
-  async replaceFile(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult> {
+  async replaceFile(datasetID: string, sourcePath: string, signal?: AbortSignal): Promise<DatasetReplacementResult> {
     return parseDatasetReplacementResult(
-      await this.#broker.request("dataset.replace", { datasetId: datasetID, sourcePath }),
+      await this.#broker.request("dataset.replace", { datasetId: datasetID, sourcePath }, requestOptions(signal)),
     );
   }
 
@@ -151,27 +155,28 @@ class DataCoreClient implements RuntimeClient {
     datasetID: string,
     sourcePath: string,
     mappings: readonly ColumnMapping[],
+    signal?: AbortSignal,
   ): Promise<DatasetReplacementResult> {
     return parseDatasetReplacementResult(
-      await this.#broker.request("dataset.replace.mapped", { datasetId: datasetID, sourcePath, mappings }),
+      await this.#broker.request("dataset.replace.mapped", { datasetId: datasetID, sourcePath, mappings }, requestOptions(signal)),
     );
   }
 
-  async quality(datasetID: string): Promise<DatasetQualityReport> {
+  async quality(datasetID: string, signal?: AbortSignal): Promise<DatasetQualityReport> {
     return parseDatasetQualityReport(
-      await this.#broker.request("dataset.quality.get", { datasetId: datasetID }),
+      await this.#broker.request("dataset.quality.get", { datasetId: datasetID }, requestOptions(signal)),
     );
   }
 
-  async distribution(request: ColumnDistributionRequest): Promise<ColumnDistribution> {
+  async distribution(request: ColumnDistributionRequest, signal?: AbortSignal): Promise<ColumnDistribution> {
     return parseColumnDistribution(
-      await this.#broker.request("dataset.distribution.get", request),
+      await this.#broker.request("dataset.distribution.get", request, requestOptions(signal)),
     );
   }
 
-  async saveValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport> {
+  async saveValidation(input: DatasetValidationSaveInput, signal?: AbortSignal): Promise<DatasetQualityReport> {
     return parseDatasetQualityReport(
-      await this.#broker.request("dataset.validation.save", { input }),
+      await this.#broker.request("dataset.validation.save", { input }, requestOptions(signal)),
     );
   }
 
@@ -207,21 +212,21 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
-  async modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext> {
+  async modelContext(datasetID: string, disclosure: DisclosureLevel, signal?: AbortSignal): Promise<ModelContext> {
     return parseModelContext(
-      await this.#broker.request("dataset.context", { datasetId: datasetID, disclosure }),
+      await this.#broker.request("dataset.context", { datasetId: datasetID, disclosure }, requestOptions(signal)),
     );
   }
 
-  async executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult> {
+  async executeQueryPlan(plan: SafeQueryPlan, signal?: AbortSignal): Promise<SafeQueryResult> {
     return parseSafeQueryResult(
-      await this.#broker.request("dataset.query.execute", { plan }),
+      await this.#broker.request("dataset.query.execute", { plan }, requestOptions(signal)),
     );
   }
 
-  async executeGroupQueryPlan(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult> {
+  async executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult> {
     return parseSafeGroupQueryResult(
-      await this.#broker.request("dataset.group.query.execute", { plan }),
+      await this.#broker.request("dataset.group.query.execute", { plan }, requestOptions(signal)),
     );
   }
 
@@ -258,7 +263,7 @@ class AiRuntimeClient implements RuntimeClient {
       serviceName: "BuBu AI Runtime",
       stdio: "pipe",
     });
-    this.#broker = new RpcRequestBroker(auth, (message) => this.#process.postMessage(message));
+    this.#broker = new RpcRequestBroker(auth, (message) => this.#process.postMessage(message), 130_000);
     this.#process.on("message", (message) => this.#broker.accept(message));
     this.#process.once("exit", (code) => {
       this.#broker.close(new Error(`ai-runtime exited (code=${code})`));
@@ -273,8 +278,10 @@ class AiRuntimeClient implements RuntimeClient {
     return { name: "ai-runtime", status: health.status, capabilities: health.capabilities };
   }
 
-  async generate(invocation: ModelInvocation): Promise<ModelCompletion> {
-    return parseModelCompletion(await this.#broker.request("model.generate", invocation));
+  async generate(invocation: ModelInvocation, signal?: AbortSignal): Promise<ModelCompletion> {
+    return parseModelCompletion(
+      await this.#broker.request("model.generate", invocation, requestOptions(signal)),
+    );
   }
 
   stop(): void {
@@ -308,29 +315,30 @@ function unavailable(name: DesktopServiceHealth["name"], error: unknown): Deskto
 
 export interface SidecarSupervisor {
   readiness(): Promise<ProductReadiness>;
-  importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult>;
-  exportDataset(datasetID: string, targetPath: string): Promise<DatasetExportResult>;
+  importFiles(sourcePaths: readonly string[], signal?: AbortSignal): Promise<DatasetImportResult>;
+  exportDataset(datasetID: string, targetPath: string, signal?: AbortSignal): Promise<DatasetExportResult>;
   deleteDataset(datasetID: string): Promise<DatasetDeletionResult>;
-  createBackup(targetPath: string): Promise<DataBackupResult>;
-  restoreBackup(sourcePath: string): Promise<DataRestoreResult>;
+  createBackup(targetPath: string, signal?: AbortSignal): Promise<DataBackupResult>;
+  restoreBackup(sourcePath: string, signal?: AbortSignal): Promise<DataRestoreResult>;
   listDatasets(): Promise<readonly DatasetSummary[]>;
   previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
-  replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
+  replaceDataset(datasetID: string, sourcePath: string, signal?: AbortSignal): Promise<DatasetReplacementResult>;
   replaceDatasetWithMapping(
     datasetID: string,
     sourcePath: string,
     mappings: readonly ColumnMapping[],
+    signal?: AbortSignal,
   ): Promise<DatasetReplacementResult>;
-  getDatasetQuality(datasetID: string): Promise<DatasetQualityReport>;
-  getColumnDistribution(request: ColumnDistributionRequest): Promise<ColumnDistribution>;
-  saveDatasetValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
+  getDatasetQuality(datasetID: string, signal?: AbortSignal): Promise<DatasetQualityReport>;
+  getColumnDistribution(request: ColumnDistributionRequest, signal?: AbortSignal): Promise<ColumnDistribution>;
+  saveDatasetValidation(input: DatasetValidationSaveInput, signal?: AbortSignal): Promise<DatasetQualityReport>;
   getGroupRelationships(groupID: string): Promise<GroupRelationshipOverview>;
   saveDatasetRelationship(input: DatasetRelationshipSaveInput): Promise<DatasetRelationship>;
   deleteDatasetRelationship(relationshipID: string): Promise<void>;
-  modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
-  generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
-  executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
-  executeGroupQueryPlan(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult>;
+  modelContext(datasetID: string, disclosure: DisclosureLevel, signal?: AbortSignal): Promise<ModelContext>;
+  generateModel(invocation: ModelInvocation, signal?: AbortSignal): Promise<ModelCompletion>;
+  executeQueryPlan(plan: SafeQueryPlan, signal?: AbortSignal): Promise<SafeQueryResult>;
+  executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult>;
   getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
   appendConversation(input: ConversationAppendInput): Promise<ConversationThread>;
   listGroups(): Promise<readonly DatasetGroup[]>;
@@ -361,28 +369,28 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
         services,
       };
     },
-    async importFiles(sourcePaths) {
-      return dataCore.importFiles(sourcePaths);
+    async importFiles(sourcePaths, signal) {
+      return dataCore.importFiles(sourcePaths, signal);
     },
-    exportDataset: (datasetID, targetPath) => dataCore.exportDataset(datasetID, targetPath),
+    exportDataset: (datasetID, targetPath, signal) => dataCore.exportDataset(datasetID, targetPath, signal),
     deleteDataset: (datasetID) => dataCore.deleteDataset(datasetID),
-    createBackup: (targetPath) => dataCore.createBackup(targetPath),
-    restoreBackup: (sourcePath) => dataCore.restoreBackup(sourcePath),
+    createBackup: (targetPath, signal) => dataCore.createBackup(targetPath, signal),
+    restoreBackup: (sourcePath, signal) => dataCore.restoreBackup(sourcePath, signal),
     listDatasets: () => dataCore.listDatasets(),
     previewDataset: (request) => dataCore.preview(request),
-    replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),
-    replaceDatasetWithMapping: (datasetID, sourcePath, mappings) =>
-      dataCore.replaceFileWithMapping(datasetID, sourcePath, mappings),
-    getDatasetQuality: (datasetID) => dataCore.quality(datasetID),
-    getColumnDistribution: (request) => dataCore.distribution(request),
-    saveDatasetValidation: (input) => dataCore.saveValidation(input),
+    replaceDataset: (datasetID, sourcePath, signal) => dataCore.replaceFile(datasetID, sourcePath, signal),
+    replaceDatasetWithMapping: (datasetID, sourcePath, mappings, signal) =>
+      dataCore.replaceFileWithMapping(datasetID, sourcePath, mappings, signal),
+    getDatasetQuality: (datasetID, signal) => dataCore.quality(datasetID, signal),
+    getColumnDistribution: (request, signal) => dataCore.distribution(request, signal),
+    saveDatasetValidation: (input, signal) => dataCore.saveValidation(input, signal),
     getGroupRelationships: (groupID) => dataCore.groupRelationships(groupID),
     saveDatasetRelationship: (input) => dataCore.saveRelationship(input),
     deleteDatasetRelationship: (relationshipID) => dataCore.deleteRelationship(relationshipID),
-    modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
-    generateModel: (invocation) => aiRuntime.generate(invocation),
-    executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),
-    executeGroupQueryPlan: (plan) => dataCore.executeGroupQueryPlan(plan),
+    modelContext: (datasetID, disclosure, signal) => dataCore.modelContext(datasetID, disclosure, signal),
+    generateModel: (invocation, signal) => aiRuntime.generate(invocation, signal),
+    executeQueryPlan: (plan, signal) => dataCore.executeQueryPlan(plan, signal),
+    executeGroupQueryPlan: (plan, signal) => dataCore.executeGroupQueryPlan(plan, signal),
     getConversation: (target) => dataCore.getConversation(target),
     appendConversation: (input) => dataCore.appendConversation(input),
     listGroups: () => dataCore.listGroups(),

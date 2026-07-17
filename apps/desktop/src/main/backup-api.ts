@@ -1,10 +1,13 @@
 import { dialog, ipcMain } from "electron";
 import { desktopChannels } from "../shared/product-api.js";
+import { parseOperationStart } from "@bubu/contracts";
 import type { SidecarSupervisor } from "./sidecars.js";
+import type { OperationRegistry } from "./operation-registry.js";
 
 interface BackupApiDependencies {
   readonly sidecars: SidecarSupervisor;
   readonly assertTrustedSender: (frameUrl: string) => void;
+  readonly operations: OperationRegistry;
 }
 
 export function backupFileName(now: Date): string {
@@ -14,9 +17,11 @@ export function backupFileName(now: Date): string {
 export function registerBackupApi({
   sidecars,
   assertTrustedSender,
+  operations,
 }: BackupApiDependencies): void {
-  ipcMain.handle(desktopChannels.createBackup, async (event) => {
+  ipcMain.handle(desktopChannels.createBackup, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
+    const { operationId } = parseOperationStart(value);
     const selection = await dialog.showSaveDialog({
       title: "备份本地 BuBu 数据",
       buttonLabel: "创建一致性备份",
@@ -24,12 +29,14 @@ export function registerBackupApi({
       filters: [{ name: "BuBu 本地数据备份", extensions: ["bubu-backup"] }],
       properties: ["createDirectory", "showOverwriteConfirmation"],
     });
-    if (selection.canceled || !selection.filePath) return { status: "cancelled" } as const;
-    return sidecars.createBackup(selection.filePath);
+    const targetPath = selection.filePath;
+    if (selection.canceled || !targetPath) return { status: "cancelled" } as const;
+    return operations.run(operationId, (signal) => sidecars.createBackup(targetPath, signal));
   });
 
-  ipcMain.handle(desktopChannels.restoreBackup, async (event) => {
+  ipcMain.handle(desktopChannels.restoreBackup, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
+    const { operationId } = parseOperationStart(value);
     const selection = await dialog.showOpenDialog({
       title: "选择 BuBu 本地数据备份",
       buttonLabel: "检查备份",
@@ -49,6 +56,6 @@ export function registerBackupApi({
       noLink: true,
     });
     if (confirmation.response !== 1) return { status: "cancelled" } as const;
-    return sidecars.restoreBackup(sourcePath);
+    return operations.run(operationId, (signal) => sidecars.restoreBackup(sourcePath, signal));
   });
 }

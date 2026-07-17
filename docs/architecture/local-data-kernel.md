@@ -92,7 +92,8 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Transactional permanent deletion of all version tables and dependent private state, bounded group repair, native destructive confirmation, and integration tests.
 - Consistent local snapshot archive, strict hash/schema/privacy restore validation, destructive native confirmation, database rollback, interrupted-swap recovery, and round-trip integration/binary smoke.
 - On-demand numeric/categorical distributions, deterministic ordering, bounded/sanitized value previews, explicit local-only contracts, UI exploration, and binary smoke.
+- Named renderer operations, main-process abort ownership, authenticated RPC cancellation, serialized cancellable Go execution, cancellable provider fetches, and deadline tests.
 
 ## Not implemented yet
 
-Operation cancellation and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Reference-device 100 MB performance measurement remains Stage 2 work. The product manifest must keep the performance capability planned or in progress until the benchmark, captured evidence, thresholds, and documentation agree.

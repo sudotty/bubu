@@ -13,6 +13,7 @@ const requiredFiles = [
   "docs/adr/0003-provider-neutral-ai-tools-and-mcp.md",
   "docs/adr/0004-privacy-gateway-and-safe-query-plans.md",
   "docs/architecture/local-data-kernel.md",
+  "docs/architecture/cancellation-and-operation-budgets.md",
   "docs/architecture/privacy-and-model-providers.md",
   "docs/architecture/local-conversations.md",
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
@@ -134,6 +135,10 @@ for (const required of [
   "group-conversations: implemented",
   "append-only-local-conversation-history: implemented",
   "typed-conversation-artifacts: implemented",
+  "named-operation-cancellation: implemented",
+  "cancellable-data-core-operations: implemented",
+  "cancellable-model-requests: implemented",
+  "bounded-operation-deadlines: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

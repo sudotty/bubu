@@ -24,6 +24,8 @@ import type {
   GroupQueryPlanProposal,
   GroupRelationshipOverview,
   GroupQueryRequest,
+  OperationCancellationResult,
+  OperationId,
   ProviderConfigurationInput,
   ProviderConnectionResult,
   ProviderId,
@@ -43,6 +45,7 @@ export const desktopChannels = {
   deleteDataset: "bubu:datasets:delete",
   createBackup: "bubu:data-protection:create-backup",
   restoreBackup: "bubu:data-protection:restore-backup",
+  cancelOperation: "bubu:operations:cancel",
   listDatasets: "bubu:datasets:list",
   previewDataset: "bubu:datasets:preview",
   replaceDataset: "bubu:datasets:replace",
@@ -89,15 +92,15 @@ export interface BuBuDesktopApi {
     getReadiness(): Promise<ProductReadiness>;
   };
   readonly datasets: {
-    importFiles(): Promise<DatasetImportResult>;
-    export(datasetId: string): Promise<DatasetExportSelectionResult>;
+    importFiles(operationId: OperationId): Promise<DatasetImportResult>;
+    export(datasetId: string, operationId: OperationId): Promise<DatasetExportSelectionResult>;
     delete(datasetId: string): Promise<DatasetDeletionSelectionResult>;
     list(): Promise<readonly DatasetSummary[]>;
     preview(request: DatasetPreviewRequest): Promise<DatasetPreview>;
-    replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
-    applyReplacementMapping(value: DatasetReplacementMappingInput): Promise<DatasetReplacementResult>;
+    replace(datasetId: string, operationId: OperationId): Promise<DatasetReplacementSelectionResult>;
+    applyReplacementMapping(value: DatasetReplacementMappingInput, operationId: OperationId): Promise<DatasetReplacementResult>;
     quality(datasetId: string): Promise<DatasetQualityReport>;
-    distribution(value: ColumnDistributionRequest): Promise<ColumnDistribution>;
+    distribution(value: ColumnDistributionRequest, operationId: OperationId): Promise<ColumnDistribution>;
     saveValidation(value: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
   };
   readonly providers: {
@@ -108,14 +111,17 @@ export interface BuBuDesktopApi {
     test(providerId: ProviderId): Promise<ProviderConnectionResult>;
   };
   readonly dataProtection: {
-    createBackup(): Promise<DataBackupSelectionResult>;
-    restoreBackup(): Promise<DataRestoreSelectionResult>;
+    createBackup(operationId: OperationId): Promise<DataBackupSelectionResult>;
+    restoreBackup(operationId: OperationId): Promise<DataRestoreSelectionResult>;
+  };
+  readonly operations: {
+    cancel(operationId: OperationId): Promise<OperationCancellationResult>;
   };
   readonly analysis: {
-    propose(value: QueryPlanRequest): Promise<QueryPlanProposal>;
-    execute(plan: SafeQueryPlan): Promise<SafeQueryResult>;
-    proposeGroup(value: GroupQueryRequest): Promise<GroupQueryPlanProposal>;
-    executeGroup(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult>;
+    propose(value: QueryPlanRequest, operationId: OperationId): Promise<QueryPlanProposal>;
+    execute(plan: SafeQueryPlan, operationId: OperationId): Promise<SafeQueryResult>;
+    proposeGroup(value: GroupQueryRequest, operationId: OperationId): Promise<GroupQueryPlanProposal>;
+    executeGroup(plan: SafeGroupQueryPlan, operationId: OperationId): Promise<SafeGroupQueryResult>;
   };
   readonly datasetGroups: {
     list(): Promise<readonly DatasetGroup[]>;
@@ -160,6 +166,8 @@ export type {
   GroupQueryPlanProposal,
   GroupRelationshipOverview,
   GroupQueryRequest,
+  OperationCancellationResult,
+  OperationId,
   ProviderConfigurationInput,
   ProviderConnectionResult,
   ProviderId,

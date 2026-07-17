@@ -91,6 +91,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		capabilities := []string{"local-rpc"}
 		if datasets != nil {
 			capabilities = []string{
+				"cancellable-requests",
 				"sqlite",
 				"csv-import",
 				"xlsx-import",

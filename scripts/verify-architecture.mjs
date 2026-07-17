@@ -259,6 +259,34 @@ if (providerStore.includes("credential:" + " input.credential")) {
 const sidecars = read("apps/desktop/src/main/sidecars.ts");
 if (!sidecars.includes("utilityProcess.fork")) failures.push("AI runtime is not an Electron utility process");
 if (!sidecars.includes('BUBU_RPC_TOKEN')) failures.push("sidecars are missing per-process credentials");
+for (const invariant of ["10 * 60_000", "130_000", "requestOptions(signal)"]) {
+  if (!sidecars.includes(invariant)) failures.push(`sidecar operation budget missing: ${invariant}`);
+}
+
+const operationContract = read("packages/contracts/src/operation.ts");
+for (const invariant of ["z.string().uuid()", "operationStartSchema", "operationEnvelopeSchema", ".strict()"] ) {
+  if (!operationContract.includes(invariant)) failures.push(`operation identity contract missing: ${invariant}`);
+}
+const operationRegistry = read("apps/desktop/src/main/operation-registry.ts");
+for (const invariant of ["new AbortController()", "active.has(operationId)", "controller?.abort()", "active.delete(operationId)"]) {
+  if (!operationRegistry.includes(invariant)) failures.push(`desktop operation registry invariant missing: ${invariant}`);
+}
+const rpcBroker = read("apps/desktop/src/main/rpc-broker.ts");
+for (const invariant of ['method: "system.cancel"', "params: { requestId: id }", "options.signal", "options.timeoutMs"]) {
+  if (!rpcBroker.includes(invariant)) failures.push(`RPC cancellation invariant missing: ${invariant}`);
+}
+const dataCoreServer = read("services/data-core/internal/rpc/server.go");
+for (const invariant of ['request.Method == "system.cancel"', "for job := range jobs", "context.WithCancel", '"CANCELLED"']) {
+  if (!dataCoreServer.includes(invariant)) failures.push(`serialized data cancellation invariant missing: ${invariant}`);
+}
+const aiDispatcher = read("services/ai-runtime/src/dispatcher.ts");
+for (const invariant of ['request.method === "system.cancel"', "new AbortController()", "controller?.abort()", "active.delete(request.id)"]) {
+  if (!aiDispatcher.includes(invariant)) failures.push(`AI cancellation invariant missing: ${invariant}`);
+}
+const providerInvocation = read("services/ai-runtime/src/providers/invoke.ts");
+if (!providerInvocation.includes("AbortSignal.any([signal, AbortSignal.timeout(120_000)])")) {
+  failures.push("provider request does not combine user cancellation with its network deadline");
+}
 
 const tabularSource = read("services/data-core/internal/data/source.go");
 if (tabularSource.includes("os.ReadFile")) {

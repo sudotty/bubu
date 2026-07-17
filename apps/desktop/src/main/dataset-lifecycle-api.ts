@@ -1,11 +1,13 @@
 import { dialog, ipcMain } from "electron";
-import { parseDatasetId, type DatasetSummary } from "@bubu/contracts";
+import { parseDatasetId, parseOperationEnvelope, type DatasetSummary } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
 import type { SidecarSupervisor } from "./sidecars.js";
+import type { OperationRegistry } from "./operation-registry.js";
 
 interface DatasetLifecycleApiDependencies {
   readonly sidecars: SidecarSupervisor;
   readonly assertTrustedSender: (frameUrl: string) => void;
+  readonly operations: OperationRegistry;
 }
 
 export function datasetExportFileName(dataset: DatasetSummary): string {
@@ -30,10 +32,12 @@ function requireDataset(
 export function registerDatasetLifecycleApi({
   sidecars,
   assertTrustedSender,
+  operations,
 }: DatasetLifecycleApiDependencies): void {
   ipcMain.handle(desktopChannels.exportDataset, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    const datasetID = parseDatasetId(value);
+    const envelope = parseOperationEnvelope(value);
+    const datasetID = parseDatasetId(envelope.value);
     const dataset = requireDataset(await sidecars.listDatasets(), datasetID);
     const selection = await dialog.showSaveDialog({
       title: "导出当前数据版本",
@@ -42,8 +46,10 @@ export function registerDatasetLifecycleApi({
       filters: [{ name: "Excel 安全 CSV", extensions: ["csv"] }],
       properties: ["createDirectory", "showOverwriteConfirmation"],
     });
-    if (selection.canceled || !selection.filePath) return { status: "cancelled" } as const;
-    return sidecars.exportDataset(datasetID, selection.filePath);
+    const targetPath = selection.filePath;
+    if (selection.canceled || !targetPath) return { status: "cancelled" } as const;
+    return operations.run(envelope.operationId, (signal) =>
+      sidecars.exportDataset(datasetID, targetPath, signal));
   });
 
   ipcMain.handle(desktopChannels.deleteDataset, async (event, value: unknown) => {

@@ -34,6 +34,33 @@ func TestHandleHealth(t *testing.T) {
 	}
 }
 
+func TestHandleHealthAdvertisesCancellationWhenDataServiceIsAvailable(t *testing.T) {
+	response := HandleWithData(t.Context(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "health-with-data",
+		Method:          "system.health",
+		Params:          map[string]any{},
+	}, testToken, &fakeDatasets{})
+	if !response.OK {
+		t.Fatalf("expected success, got %#v", response.Error)
+	}
+	encoded, err := json.Marshal(response.Result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var health ServiceHealth
+	if err := json.Unmarshal(encoded, &health); err != nil {
+		t.Fatal(err)
+	}
+	for _, capability := range health.Capabilities {
+		if capability == "cancellable-requests" {
+			return
+		}
+	}
+	t.Fatalf("expected cancellable-requests capability, got %#v", health.Capabilities)
+}
+
 func TestHandleRejectsWrongToken(t *testing.T) {
 	response := Handle(Request{
 		ProtocolVersion: ProtocolVersion,

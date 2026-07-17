@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { handleAiRuntimeRequest } from "./handler.js";
+import { createAiRuntimeDispatcher } from "./dispatcher.js";
 
 interface UtilityParentPort {
   postMessage(message: unknown): void;
@@ -15,10 +15,11 @@ if (!auth || auth.length < 32) {
   console.error("BUBU_RPC_TOKEN must be set by the Electron supervisor");
   process.exitCode = 78;
 } else {
+  const dispatcher = createAiRuntimeDispatcher(auth);
   const parentPort = (process as UtilityProcess).parentPort;
   if (parentPort) {
     parentPort.on("message", (event) => {
-      void handleAiRuntimeRequest(event.data, auth).then((response) => parentPort.postMessage(response));
+      void dispatcher.dispatch(event.data).then((response) => parentPort.postMessage(response));
     });
   } else {
     const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -29,7 +30,7 @@ if (!auth || auth.length < 32) {
       } catch {
         value = undefined;
       }
-      void handleAiRuntimeRequest(value, auth).then((response) => {
+      void dispatcher.dispatch(value).then((response) => {
         process.stdout.write(`${JSON.stringify(response)}\n`);
       });
     });

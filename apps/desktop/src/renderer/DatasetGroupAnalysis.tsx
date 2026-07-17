@@ -4,14 +4,16 @@ import type {
   GroupQueryPlanProposal,
   SafeGroupQueryResult,
   ConversationThread,
+  OperationId,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
+import { createOperationId, operationErrorMessage } from "./operation.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
 function messageFrom(error: unknown): string {
-  return error instanceof Error ? error.message : "群组分析失败，请重试";
+  return operationErrorMessage(error, "群组分析失败，请重试");
 }
 
 function sourceLabel(group: DatasetGroup, sourceIndex: number): string {
@@ -37,6 +39,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
   const [state, setState] = useState<GroupAnalysisState>("idle");
   const [error, setError] = useState<string>();
   const [history, setHistory] = useState<ConversationThread | null>();
+  const [operationId, setOperationId] = useState<OperationId>();
 
   useEffect(() => {
     setQuestion("");
@@ -46,6 +49,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     setState("idle");
     setError(undefined);
     setHistory(undefined);
+    setOperationId(undefined);
     let active = true;
     void window.bubu.conversations.get({ kind: "group", id: group.id })
       .then((thread) => { if (active) setHistory(thread); })
@@ -61,12 +65,19 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     setResult(undefined);
     setError(undefined);
     setState("planning");
+    const nextOperationId = createOperationId();
+    setOperationId(nextOperationId);
     try {
-      setProposal(await window.bubu.analysis.proposeGroup({ groupId: group.id, question: normalized }));
+      setProposal(await window.bubu.analysis.proposeGroup(
+        { groupId: group.id, question: normalized },
+        nextOperationId,
+      ));
       setState("proposed");
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+    } finally {
+      setOperationId((current) => current === nextOperationId ? undefined : current);
     }
   }
 
@@ -74,13 +85,22 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     if (!proposal) return;
     setError(undefined);
     setState("executing");
+    const nextOperationId = createOperationId();
+    setOperationId(nextOperationId);
     try {
-      setResult(await window.bubu.analysis.executeGroup(proposal.plan));
+      setResult(await window.bubu.analysis.executeGroup(proposal.plan, nextOperationId));
       setState("complete");
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+    } finally {
+      setOperationId((current) => current === nextOperationId ? undefined : current);
     }
+  }
+
+  async function cancelOperation(): Promise<void> {
+    if (!operationId) return;
+    await window.bubu.operations.cancel(operationId);
   }
 
   return (
@@ -156,6 +176,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
         <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>
         <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} />
         <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
+        {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
     </section>
   );
