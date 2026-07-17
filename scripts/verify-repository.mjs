@@ -91,6 +91,7 @@ for (const required of [
   "dataset-preview: implemented",
   "same-schema-replacement: implemented",
   "schema-drift-detection: implemented",
+  "schema-drift-mapping: implemented",
   "model-context-boundary: implemented",
   "synthetic-examples: implemented",
   "model-provider-registry: implemented",

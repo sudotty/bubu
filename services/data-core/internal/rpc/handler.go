@@ -55,6 +55,7 @@ type DatasetService interface {
 	ImportFile(ctx context.Context, sourcePath string) (data.ImportResult, error)
 	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
 	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
+	ReplaceFileWithMapping(ctx context.Context, datasetID string, sourcePath string, mappings []data.ColumnMapping) (data.ReplacementResult, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
@@ -134,6 +135,18 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ReplaceFile(ctx, datasetID, sourcePath)
 		if err != nil {
 			return failure(request.ID, "REPLACEMENT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.replace.mapped":
+		datasetID, datasetOK := stringParam(request.Params, "datasetId")
+		sourcePath, pathOK := stringParam(request.Params, "sourcePath")
+		mappings, mappingsOK := objectParam[[]data.ColumnMapping](request.Params, "mappings")
+		if !datasetOK || !pathOK || !mappingsOK || len(mappings) == 0 || len(mappings) > 500 {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId, sourcePath, and bounded mappings are required", false)
+		}
+		result, err := datasets.ReplaceFileWithMapping(ctx, datasetID, sourcePath, mappings)
+		if err != nil {
+			return failure(request.ID, "REPLACEMENT_MAPPING_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.context":

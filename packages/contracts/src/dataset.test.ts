@@ -3,6 +3,8 @@ import {
   parseDatasetImportResult,
   parseDatasetPreviewRequest,
   parseDatasetReplacementResult,
+  parseDatasetReplacementMappingInput,
+  parseDatasetReplacementSelectionResult,
   parseDatasetSummary,
 } from "./dataset.js";
 
@@ -58,5 +60,32 @@ describe("dataset boundary", () => {
     expect(() =>
       parseDatasetReplacementResult({ ...mappingRequired, sourcePath: "/private/drifted.csv" }),
     ).toThrow();
+  });
+
+  it("requires a one-shot token and strict column pairs for interactive mapping", () => {
+    const input = {
+      replacementToken: "c".repeat(32),
+      mappings: [
+        { currentColumn: "Order", incomingColumn: "Order Number" },
+        { currentColumn: "Amount", incomingColumn: "Total" },
+      ],
+    };
+    expect(parseDatasetReplacementMappingInput(input)).toEqual(input);
+    expect(() => parseDatasetReplacementMappingInput({ ...input, sourcePath: "/private/week-2.csv" })).toThrow();
+    expect(() => parseDatasetReplacementMappingInput({ ...input, replacementToken: "expired" })).toThrow();
+
+    const selection = {
+      status: "mapping-required",
+      replacementToken: "d".repeat(32),
+      drift: {
+        currentColumns: ["Order", "Amount"],
+        incomingColumns: ["Order Number", "Total"],
+        missingColumns: ["Order", "Amount"],
+        addedColumns: ["Order Number", "Total"],
+        reordered: false,
+      },
+    } as const;
+    expect(parseDatasetReplacementSelectionResult(selection)).toEqual(selection);
+    expect(() => parseDatasetReplacementSelectionResult({ ...selection, sourcePath: "/private/week-2.csv" })).toThrow();
   });
 });

@@ -9,10 +9,11 @@ import (
 )
 
 type fakeDatasets struct {
-	importedPath  string
-	importedPaths []string
-	replacedID    string
-	replacedPath  string
+	importedPath     string
+	importedPaths    []string
+	replacedID       string
+	replacedPath     string
+	replacedMappings []data.ColumnMapping
 }
 
 func (fake *fakeDatasets) SaveGroup(
@@ -69,6 +70,18 @@ func (fake *fakeDatasets) ReplaceFile(
 	fake.replacedID = datasetID
 	fake.replacedPath = sourcePath
 	return data.ReplacementResult{Status: data.ReplacementMappingRequired, Drift: &data.SchemaDrift{}}, nil
+}
+
+func (fake *fakeDatasets) ReplaceFileWithMapping(
+	_ context.Context,
+	datasetID string,
+	sourcePath string,
+	mappings []data.ColumnMapping,
+) (data.ReplacementResult, error) {
+	fake.replacedID = datasetID
+	fake.replacedPath = sourcePath
+	fake.replacedMappings = mappings
+	return data.ReplacementResult{Status: data.ReplacementApplied}, nil
 }
 
 func (fake *fakeDatasets) ModelContext(

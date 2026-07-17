@@ -45,7 +45,7 @@ flowchart LR
 
 `conversation_threads` attaches one private primary timeline to a stable dataset/group target. `conversation_entries` stores monotonic typed question/plan/result/error artifacts. The renderer can read these artifacts through a narrow API but only Electron main can request an append after the relevant planning/execution boundary succeeds or fails.
 
-Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping for that drift remains unavailable.
+Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping requires a total one-to-one mapping from every stable current column to a distinct incoming normalized column. Extra incoming columns are explicitly ignored. The renderer receives only a random one-use token; Electron main keeps the source path for at most ten minutes, and the Go data core revalidates the mapping before it creates and activates a new immutable version.
 
 ## Safe analytical queries
 
@@ -69,7 +69,7 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 
 - CSV, TSV, multi-sheet XLSX, header normalization, type inference, and leading-zero preservation.
 - Transaction rollback for malformed rows and for an entire multi-file selection.
-- Same-schema replacement, monotonic version numbers, schema-drift blocking, and migration from the version-1 catalog.
+- Same-schema and explicitly mapped replacement, monotonic version numbers, schema-drift blocking, one-use path-private mapping sessions, and migration from the version-1 catalog.
 - Transactional create/update/delete and current-version resolution for ordered local dataset groups.
 - Catalog and preview integration through temporary SQLite databases.
 - Built-sidecar smoke for import, list, inference, preview, file permissions, and absolute-path non-persistence.
@@ -79,4 +79,4 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 
 ## Not implemented yet
 
-Interactive schema-drift mapping, richer distributions and anomaly findings, validation rules, reusable discovered relationships, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Richer distributions and anomaly findings, validation rules, reusable discovered relationships, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

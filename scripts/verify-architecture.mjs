@@ -96,6 +96,22 @@ const desktopApi = read("apps/desktop/src/main/desktop-api.ts");
 if (!desktopApi.includes("isTrustedFrameUrl(frameUrl")) {
   failures.push("desktop API is missing sender-origin validation");
 }
+for (const invariant of [
+  "replacementSessions.issue(datasetID, sourcePath)",
+  "replacementSessions.consume(input.replacementToken)",
+  "randomBytes(16).toString(\"hex\")",
+]) {
+  if (!desktopApi.includes(invariant)) failures.push(`replacement path boundary missing: ${invariant}`);
+}
+
+const replacementMapping = read("services/data-core/internal/data/replacement_mapping.go");
+for (const invariant of [
+  "len(mappings) != len(currentColumns)",
+  "incoming column %q is mapped more than once",
+  "mappedRow := make([]string, len(orderedIndexes))",
+]) {
+  if (!replacementMapping.includes(invariant)) failures.push(`replacement mapping invariant missing: ${invariant}`);
+}
 
 const providerStore = read("apps/desktop/src/main/provider-store.ts");
 for (const invariant of [

@@ -267,6 +267,28 @@ try {
     throw new Error(`Safe group query returned an unexpected result: ${JSON.stringify(groupQueryResult.rows)}`);
   }
 
+  const mappedReplacement = parseDatasetReplacementResult(
+    await request("dataset.replace.mapped", {
+      datasetId: dataset.id,
+      sourcePath: driftedPath,
+      mappings: [
+        { currentColumn: "Order ID", incomingColumn: "Order ID" },
+        { currentColumn: "Region", incomingColumn: "Zone" },
+        { currentColumn: "Amount", incomingColumn: "Amount" },
+        { currentColumn: "Date", incomingColumn: "Date" },
+      ],
+    }),
+  );
+  if (mappedReplacement.status !== "replaced" || mappedReplacement.dataset.version !== 3) {
+    throw new Error("Mapped replacement did not advance the immutable version");
+  }
+  const mappedPreview = parseDatasetPreview(
+    await request("dataset.preview", { datasetId: dataset.id, limit: 50, offset: 0 }),
+  );
+  if (mappedPreview.columns[1]?.name !== "Region" || mappedPreview.rows[0]?.[1] !== "East") {
+    throw new Error("Mapped replacement did not preserve the stable logical schema");
+  }
+
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
     child.once("error", rejectExit);
@@ -286,7 +308,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, replacement, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

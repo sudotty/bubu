@@ -21,7 +21,7 @@ Blank cells are stored as null. Non-blank source values are preserved as text, s
 
 A single file selection is atomic. If any selected file is unsupported, unreadable, malformed, or contains a row wider than its header, BuBu rolls back every dataset created by that selection. Correct the source and import again.
 
-Use **替换数据版本** on an existing contact for a recurring file. If the normalized columns are unchanged, BuBu creates an immutable next version and switches the contact only after the new version commits. If columns are missing, added, or reordered, BuBu reports the drift and keeps the current data unchanged. Interactive column mapping is not available yet; correct the file or import it as a separate contact. Natural-language queries and chart generation are intentionally disabled until the privacy and safe-query kernel is complete.
+Use **替换数据版本** on an existing contact for a recurring file. If the normalized columns are unchanged, BuBu creates an immutable next version and switches the contact only after the new version commits. If columns are missing, added, or reordered, BuBu reports the drift and keeps the current data unchanged until you map every stable current column to one distinct incoming column. Unmapped incoming columns are ignored. The selected source path stays in a one-use, ten-minute Electron main-process session and is never returned to the renderer or persisted in SQLite. After mapping, the Go data core validates the pairs again and atomically creates the next immutable version.
 
 ## Preparing reliable files
 

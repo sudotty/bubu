@@ -48,7 +48,15 @@ func (service *Service) ReplaceFile(
 	if !slices.Equal(drift.CurrentColumns, drift.IncomingColumns) {
 		return ReplacementResult{Status: ReplacementMappingRequired, Drift: &drift}, nil
 	}
+	return service.materializeReplacement(ctx, target, prepared, table)
+}
 
+func (service *Service) materializeReplacement(
+	ctx context.Context,
+	target replacementTarget,
+	prepared *preparedSource,
+	table sourceTable,
+) (ReplacementResult, error) {
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return ReplacementResult{}, fmt.Errorf("begin replacement: %w", err)

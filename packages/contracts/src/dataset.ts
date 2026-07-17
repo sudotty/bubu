@@ -68,9 +68,37 @@ export const schemaDriftSchema = z
   })
   .strict();
 
+export const replacementTokenSchema = z.string().regex(/^[0-9a-f]{32}$/u);
+
+export const columnMappingSchema = z
+  .object({
+    currentColumn: z.string().min(1).max(500),
+    incomingColumn: z.string().min(1).max(500),
+  })
+  .strict();
+
+export const datasetReplacementMappingInputSchema = z
+  .object({
+    replacementToken: replacementTokenSchema,
+    mappings: z.array(columnMappingSchema).min(1).max(500),
+  })
+  .strict();
+
 export const datasetReplacementResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("replaced"), dataset: datasetSummarySchema }).strict(),
   z.object({ status: z.literal("mapping-required"), drift: schemaDriftSchema }).strict(),
+]);
+
+export const datasetReplacementSelectionResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("cancelled") }).strict(),
+  z.object({ status: z.literal("replaced"), dataset: datasetSummarySchema }).strict(),
+  z
+    .object({
+      status: z.literal("mapping-required"),
+      replacementToken: replacementTokenSchema,
+      drift: schemaDriftSchema,
+    })
+    .strict(),
 ]);
 
 export type DatasetSummary = z.infer<typeof datasetSummarySchema>;
@@ -79,7 +107,10 @@ export type DatasetImportResult = z.infer<typeof datasetImportResultSchema>;
 export type DatasetPreviewRequest = z.infer<typeof datasetPreviewRequestSchema>;
 export type DatasetPreview = z.infer<typeof datasetPreviewSchema>;
 export type SchemaDrift = z.infer<typeof schemaDriftSchema>;
+export type ColumnMapping = z.infer<typeof columnMappingSchema>;
+export type DatasetReplacementMappingInput = z.infer<typeof datasetReplacementMappingInputSchema>;
 export type DatasetReplacementResult = z.infer<typeof datasetReplacementResultSchema>;
+export type DatasetReplacementSelectionResult = z.infer<typeof datasetReplacementSelectionResultSchema>;
 
 export function parseDatasetId(value: unknown): string {
   return datasetIdSchema.parse(value);
@@ -107,4 +138,12 @@ export function parseDatasetPreview(value: unknown): DatasetPreview {
 
 export function parseDatasetReplacementResult(value: unknown): DatasetReplacementResult {
   return datasetReplacementResultSchema.parse(value);
+}
+
+export function parseDatasetReplacementMappingInput(value: unknown): DatasetReplacementMappingInput {
+  return datasetReplacementMappingInputSchema.parse(value);
+}
+
+export function parseDatasetReplacementSelectionResult(value: unknown): DatasetReplacementSelectionResult {
+  return datasetReplacementSelectionResultSchema.parse(value);
 }

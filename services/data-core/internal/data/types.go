@@ -62,6 +62,11 @@ type SchemaDrift struct {
 	Reordered       bool     `json:"reordered"`
 }
 
+type ColumnMapping struct {
+	CurrentColumn  string `json:"currentColumn"`
+	IncomingColumn string `json:"incomingColumn"`
+}
+
 type ReplacementResult struct {
 	Status  ReplacementStatus `json:"status"`
 	Dataset *DatasetSummary   `json:"dataset,omitempty"`

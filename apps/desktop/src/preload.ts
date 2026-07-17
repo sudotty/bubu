@@ -7,6 +7,8 @@ import {
   type DatasetPreview,
   type DatasetPreviewRequest,
   type DatasetReplacementSelectionResult,
+  type DatasetReplacementMappingInput,
+  type DatasetReplacementResult,
   type DatasetImportResult,
   type DatasetGroup,
   type DatasetGroupId,
@@ -40,6 +42,8 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.previewDataset, request) as Promise<DatasetPreview>,
     replace: (datasetId: string) =>
       ipcRenderer.invoke(desktopChannels.replaceDataset, datasetId) as Promise<DatasetReplacementSelectionResult>,
+    applyReplacementMapping: (value: DatasetReplacementMappingInput) =>
+      ipcRenderer.invoke(desktopChannels.applyReplacementMapping, value) as Promise<DatasetReplacementResult>,
   },
   providers: {
     list: () =>

@@ -100,4 +100,4 @@ Work proceeds in vertical slices. Each slice starts with a failing deterministic
 | 4 | Active | Dataset/group chat surfaces persist typed append-only questions/plans/results/errors and restore local tables/charts; tags, multiple threads, richer charts, and reports remain |
 | 5–7 | Pending | Must not be represented as shipped; follow the exit criteria above |
 
-The Stage 2 slice is exercised through Go integration tests and `npm run smoke:data-core`. Remaining Stage 2 work is interactive drift mapping, richer profiling, validation, multi-dataset relationships/joins, deletion, and export.
+The Stage 2 slice is exercised through Go integration tests and `npm run smoke:data-core`. Interactive drift mapping and bounded group lookup joins are implemented. Remaining Stage 2 work is richer profiling, validation, reusable relationships, deletion, export, backup/recovery, cancellation, and reference-device performance evidence.

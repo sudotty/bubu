@@ -1,8 +1,10 @@
+import { randomBytes } from "node:crypto";
 import { dialog, ipcMain } from "electron";
 import {
   parseDatasetGroupId,
   parseDatasetGroupSaveInput,
   parseDatasetId,
+  parseDatasetReplacementMappingInput,
   parseDatasetPreviewRequest,
   parseConversationTarget,
   parseGroupQueryRequest,
@@ -24,6 +26,7 @@ import {
 import type { ProviderStore } from "./provider-store.js";
 import { isTrustedFrameUrl } from "./security.js";
 import type { SidecarSupervisor } from "./sidecars.js";
+import { createReplacementSessionStore } from "./replacement-sessions.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -36,6 +39,10 @@ export function registerDesktopApi({
   providerStore,
   developmentServerUrl,
 }: DesktopApiDependencies): void {
+  const replacementSessions = createReplacementSessionStore({
+    now: Date.now,
+    newToken: () => randomBytes(16).toString("hex"),
+  });
   const assertTrustedSender = (frameUrl: string) => {
     if (!isTrustedFrameUrl(frameUrl, developmentServerUrl)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
@@ -101,7 +108,25 @@ export function registerDesktopApi({
     });
     const sourcePath = selection.filePaths[0];
     if (selection.canceled || !sourcePath) return { status: "cancelled" } as const;
-    return sidecars.replaceDataset(datasetID, sourcePath);
+    const result = await sidecars.replaceDataset(datasetID, sourcePath);
+    if (result.status === "mapping-required") {
+      return {
+        status: result.status,
+        replacementToken: replacementSessions.issue(datasetID, sourcePath),
+        drift: result.drift,
+      } as const;
+    }
+    return result;
+  });
+  ipcMain.handle(desktopChannels.applyReplacementMapping, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    const input = parseDatasetReplacementMappingInput(value);
+    const pending = replacementSessions.consume(input.replacementToken);
+    return sidecars.replaceDatasetWithMapping(
+      pending.datasetId,
+      pending.sourcePath,
+      input.mappings,
+    );
   });
   ipcMain.handle(desktopChannels.listProviders, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
