@@ -5,6 +5,7 @@ import {
   type RpcResponse,
 } from "@bubu/contracts";
 import { handleAiRuntimeRequest } from "./handler.js";
+import type { McpInspector } from "./handler.js";
 import type { ProviderFetch } from "./providers/invoke.js";
 
 export interface AiRuntimeDispatcher {
@@ -14,6 +15,7 @@ export interface AiRuntimeDispatcher {
 export function createAiRuntimeDispatcher(
   expectedAuth: string,
   fetchProvider?: ProviderFetch,
+  inspectMcp?: McpInspector,
 ): AiRuntimeDispatcher {
   const active = new Map<string, AbortController>();
   return {
@@ -42,7 +44,7 @@ export function createAiRuntimeDispatcher(
       const controller = new AbortController();
       active.set(request.id, controller);
       try {
-        return await handleAiRuntimeRequest(request, expectedAuth, fetchProvider, controller.signal);
+        return await handleAiRuntimeRequest(request, expectedAuth, fetchProvider, controller.signal, inspectMcp);
       } finally {
         active.delete(request.id);
       }

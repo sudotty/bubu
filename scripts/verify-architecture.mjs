@@ -245,12 +245,20 @@ if (analysisOrchestrator.includes("distribution")) {
 const providerStore = read("apps/desktop/src/main/provider-store.ts");
 for (const invariant of [
   'join(options.directory, "credentials")',
-  "mode: 0o700",
-  "mode: 0o600",
-  "renameSync(temporaryPath, path)",
+  "preparePrivateDirectory(options.directory)",
+  "preparePrivateDirectory(credentialsDirectory)",
+  "atomicPrivateWrite(credentialPath(id)",
   "Credential encryption is unavailable",
 ]) {
   if (!providerStore.includes(invariant)) failures.push(`provider credential boundary missing: ${invariant}`);
+}
+const secureFiles = read("apps/desktop/src/main/secure-files.ts");
+for (const invariant of [
+  "mode: 0o700",
+  "mode: 0o600",
+  "renameSync(temporaryPath, path)",
+]) {
+  if (!secureFiles.includes(invariant)) failures.push(`private file persistence boundary missing: ${invariant}`);
 }
 if (providerStore.includes("credential:" + " input.credential")) {
   failures.push("provider credential is copied into registry metadata");
@@ -561,8 +569,114 @@ for (const invariant of [
   if (!performanceBenchmark.includes(invariant)) failures.push(`reference performance invariant missing: ${invariant}`);
 }
 const rootPackage = read("package.json");
-for (const invariant of ['"verify:performance"', 'npm run verify:performance']) {
+for (const invariant of ['"verify:performance"', 'npm run verify:performance', '"smoke:mcp"', 'npm run smoke:mcp']) {
   if (!rootPackage.includes(invariant)) failures.push(`root performance gate missing: ${invariant}`);
+}
+
+const mcpContract = read("packages/contracts/src/mcp.ts");
+for (const invariant of [
+  '"bash", "bunx", "cmd", "cmd.exe"',
+  '"npm", "npm.cmd", "npx", "npx.cmd"',
+  '"pipx", "pnpm", "powershell", "powershell.exe"',
+  '"su", "sudo"',
+  '"uvx", "yarn", "zsh"',
+  "maxDurationMs: 30_000 as const",
+  "maxPagesPerPrimitive: 5 as const",
+  "maxItemsPerPrimitive: 100 as const",
+  "maxResultBytes: 262_144 as const",
+  "MCP input schema exceeds its byte budget",
+  "untrustedMetadata: z.literal(true)",
+]) {
+  if (!mcpContract.includes(invariant)) failures.push(`MCP least-authority contract missing: ${invariant}`);
+}
+const mcpStore = read("apps/desktop/src/main/mcp-connection-store.ts");
+for (const invariant of [
+  "maximumMcpConnections = 20",
+  "encryptedEnvironment",
+  "options.cipher.encrypt(JSON.stringify(environment))",
+  "atomicPrivateWrite(pathFor(id)",
+  "connections: [...records.values()].map(({ profile }) => profile)",
+]) {
+  if (!mcpStore.includes(invariant)) failures.push(`encrypted MCP registry boundary missing: ${invariant}`);
+}
+const mcpApprovals = read("apps/desktop/src/main/mcp-inspection-approval-sessions.ts");
+for (const invariant of [
+  "10 * 60 * 1_000",
+  "maximumMcpInspectionApprovalSessions = 20",
+  "pending.delete(token)",
+  "session.expiresAt <= options.now()",
+  'createHash("sha256").update(JSON.stringify({ name, invocation })',
+  "timingSafeEqual(",
+  'warning: "untrusted-local-code"',
+]) {
+  if (!mcpApprovals.includes(invariant)) failures.push(`MCP launch approval boundary missing: ${invariant}`);
+}
+const mcpApi = read("apps/desktop/src/main/mcp-api.ts");
+for (const invariant of [
+  "realpathSync(resolved.profile.transport.command)",
+  "metadata.isFile()",
+  "(metadata.mode & 0o111) === 0",
+  "approvals.consume(approval.approvalToken)",
+  "approvals.matches(approved, current.name, current.invocation)",
+  "sidecars.inspectMcp(current.invocation, signal)",
+]) {
+  if (!mcpApi.includes(invariant)) failures.push(`named MCP desktop boundary missing: ${invariant}`);
+}
+const mcpClient = read("services/ai-runtime/src/mcp/client.ts");
+for (const invariant of [
+  'from "@modelcontextprotocol/sdk/client/index.js"',
+  'from "@modelcontextprotocol/sdk/client/stdio.js"',
+  "env: { ...invocation.environment }",
+  "cwd: invocation.workingDirectory",
+  "{ capabilities: {} }",
+  "client.listTools",
+  "client.listResources",
+  "client.listPrompts",
+  "AbortSignal.any([signal, timeoutSignal])",
+  "await client.close().catch(() => undefined)",
+]) {
+  if (!mcpClient.includes(invariant)) failures.push(`MCP inspection lifecycle invariant missing: ${invariant}`);
+}
+for (const forbidden of ["client.callTool(", "client.readResource(", "client.getPrompt(", "client.subscribeResource("]) {
+  if (mcpClient.includes(forbidden)) failures.push(`inspection-only MCP client gained primitive authority: ${forbidden}`);
+}
+const aiRuntimePackage = JSON.parse(read("services/ai-runtime/package.json"));
+if (aiRuntimePackage.dependencies?.["@modelcontextprotocol/sdk"] !== "1.29.0") {
+  failures.push("AI runtime does not pin the reviewed production MCP SDK v1.29.0");
+}
+const packageLock = JSON.parse(read("package-lock.json"));
+const lockedMcpSdk = packageLock.packages?.["node_modules/@modelcontextprotocol/sdk"];
+if (
+  lockedMcpSdk?.version !== "1.29.0" ||
+  lockedMcpSdk.license !== "MIT" ||
+  typeof lockedMcpSdk.integrity !== "string" ||
+  !lockedMcpSdk.integrity.startsWith("sha512-")
+) {
+  failures.push("reviewed MCP SDK version, MIT license, and integrity are not locked");
+}
+const aiHandler = read("services/ai-runtime/src/handler.ts");
+for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"']) {
+  if (!aiHandler.includes(invariant)) failures.push(`named MCP utility RPC missing: ${invariant}`);
+}
+for (const invariant of [
+  "listMcpConnections",
+  "saveMcpConnection",
+  "prepareMcpInspection",
+  "approveMcpInspection",
+  "dismissMcpInspection",
+]) {
+  if (!preload.includes(invariant)) failures.push(`named MCP preload capability missing: ${invariant}`);
+}
+const mcpSettings = read("apps/desktop/src/renderer/McpSettings.tsx");
+for (const invariant of [
+  "只保存，不启动",
+  "proposal.connection.command",
+  "proposal.connection.args.map",
+  "proposal.connection.environmentKeys",
+  "批准启动一次并只检查能力",
+  "untrustedMetadata",
+]) {
+  if (!mcpSettings.includes(invariant)) failures.push(`exact MCP consent UI missing: ${invariant}`);
 }
 
 const safeQuery = read("services/data-core/internal/data/query.go");

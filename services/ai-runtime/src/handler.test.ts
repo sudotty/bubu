@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRpcRequest, parseServiceHealth } from "@bubu/contracts";
+import { createRpcRequest, mcpInspectionBudget, parseServiceHealth } from "@bubu/contracts";
 import { handleAiRuntimeRequest } from "./handler.js";
 
 const auth = "a".repeat(64);
@@ -25,6 +25,7 @@ describe("AI runtime request handler", () => {
         "ollama",
         "bounded-http",
         "cancellable-requests",
+        "mcp-stdio-inspection",
       ],
     });
   });
@@ -82,5 +83,37 @@ describe("AI runtime request handler", () => {
     );
 
     expect(response).toMatchObject({ ok: true, result: { text: "answer", providerKind: "openai" } });
+  });
+
+  it("executes only a parsed MCP inspection invocation through the named inspector", async () => {
+    const invocation = {
+      connectionId: "b".repeat(32),
+      command: "/opt/bubu-mcp/bin/server",
+      args: ["--stdio"],
+      environment: {},
+      workingDirectory: "/tmp/bubu-mcp-runtime",
+      budget: mcpInspectionBudget,
+    };
+    const response = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-1", method: "mcp.inspect", params: invocation }),
+      auth,
+      undefined,
+      undefined,
+      async (parsed) => ({
+        schemaVersion: 1,
+        requestedProtocolVersion: "2025-11-25",
+        server: { name: parsed.connectionId, version: "1.0.0" },
+        capabilities: { tools: false, resources: false, prompts: false },
+        instructions: null,
+        tools: [], resources: [], prompts: [], limited: false, untrustedMetadata: true,
+      }),
+    );
+    expect(response).toMatchObject({ ok: true, result: { server: { name: invocation.connectionId } } });
+
+    const invalid = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-2", method: "mcp.inspect", params: { command: "npx" } }),
+      auth,
+    );
+    expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });
   });
 });

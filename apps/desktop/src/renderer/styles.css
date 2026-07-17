@@ -238,6 +238,24 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .agent-trace > p { color: #706d67; font-size: 11px; }
 .agent-trace > div { display: grid; grid-template-columns: minmax(140px, .5fr) minmax(220px, 1fr); gap: 4px 12px; padding: 9px 0; border-top: 1px solid #e5ebe2; }
 .agent-trace code { grid-column: 1 / -1; overflow-wrap: anywhere; color: #687065; font-size: 10px; }
+.mcp-settings { display: grid; gap: 14px; padding: 20px; border: 1px solid #c8c3d8; border-radius: 16px; background: #fbfaff; }
+.mcp-settings-grid { display: grid; grid-template-columns: minmax(250px, .8fr) minmax(360px, 1.2fr); gap: 14px; }
+.mcp-connection-list, .mcp-connection-form { display: grid; align-content: start; gap: 10px; }
+.mcp-connection-card { display: grid; gap: 8px; padding: 12px; border: 1px solid #ded9e8; border-radius: 12px; background: #fff; }
+.mcp-connection-card .provider-card-main small { max-width: 360px; overflow-wrap: anywhere; }
+.mcp-connection-form label { display: grid; gap: 5px; }
+.mcp-array-editor { display: grid; gap: 8px; padding: 10px; border: 1px solid #ded9e8; border-radius: 10px; }
+.mcp-array-editor > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 7px; }
+.mcp-array-editor > div input:only-of-type { grid-column: 1 / 3; }
+.mcp-launch-review, .mcp-inspection-result { display: grid; gap: 12px; padding: 15px; border: 1px solid #b9aed2; border-radius: 13px; background: #f7f4ff; }
+.mcp-launch-review > header, .mcp-inspection-result > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.mcp-launch-review dl { display: grid; gap: 8px; margin: 0; }
+.mcp-launch-review dl > div { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 10px; }
+.mcp-launch-review code, .mcp-inspection-result code { overflow-wrap: anywhere; }
+.mcp-capability-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.mcp-capability-columns > section { min-width: 0; padding: 10px; border-radius: 10px; background: #fff; }
+.mcp-capability-columns details { padding: 8px 0; border-top: 1px solid #ebe7f2; }
+.mcp-capability-columns pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
 .aggregate-explanation-panel > header, .aggregate-disclosure-review > header, .aggregate-explanation-card > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .aggregate-explanation-panel h3, .aggregate-explanation-card h3 { margin-bottom: 0; }
 .aggregate-disclosure-review { display: grid; gap: 12px; padding: 15px; border: 1px solid #d7b77f; border-radius: 13px; background: #fff8e9; }
@@ -353,4 +371,5 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
   .aggregate-disclosure-context { grid-template-columns: 1fr; }
   .agent-budget-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .agent-goal-form { grid-template-columns: 1fr; }
+  .mcp-settings-grid, .mcp-capability-columns { grid-template-columns: 1fr; }
 }

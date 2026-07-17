@@ -16,6 +16,7 @@ import {
   type ReadinessState,
 } from "./DatasetWorkspace.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
+import { McpSettings } from "./McpSettings.js";
 
 const numberFormat = new Intl.NumberFormat("zh-CN");
 
@@ -368,6 +369,7 @@ export function App() {
           {view === "settings" && (
             <>
               <ProviderSettings />
+              <McpSettings />
               <DataProtectionPanel onRestored={reloadCatalogAfterRestore} />
             </>
           )}

@@ -1,12 +1,8 @@
 import { randomBytes } from "node:crypto";
 import {
-  chmodSync,
   existsSync,
-  mkdirSync,
   readFileSync,
-  renameSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import {
@@ -20,6 +16,7 @@ import {
   type ProviderProfile,
   type ProviderRegistryState,
 } from "@bubu/contracts";
+import { atomicPrivateWrite, preparePrivateDirectory } from "./secure-files.js";
 
 export interface CredentialCipher {
   isEncryptionAvailable(): boolean;
@@ -75,27 +72,11 @@ function parseMetadata(value: unknown): ProviderMetadata {
   return { version: 1, profiles, activeProviderId };
 }
 
-function prepareDirectory(directory: string): void {
-  mkdirSync(directory, { recursive: true, mode: 0o700 });
-  chmodSync(directory, 0o700);
-}
-
-function atomicWrite(path: string, value: string | Buffer): void {
-  const temporaryPath = `${path}.${randomBytes(8).toString("hex")}.tmp`;
-  try {
-    writeFileSync(temporaryPath, value, { flag: "wx", mode: 0o600 });
-    renameSync(temporaryPath, path);
-    chmodSync(path, 0o600);
-  } finally {
-    rmSync(temporaryPath, { force: true });
-  }
-}
-
 export function createProviderStore(options: ProviderStoreOptions): ProviderStore {
   const credentialsDirectory = join(options.directory, "credentials");
   const metadataPath = join(options.directory, "providers.json");
-  prepareDirectory(options.directory);
-  prepareDirectory(credentialsDirectory);
+  preparePrivateDirectory(options.directory);
+  preparePrivateDirectory(credentialsDirectory);
 
   let metadata = existsSync(metadataPath)
     ? parseMetadata(JSON.parse(readFileSync(metadataPath, "utf8")) as unknown)
@@ -116,7 +97,7 @@ export function createProviderStore(options: ProviderStoreOptions): ProviderStor
   }
 
   function persist(next: ProviderMetadata): void {
-    atomicWrite(metadataPath, `${JSON.stringify(next, null, 2)}\n`);
+    atomicPrivateWrite(metadataPath, `${JSON.stringify(next, null, 2)}\n`);
     metadata = next;
   }
 
@@ -158,7 +139,7 @@ export function createProviderStore(options: ProviderStoreOptions): ProviderStor
         model: input.model,
       });
       if (input.credential !== undefined) {
-        atomicWrite(credentialPath(id), options.cipher.encrypt(input.credential));
+        atomicPrivateWrite(credentialPath(id), options.cipher.encrypt(input.credential));
       }
 
       const profiles = [...metadata.profiles];

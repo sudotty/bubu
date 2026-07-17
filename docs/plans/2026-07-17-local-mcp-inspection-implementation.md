@@ -2,7 +2,7 @@
 
 > **Execution:** Test-drive every boundary on `main`, use the official production TypeScript SDK, and keep the user-owned legacy Wails workspace out of every commit.
 
-**Status:** Active.
+**Status:** Complete (2026-07-17).
 
 **Goal:** Let a user persist a local stdio MCP server configuration, review the exact process launch, explicitly approve one connection, and inspect its negotiated tools, resources, and prompts without giving either the renderer or a model authority to launch commands or invoke MCP capabilities.
 
@@ -90,7 +90,7 @@
 **Files:**
 
 - Create `apps/desktop/src/renderer/McpSettings.tsx`
-- Modify `apps/desktop/src/renderer/ProviderSettings.tsx`
+- Modify `apps/desktop/src/renderer/App.tsx`
 - Modify `apps/desktop/src/renderer/styles.css`
 - Modify `apps/desktop/src/main.ts`
 
@@ -118,3 +118,11 @@
 2. Add executable gates for stable SDK generation, no Shell/package runner, exact one-use consent, environment isolation, named IPC/RPC, fixed budgets, disabled model/tool integration, and packaged UI visibility.
 3. Mark only local stdio registry/consent/lifecycle/discovery capabilities implemented. Keep `mcp-host` in progress and remote HTTP/OAuth, execution, Agent/workflow use, subscriptions, and server-initiated model/user requests planned.
 4. Run `volta run npm run verify`, inspect the full result, update this plan with evidence, stage only this slice, run `git diff --cached --check`, commit to `main`, and attempt push without touching legacy user work.
+
+## Completion evidence
+
+- `volta run npm run verify` passed on Node 22.18.0 with zero dependency vulnerabilities.
+- TypeScript verification passed across 46 test files and 142 tests: contracts 20/60, AI runtime 6/20, and desktop 20/62. All Go data-core and RPC tests passed.
+- The production Electron application packaged successfully; data-core, real stdio MCP, and packaged-desktop smoke tests all passed. The MCP fixture negotiated protocol 2025-11-25, returned one tool, one resource, and one prompt, did not invoke any primitive, did not inherit the host sentinel, and closed its child process.
+- The final 100 MiB / 183,246-row reference gate passed at 4,112.81 ms import-and-profile time, 204.47 ms query p95, and 35.98 MiB peak data-core RSS against budgets of 120,000 ms, 3,000 ms, and 256 MiB.
+- Repository and architecture fitness functions now require the product/security documents, capability statuses, exact SDK 1.29.0 MIT lock integrity, encrypted MCP registry, exact one-use launch consent, environment isolation, named APIs, fixed budgets, inspection-only SDK surface, untrusted metadata treatment, real MCP smoke, and packaged Settings surface.
