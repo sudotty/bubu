@@ -56,6 +56,7 @@ type DatasetService interface {
 	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
 	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
+	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
 	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
 }
@@ -81,6 +82,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"version-replacement",
 				"schema-drift",
 				"privacy-context",
+				"safe-query-plan",
 			}
 		}
 		return success(request.ID, ServiceHealth{
@@ -135,6 +137,16 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ModelContext(ctx, datasetID, data.DisclosureLevel(disclosure))
 		if err != nil {
 			return failure(request.ID, "CONTEXT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.query.execute":
+		plan, ok := objectParam[data.SafeQueryPlan](request.Params, "plan")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "plan must be a strict safe query plan", false)
+		}
+		result, err := datasets.ExecuteQueryPlan(ctx, plan)
+		if err != nil {
+			return failure(request.ID, "QUERY_REJECTED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.list":
@@ -194,6 +206,27 @@ func stringSliceParam(params map[string]any, key string, maximum int) ([]string,
 			return nil, false
 		}
 		result[index] = text
+	}
+	return result, true
+}
+
+func objectParam[T any](params map[string]any, key string) (T, bool) {
+	var result T
+	value, ok := params[key]
+	if !ok {
+		return result, false
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return result, false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&result); err != nil {
+		return result, false
+	}
+	if err := ensureJSONEnd(decoder); err != nil {
+		return result, false
 	}
 	return result, true
 }

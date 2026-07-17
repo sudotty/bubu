@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,5 +46,30 @@ func TestModelContextUsesSyntheticExamplesWithoutSourceValues(t *testing.T) {
 	}
 	if len(contextResult.Columns) != 4 || contextResult.Columns[1].Type != ColumnTypeReal {
 		t.Fatalf("unexpected model columns: %#v", contextResult.Columns)
+	}
+}
+
+func TestModelContextRejectsASchemaThatExceedsThePromptBudget(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "too-wide.csv")
+	headers := make([]string, maximumModelContextColumns+1)
+	values := make([]string, len(headers))
+	for index := range headers {
+		headers[index] = fmt.Sprintf("Column %d", index+1)
+		values[index] = "1"
+	}
+	contents := strings.Join(headers, ",") + "\n" + strings.Join(values, ",") + "\n"
+	if err := os.WriteFile(source, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.ModelContext(context.Background(), imported.Datasets[0].ID, DisclosureSchemaSynthetic)
+	if err == nil || !strings.Contains(err.Error(), "select a narrower dataset") {
+		t.Fatalf("expected a bounded model-context error, got %v", err)
 	}
 }

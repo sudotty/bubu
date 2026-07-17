@@ -10,6 +10,7 @@ import {
   parseDatasetReplacementResult,
   parseModelCompletion,
   parseModelContext,
+  parseSafeQueryResult,
   parseServiceHealth,
   type DatasetImportResult,
   type DatasetPreview,
@@ -20,6 +21,8 @@ import {
   type ModelContext,
   type DisclosureLevel,
   type ModelInvocation,
+  type SafeQueryPlan,
+  type SafeQueryResult,
 } from "@bubu/contracts";
 import type {
   DesktopServiceHealth,
@@ -89,6 +92,12 @@ class DataCoreClient implements RuntimeClient {
   async modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext> {
     return parseModelContext(
       await this.#broker.request("dataset.context", { datasetId: datasetID, disclosure }),
+    );
+  }
+
+  async executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult> {
+    return parseSafeQueryResult(
+      await this.#broker.request("dataset.query.execute", { plan }),
     );
   }
 
@@ -169,6 +178,7 @@ export interface SidecarSupervisor {
   replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
   modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
+  executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
   stop(): void;
 }
 
@@ -202,6 +212,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),
     modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
     generateModel: (invocation) => aiRuntime.generate(invocation),
+    executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),
     stop() {
       aiRuntime.stop();
       dataCore.stop();

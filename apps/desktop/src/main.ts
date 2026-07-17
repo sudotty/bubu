@@ -16,6 +16,8 @@ import {
   parseProviderConfigurationInput,
   parseProviderConnectionResult,
   parseProviderId,
+  parseQueryPlanRequest,
+  parseSafeQueryPlan,
 } from "@bubu/contracts";
 import started from "electron-squirrel-startup";
 import { desktopChannels } from "./shared/product-api.js";
@@ -28,6 +30,10 @@ import {
 import { parseLaunchMode } from "./main/launch-mode.js";
 import { startSidecars, type SidecarSupervisor } from "./main/sidecars.js";
 import { createProviderStore, type ProviderStore } from "./main/provider-store.js";
+import {
+  buildQueryPlanInvocation,
+  createQueryPlanProposal,
+} from "./main/analysis-orchestrator.js";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -171,6 +177,28 @@ function registerDesktopApi(providerStore: ProviderStore): void {
       latencyMs: Date.now() - startedAt,
     });
   });
+  ipcMain.handle(desktopChannels.proposeQueryPlan, async (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    if (!sidecars) throw new Error("Desktop services have not started");
+    const request = parseQueryPlanRequest(value);
+    const activeProviderId = providerStore.state().activeProviderId;
+    if (activeProviderId === null) {
+      throw new Error("请先在模型设置中配置并选择一个模型");
+    }
+    const [context, resolved] = await Promise.all([
+      sidecars.modelContext(request.datasetId, "schema-synthetic"),
+      Promise.resolve(providerStore.resolve(activeProviderId)),
+    ]);
+    const completion = await sidecars.generateModel(
+      buildQueryPlanInvocation(resolved, context, request.question),
+    );
+    return createQueryPlanProposal(request.question, context, completion);
+  });
+  ipcMain.handle(desktopChannels.executeQueryPlan, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    if (!sidecars) throw new Error("Desktop services have not started");
+    return sidecars.executeQueryPlan(parseSafeQueryPlan(value));
+  });
 }
 
 async function createMainWindow(showWhenReady = true): Promise<BrowserWindow> {
@@ -206,7 +234,8 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         "文本",
         "数值",
         "日期时间",
-        "替换数据版本"
+        "替换数据版本",
+        "先生成计划"
       ];
       const deadline = Date.now() + 5000;
       const inspect = () => {

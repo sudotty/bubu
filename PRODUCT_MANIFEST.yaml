@@ -42,7 +42,10 @@ capabilities:
   privacy-gateway: in-progress
   model-context-boundary: implemented
   synthetic-examples: implemented
-  safe-query-plan: planned
+  safe-query-plan: implemented
+  natural-language-query-planning: implemented
+  visible-query-approval: implemented
+  local-bounded-query-execution: implemented
   model-provider-registry: implemented
   os-encrypted-provider-credentials: implemented
   provider-connection-test: implemented
@@ -52,7 +55,7 @@ capabilities:
   gemini-provider: implemented
   openai-compatible-provider: implemented
   ollama-provider: implemented
-  dataset-conversations: planned
+  dataset-conversations: in-progress
   dataset-groups: planned
   visualizations: legacy-partial
   workflows: planned

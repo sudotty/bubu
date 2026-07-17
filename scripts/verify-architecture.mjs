@@ -94,6 +94,17 @@ const tabularSource = read("services/data-core/internal/data/source.go");
 if (tabularSource.includes("os.ReadFile")) {
   failures.push("tabular import reads an entire source file before parsing");
 }
+
+const safeQuery = read("services/data-core/internal/data/query.go");
+for (const invariant of [
+  "validateQueryPlanShape(plan)",
+  "currentVersionID != plan.VersionID",
+  'parts := []string{"SELECT "',
+  "args = append(args, plan.Limit+1)",
+  'predicates = append(predicates, "instr("+column.physical+", ?) > 0")',
+]) {
+  if (!safeQuery.includes(invariant)) failures.push(`safe query compiler invariant missing: ${invariant}`);
+}
 if (!tabularSource.includes("io.LimitReader(file, 64*1024)")) {
   failures.push("delimiter detection is missing its bounded streaming sample");
 }

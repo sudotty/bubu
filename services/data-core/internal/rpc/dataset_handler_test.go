@@ -15,6 +15,13 @@ type fakeDatasets struct {
 	replacedPath  string
 }
 
+func (fake *fakeDatasets) ExecuteQueryPlan(
+	_ context.Context,
+	plan data.SafeQueryPlan,
+) (data.SafeQueryResult, error) {
+	return data.SafeQueryResult{DatasetID: plan.DatasetID, VersionID: plan.VersionID}, nil
+}
+
 func (fake *fakeDatasets) ReplaceFile(
 	_ context.Context,
 	datasetID string,
@@ -144,5 +151,42 @@ func TestDatasetContextDelegatesAnExplicitDisclosureLevel(t *testing.T) {
 
 	if !response.OK {
 		t.Fatalf("unexpected context response: %#v", response)
+	}
+}
+
+func TestDatasetQueryAcceptsOnlyATypedPlan(t *testing.T) {
+	fake := &fakeDatasets{}
+	plan := map[string]any{
+		"schemaVersion": float64(1),
+		"datasetId":     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"versionId":     "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"purpose":       "Count rows",
+		"dimensions":    []any{},
+		"measures":      []any{map[string]any{"operation": "count", "column": nil}},
+		"filters":       []any{},
+		"sort":          []any{},
+		"limit":         float64(10),
+	}
+	response := HandleWithData(context.Background(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "query-1",
+		Method:          "dataset.query.execute",
+		Params:          map[string]any{"plan": plan},
+	}, testToken, fake)
+	if !response.OK {
+		t.Fatalf("unexpected query response: %#v", response)
+	}
+
+	plan["sql"] = "DROP TABLE datasets"
+	response = HandleWithData(context.Background(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "query-2",
+		Method:          "dataset.query.execute",
+		Params:          map[string]any{"plan": plan},
+	}, testToken, fake)
+	if response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("raw SQL escaped strict plan decoding: %#v", response)
 	}
 }

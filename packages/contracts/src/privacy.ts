@@ -5,7 +5,7 @@ export const disclosureLevelSchema = z.enum(["schema-only", "schema-synthetic"])
 
 const modelContextColumnSchema = z
   .object({
-    name: z.string().min(1),
+    name: z.string().min(1).max(500),
     type: columnTypeSchema,
     nullable: z.boolean(),
   })
@@ -18,7 +18,7 @@ export const modelContextSchema = z
     datasetId: datasetIdSchema,
     versionId: datasetIdSchema,
     disclosure: disclosureLevelSchema,
-    columns: z.array(modelContextColumnSchema).min(1),
+    columns: z.array(modelContextColumnSchema).min(1).max(256),
     syntheticRows: z.array(z.array(syntheticCellSchema)).max(5),
   })
   .strict()

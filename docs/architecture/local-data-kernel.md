@@ -43,10 +43,17 @@ flowchart LR
 
 Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping for that drift remains unavailable.
 
+## Safe analytical queries
+
+The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
+
+Only validated internal table/physical-column names enter generated SQL. Filter values are always bound parameters; substring filters use `instr` rather than wildcard-bearing SQL fragments. Numeric operations are permitted only for inferred numeric columns. The compiler emits one `SELECT`, requests one extra row to prove truncation, and returns a strict typed result. A stale version, unknown column, unsupported operation, invalid numeric filter, or oversized plan fails before execution.
+
 ## Security and privacy invariants
 
 - The database directory is created with mode `0700` and the SQLite file with mode `0600` on platforms that expose POSIX permissions.
 - Dynamic table and column identifiers are generated internally and matched against strict regular expressions before SQL interpolation. User-controlled values use bound parameters.
+- Renderer/model output cannot submit SQL. Even after UI approval, Go independently decodes the strict plan, rejects unknown fields, validates the current version, and compiles the bounded query.
 - RPC requests require a random per-process credential and protocol version 1.
 - Preview is bounded to 1–500 rows. The current UI requests 50 rows.
 - No import operation calls a model or sends a network request.
@@ -59,8 +66,9 @@ Every imported dataset starts at version 1. Replacing a dataset with the same no
 - Same-schema replacement, monotonic version numbers, schema-drift blocking, and migration from the version-1 catalog.
 - Catalog and preview integration through temporary SQLite databases.
 - Built-sidecar smoke for import, list, inference, preview, file permissions, and absolute-path non-persistence.
+- Typed aggregation, hostile bound-filter, stale-version, unknown-column, numeric-operation, limit, and truncation tests plus built-sidecar query smoke.
 - Architecture fitness rule that rejects whole-file CSV delimiter sampling.
 
 ## Not implemented yet
 
-Interactive schema-drift mapping, richer distributions and anomaly findings, validation rules, relationships, read-only analytical queries, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Interactive schema-drift mapping, richer distributions and anomaly findings, validation rules, multi-dataset relationships/joins, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

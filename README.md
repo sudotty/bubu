@@ -11,8 +11,9 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: Electron 43 secure shell, sandboxed React renderer, typed preload API, supervised Node AI utility process, Go data-core sidecar, authenticated versioned RPC, packaging, and packaged smoke verification.
 - Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable same-schema replacement versions, schema-drift blocking, bounded previews, type inference, and baseline column profiles.
 - Implemented: schema-only/synthetic model context, a local provider registry, OS-encrypted write-only credentials, active-model selection, connection tests, and bounded OpenAI, Anthropic, Gemini, compatible, and Ollama adapters.
+- Implemented: single-dataset natural-language planning with an exact disclosure preview, explicit user approval, a no-raw-SQL typed plan, and bounded local execution in Go.
 - In progress: interactive drift mapping, richer quality profiles, validation, relationships, deletion, and export.
-- Not complete yet: full privacy approvals and audit, safe query planning, dataset conversations, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
+- Not complete yet: persisted/group conversations, charts and reports, multi-dataset joins, full privacy audit/usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
 

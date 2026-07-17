@@ -5,6 +5,7 @@ import type {
   ProductReadiness,
 } from "../shared/product-api.js";
 import { ProviderSettings } from "./ProviderSettings.js";
+import { DatasetAnalysis } from "./DatasetAnalysis.js";
 
 type ReadinessState =
   | { readonly kind: "loading" }
@@ -245,14 +246,6 @@ export function App() {
           )}
         </div>
 
-        {view === "datasets" && <footer className="composer" aria-label="数据对话将在 AI 查询纵切完成后启用">
-          <span>
-            {selectedDataset
-              ? `下一阶段：和「${selectedDataset.displayName}」对话、查询与生成图表`
-              : "导入第一个 CSV 或 Excel 后，在这里和数据聊天"}
-          </span>
-          <button type="button" disabled>发送</button>
-        </footer>}
       </section>
     </main>
   );
@@ -369,6 +362,7 @@ function DatasetWorkspace({
           </div>
         </section>
       )}
+      <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} />
     </>
   );
 }

@@ -39,9 +39,15 @@ The renderer can submit a new credential but the preload API has no credential-r
 
 Connection testing performs one bounded minimal generation request through the same adapter used by later conversations. Only provider identity, model, and latency return to the renderer. Neither stored credentials nor provider response bodies are included in renderer-facing errors.
 
+## Natural-language query approval
+
+For one-dataset analysis, Electron main obtains the schema plus three generated examples from Go and sends exactly that envelope together with the user's question. The model must return one strict JSON query plan and cannot return SQL. The proposal is cryptographically untrusted: its dataset/version identity must equal the disclosed immutable context, and Go validates it again before execution.
+
+The renderer shows the plan's purpose, dimensions, measures, filters, limit, and the complete context disclosure. No local query runs until the user selects **批准并在本地执行**. Execution returns at most 200 rows and does not make a second model request, so query results remain local. Persisted approvals, aggregate/row disclosure to a model, and the append-only usage ledger are still pending.
+
 ## Deliberately unavailable
 
-Streaming events, cancellation, usage ledger, privacy preview/approval, prompt assembly, query planning, and fallback routing remain required before the data-chat composer is enabled. Individual provider transports are implemented; the end-to-end privacy gateway remains `in-progress` until a safe query plan and visible disclosure approval exist.
+Streaming events, cancellation, usage ledger, aggregate/row disclosure approvals, multi-dataset planning, and fallback routing remain required for the full conversation product. The single-dataset planner and local execution approval are enabled; the end-to-end privacy gateway remains `in-progress` until usage/audit and all higher disclosure levels are enforced.
 
 ## Official protocol inputs
 

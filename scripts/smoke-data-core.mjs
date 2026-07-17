@@ -12,6 +12,7 @@ import {
   parseDatasetReplacementResult,
   parseModelContext,
   parseRpcResponse,
+  parseSafeQueryResult,
 } from "../packages/contracts/dist/index.js";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
@@ -154,6 +155,24 @@ try {
   if (modelContext.syntheticRows.length !== 3) {
     throw new Error("Model context is missing bounded synthetic examples");
   }
+  const queryResult = parseSafeQueryResult(
+    await request("dataset.query.execute", {
+      plan: {
+        schemaVersion: 1,
+        datasetId: dataset.id,
+        versionId: replacement.dataset.versionId,
+        purpose: "Sum amount by region",
+        dimensions: ["Region"],
+        measures: [{ operation: "sum", column: "Amount" }],
+        filters: [],
+        sort: [{ outputIndex: 1, direction: "descending" }],
+        limit: 10,
+      },
+    }),
+  );
+  if (queryResult.rows[0]?.[0] !== "West" || queryResult.rows[0]?.[1] !== 512) {
+    throw new Error(`Safe query returned an unexpected result: ${JSON.stringify(queryResult.rows)}`);
+  }
 
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
@@ -174,7 +193,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, replacement, drift, synthetic disclosure, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, replacement, drift, synthetic disclosure, safe query, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

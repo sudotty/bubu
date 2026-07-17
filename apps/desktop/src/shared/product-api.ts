@@ -8,6 +8,10 @@ import type {
   ProviderConnectionResult,
   ProviderId,
   ProviderRegistryState,
+  QueryPlanProposal,
+  QueryPlanRequest,
+  SafeQueryPlan,
+  SafeQueryResult,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -21,6 +25,8 @@ export const desktopChannels = {
   selectProvider: "bubu:providers:select",
   removeProvider: "bubu:providers:remove",
   testProvider: "bubu:providers:test",
+  proposeQueryPlan: "bubu:analysis:propose-query-plan",
+  executeQueryPlan: "bubu:analysis:execute-query-plan",
 } as const;
 
 export type DatasetReplacementSelectionResult =
@@ -60,6 +66,10 @@ export interface BuBuDesktopApi {
     remove(providerId: ProviderId): Promise<ProviderRegistryState>;
     test(providerId: ProviderId): Promise<ProviderConnectionResult>;
   };
+  readonly analysis: {
+    propose(value: QueryPlanRequest): Promise<QueryPlanProposal>;
+    execute(plan: SafeQueryPlan): Promise<SafeQueryResult>;
+  };
 }
 
 export type {
@@ -76,5 +86,9 @@ export type {
   ProviderProfile,
   ProviderRegistryState,
   ProviderSummary,
+  QueryPlanProposal,
+  QueryPlanRequest,
+  SafeQueryPlan,
+  SafeQueryResult,
   SchemaDrift,
 } from "@bubu/contracts";
