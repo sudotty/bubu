@@ -25,6 +25,14 @@ func (fake *fakeDatasets) ReplaceFile(
 	return data.ReplacementResult{Status: data.ReplacementMappingRequired, Drift: &data.SchemaDrift{}}, nil
 }
 
+func (fake *fakeDatasets) ModelContext(
+	_ context.Context,
+	datasetID string,
+	disclosure data.DisclosureLevel,
+) (data.ModelContextResult, error) {
+	return data.ModelContextResult{DatasetID: datasetID, Disclosure: disclosure}, nil
+}
+
 func (fake *fakeDatasets) ImportFiles(_ context.Context, sourcePaths []string) (data.ImportResult, error) {
 	fake.importedPaths = sourcePaths
 	return data.ImportResult{Datasets: []data.DatasetSummary{{ID: "one"}}}, nil
@@ -118,5 +126,23 @@ func TestDatasetReplacementDelegatesDatasetAndPrivatePath(t *testing.T) {
 
 	if !response.OK || fake.replacedID != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || fake.replacedPath != "/tmp/sales-week-2.csv" {
 		t.Fatalf("unexpected replacement response: %#v, id=%q path=%q", response, fake.replacedID, fake.replacedPath)
+	}
+}
+
+func TestDatasetContextDelegatesAnExplicitDisclosureLevel(t *testing.T) {
+	fake := &fakeDatasets{}
+	response := HandleWithData(context.Background(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "context-1",
+		Method:          "dataset.context",
+		Params: map[string]any{
+			"datasetId":  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"disclosure": "schema-synthetic",
+		},
+	}, testToken, fake)
+
+	if !response.OK {
+		t.Fatalf("unexpected context response: %#v", response)
 	}
 }

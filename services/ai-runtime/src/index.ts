@@ -18,7 +18,7 @@ if (!auth || auth.length < 32) {
   const parentPort = (process as UtilityProcess).parentPort;
   if (parentPort) {
     parentPort.on("message", (event) => {
-      parentPort.postMessage(handleAiRuntimeRequest(event.data, auth));
+      void handleAiRuntimeRequest(event.data, auth).then((response) => parentPort.postMessage(response));
     });
   } else {
     const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -29,7 +29,9 @@ if (!auth || auth.length < 32) {
       } catch {
         value = undefined;
       }
-      process.stdout.write(`${JSON.stringify(handleAiRuntimeRequest(value, auth))}\n`);
+      void handleAiRuntimeRequest(value, auth).then((response) => {
+        process.stdout.write(`${JSON.stringify(response)}\n`);
+      });
     });
   }
 }

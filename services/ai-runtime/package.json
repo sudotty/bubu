@@ -6,11 +6,14 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "pretest": "npm run build -w @bubu/contracts",
     "test": "vitest run",
+    "prelint": "npm run build -w @bubu/contracts",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@bubu/contracts": "0.1.0"
+    "@bubu/contracts": "0.1.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
