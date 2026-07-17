@@ -13,6 +13,7 @@ const requiredFiles = [
   "docs/adr/0003-provider-neutral-ai-tools-and-mcp.md",
   "docs/adr/0004-privacy-gateway-and-safe-query-plans.md",
   "docs/architecture/local-data-kernel.md",
+  "docs/architecture/privacy-and-model-providers.md",
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
   "docs/plans/2026-07-17-electron-migration-implementation.md",
   "docs/product/importing-data.md",
@@ -88,6 +89,9 @@ for (const required of [
   "dataset-preview: implemented",
   "same-schema-replacement: implemented",
   "schema-drift-detection: implemented",
+  "model-context-boundary: implemented",
+  "synthetic-examples: implemented",
+  "provider-request-adapters: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

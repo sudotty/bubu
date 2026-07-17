@@ -5,8 +5,8 @@ import { handleAiRuntimeRequest } from "./handler.js";
 const auth = "a".repeat(64);
 
 describe("AI runtime request handler", () => {
-  it("returns versioned readiness for an authenticated health request", () => {
-    const response = handleAiRuntimeRequest(
+  it("returns versioned readiness for an authenticated health request", async () => {
+    const response = await handleAiRuntimeRequest(
       createRpcRequest({ auth, id: "health-1", method: "system.health", params: {} }),
       auth,
     );
@@ -17,12 +17,19 @@ describe("AI runtime request handler", () => {
       service: "ai-runtime",
       protocolVersion: 1,
       status: "ready",
-      capabilities: ["provider-registry", "streaming", "tools", "mcp"],
+      capabilities: [
+        "openai-responses",
+        "anthropic-messages",
+        "gemini-interactions",
+        "openai-compatible",
+        "ollama",
+        "bounded-http",
+      ],
     });
   });
 
-  it("does not execute a request with the wrong process token", () => {
-    const response = handleAiRuntimeRequest(
+  it("does not execute a request with the wrong process token", async () => {
+    const response = await handleAiRuntimeRequest(
       createRpcRequest({ auth, id: "health-1", method: "system.health", params: {} }),
       "b".repeat(64),
     );
@@ -33,8 +40,8 @@ describe("AI runtime request handler", () => {
     });
   });
 
-  it("rejects methods outside the runtime registry", () => {
-    const response = handleAiRuntimeRequest(
+  it("rejects methods outside the runtime registry", async () => {
+    const response = await handleAiRuntimeRequest(
       createRpcRequest({ auth, id: "unknown-1", method: "model.delete", params: {} }),
       auth,
     );
@@ -43,5 +50,36 @@ describe("AI runtime request handler", () => {
       ok: false,
       error: { code: "METHOD_NOT_FOUND", retryable: false },
     });
+  });
+
+  it("executes a parsed model invocation through the selected adapter", async () => {
+    const response = await handleAiRuntimeRequest(
+      createRpcRequest({
+        auth,
+        id: "generate-1",
+        method: "model.generate",
+        params: {
+          provider: {
+            id: "a".repeat(32),
+            name: "OpenAI",
+            kind: "openai",
+            baseUrl: "https://api.openai.com/v1/",
+            model: "configured-model",
+          },
+          credential: "private-key",
+          system: "System",
+          user: "User",
+          maxOutputTokens: 512,
+        },
+      }),
+      auth,
+      async () =>
+        new Response(
+          JSON.stringify({ output: [{ content: [{ type: "output_text", text: "answer" }] }] }),
+          { status: 200 },
+        ),
+    );
+
+    expect(response).toMatchObject({ ok: true, result: { text: "answer", providerKind: "openai" } });
   });
 });

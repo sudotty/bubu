@@ -1,13 +1,30 @@
 import {
   createRpcError,
   createRpcSuccess,
+  parseModelInvocation,
   parseRpcRequest,
   type RpcResponse,
 } from "@bubu/contracts";
+import {
+  invokeProvider,
+  ProviderInvocationError,
+  type ProviderFetch,
+} from "./providers/invoke.js";
 
-const capabilities = ["provider-registry", "streaming", "tools", "mcp"] as const;
+const capabilities = [
+  "openai-responses",
+  "anthropic-messages",
+  "gemini-interactions",
+  "openai-compatible",
+  "ollama",
+  "bounded-http",
+] as const;
 
-export function handleAiRuntimeRequest(value: unknown, expectedAuth: string): RpcResponse {
+export async function handleAiRuntimeRequest(
+  value: unknown,
+  expectedAuth: string,
+  fetchProvider?: ProviderFetch,
+): Promise<RpcResponse> {
   let request;
   try {
     request = parseRpcRequest(value);
@@ -26,6 +43,26 @@ export function handleAiRuntimeRequest(value: unknown, expectedAuth: string): Rp
       status: "ready",
       capabilities,
     });
+  }
+
+  if (request.method === "model.generate") {
+    let invocation;
+    try {
+      invocation = parseModelInvocation(request.params);
+    } catch {
+      return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid model invocation", false);
+    }
+    try {
+      return createRpcSuccess(
+        request.id,
+        await invokeProvider(invocation, fetchProvider),
+      );
+    } catch (error) {
+      if (error instanceof ProviderInvocationError) {
+        return createRpcError(request.id, "PROVIDER_FAILED", error.message, error.retryable);
+      }
+      return createRpcError(request.id, "PROVIDER_FAILED", "Provider returned an invalid response", false);
+    }
   }
 
   return createRpcError(request.id, "METHOD_NOT_FOUND", "Unknown AI runtime method", false);

@@ -96,6 +96,7 @@ Work proceeds in vertical slices. Each slice starts with a failing deterministic
 | 0 | Complete | Repository, architecture, privacy, secret, dependency, and toolchain contracts |
 | 1 | Complete | Secure packaged Electron shell with typed preload, authenticated Go/Node sidecars, and packaged launch smoke |
 | 2 | Active | Atomic CSV/TSV/XLSX selection import, local SQLite catalog, immutable same-schema replacement, drift blocking, type inference, baseline profiles, and preview |
-| 3–7 | Pending | Must not be represented as shipped; follow the exit criteria above |
+| 3 | Active | Schema-only/synthetic disclosure context and provider-neutral bounded HTTP adapters; no credentials or user chat yet |
+| 4–7 | Pending | Must not be represented as shipped; follow the exit criteria above |
 
 The Stage 2 slice is exercised through Go integration tests and `npm run smoke:data-core`. Remaining Stage 2 work is interactive drift mapping, richer profiling, validation, relationships, deletion, and export.

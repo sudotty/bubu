@@ -10,6 +10,7 @@ import {
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
+  parseModelContext,
   parseRpcResponse,
 } from "../packages/contracts/dist/index.js";
 
@@ -29,7 +30,7 @@ await writeFile(
 );
 await writeFile(
   replacementPath,
-  "Order ID,Region,Amount,Date\n004,West,512.00,2026-07-18\n005,North,32.00,2026-07-19\n",
+  "Order ID,Region,Amount,Date\nRAW-ORDER-004,West,512.00,2026-07-18\nRAW-ORDER-005,North,32.00,2026-07-19\n",
   { mode: 0o600 },
 );
 await writeFile(
@@ -125,7 +126,7 @@ try {
   const replacedPreview = parseDatasetPreview(
     await request("dataset.preview", { datasetId: dataset.id, limit: 50, offset: 0 }),
   );
-  if (replacedPreview.rows[0]?.[0] !== "004" || replacedPreview.totalRows !== 2) {
+  if (replacedPreview.rows[0]?.[0] !== "RAW-ORDER-004" || replacedPreview.totalRows !== 2) {
     throw new Error("Replacement did not atomically switch the current preview");
   }
   const drifted = parseDatasetReplacementResult(
@@ -137,6 +138,21 @@ try {
     drifted.drift.addedColumns.join(",") !== "Zone"
   ) {
     throw new Error("Schema drift did not block incompatible replacement");
+  }
+  const modelContext = parseModelContext(
+    await request("dataset.context", {
+      datasetId: dataset.id,
+      disclosure: "schema-synthetic",
+    }),
+  );
+  const disclosed = JSON.stringify(modelContext);
+  for (const forbidden of ["RAW-ORDER-004", "West", "512.00", replacementPath]) {
+    if (disclosed.includes(forbidden)) {
+      throw new Error(`Model context disclosed a real source value: ${forbidden}`);
+    }
+  }
+  if (modelContext.syntheticRows.length !== 3) {
+    throw new Error("Model context is missing bounded synthetic examples");
   }
 
   child.stdin.end();
@@ -158,7 +174,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, catalog, inference, preview, replacement, drift, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, replacement, drift, synthetic disclosure, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

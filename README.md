@@ -10,8 +10,9 @@ The repository is migrating from the historical Wails prototype to a hardened El
 
 - Implemented: Electron 43 secure shell, sandboxed React renderer, typed preload API, supervised Node AI utility process, Go data-core sidecar, authenticated versioned RPC, packaging, and packaged smoke verification.
 - Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable same-schema replacement versions, schema-drift blocking, bounded previews, type inference, and baseline column profiles.
+- Implemented foundation: schema-only/synthetic model context plus bounded OpenAI, Anthropic, Gemini, compatible, and Ollama HTTP adapters with strict response normalization.
 - In progress: interactive drift mapping, richer quality profiles, validation, relationships, deletion, and export.
-- Not complete yet: privacy gateway, safe query planning, production model adapters, dataset conversations, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
+- Not complete yet: credential UI/storage, full privacy approvals and audit, safe query planning, dataset conversations, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
 
@@ -31,7 +32,7 @@ flowchart LR
 
 The renderer has no Node access. Electron main owns lifecycle, OS permissions, credentials, updates, and process supervision but not data policy. The Go data core is the final authority for raw-data disclosure and SQL execution. The optional Hub is never required for local mode and never shares a SQLite file between users.
 
-See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), and [the import guide](docs/product/importing-data.md).
+See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), [the privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), and [the import guide](docs/product/importing-data.md).
 
 ## Development
 

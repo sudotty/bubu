@@ -60,6 +60,27 @@ type ReplacementResult struct {
 	Drift   *SchemaDrift      `json:"drift,omitempty"`
 }
 
+type DisclosureLevel string
+
+const (
+	DisclosureSchemaOnly      DisclosureLevel = "schema-only"
+	DisclosureSchemaSynthetic DisclosureLevel = "schema-synthetic"
+)
+
+type ModelContextColumn struct {
+	Name     string     `json:"name"`
+	Type     ColumnType `json:"type"`
+	Nullable bool       `json:"nullable"`
+}
+
+type ModelContextResult struct {
+	DatasetID     string               `json:"datasetId"`
+	VersionID     string               `json:"versionId"`
+	Disclosure    DisclosureLevel      `json:"disclosure"`
+	Columns       []ModelContextColumn `json:"columns"`
+	SyntheticRows [][]any              `json:"syntheticRows"`
+}
+
 type PreviewResult struct {
 	DatasetID string          `json:"datasetId"`
 	VersionID string          `json:"versionId"`
