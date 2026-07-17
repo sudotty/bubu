@@ -60,6 +60,12 @@ CREATE INDEX dataset_versions_dataset_id_idx ON dataset_versions(dataset_id);
 CREATE INDEX dataset_columns_version_id_idx ON dataset_columns(version_id);
 `,
 	},
+	{
+		version: 2,
+		sql: `
+ALTER TABLE datasets ADD COLUMN source_locator TEXT NOT NULL DEFAULT '';
+`,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

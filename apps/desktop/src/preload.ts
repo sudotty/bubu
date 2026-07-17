@@ -4,6 +4,7 @@ import {
   type BuBuDesktopApi,
   type DatasetPreview,
   type DatasetPreviewRequest,
+  type DatasetReplacementSelectionResult,
   type DatasetImportResult,
   type DatasetSummary,
   type ProductReadiness,
@@ -20,6 +21,8 @@ const desktopApi: BuBuDesktopApi = {
     list: () => ipcRenderer.invoke(desktopChannels.listDatasets) as Promise<readonly DatasetSummary[]>,
     preview: (request: DatasetPreviewRequest) =>
       ipcRenderer.invoke(desktopChannels.previewDataset, request) as Promise<DatasetPreview>,
+    replace: (datasetId: string) =>
+      ipcRenderer.invoke(desktopChannels.replaceDataset, datasetId) as Promise<DatasetReplacementSelectionResult>,
   },
 };
 

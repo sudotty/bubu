@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,41 @@ import (
 
 	"github.com/xuri/excelize/v2"
 )
+
+func TestOpenUpgradesAVersionOneCatalog(t *testing.T) {
+	dataDirectory := filepath.Join(t.TempDir(), "data")
+	if err := os.MkdirAll(dataDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", filepath.Join(dataDirectory, "bubu.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(migrations[0].sql); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec("INSERT INTO schema_migrations(version) VALUES (1)"); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	service := openTestService(t, dataDirectory)
+	var applied int
+	if err := service.database.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = 2").Scan(&applied); err != nil {
+		t.Fatal(err)
+	}
+	if applied != 1 {
+		t.Fatal("version 2 migration was not applied")
+	}
+}
 
 func TestImportCSVListAndPreview(t *testing.T) {
 	root := t.TempDir()
@@ -182,6 +218,78 @@ func TestImportWorkbookCreatesOneDatasetPerNonEmptySheet(t *testing.T) {
 	}
 	if result.Datasets[1].DisplayName != "operations · Targets" {
 		t.Fatalf("unexpected second sheet name: %#v", result.Datasets[1])
+	}
+}
+
+func TestReplaceFileCreatesAnImmutableVersionForTheSameDataset(t *testing.T) {
+	root := t.TempDir()
+	initial := filepath.Join(root, "sales-week-1.csv")
+	replacement := filepath.Join(root, "sales-week-2.csv")
+	if err := os.WriteFile(initial, []byte("Order,Amount\nA-1,10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(replacement, []byte("Order,Amount\nA-2,25\nA-3,30\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), initial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datasetID := imported.Datasets[0].ID
+	replaced, err := service.ReplaceFile(context.Background(), datasetID, replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.Status != ReplacementApplied || replaced.Dataset == nil {
+		t.Fatalf("unexpected replacement result: %#v", replaced)
+	}
+	if replaced.Dataset.ID != datasetID || replaced.Dataset.Version != 2 || replaced.Dataset.RowCount != 2 {
+		t.Fatalf("replacement did not preserve identity and advance version: %#v", replaced.Dataset)
+	}
+	preview, err := service.Preview(context.Background(), datasetID, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := preview.Rows[0][0]; got != "A-2" {
+		t.Fatalf("preview did not switch to the replacement version: %#v", got)
+	}
+}
+
+func TestReplaceFileReportsSchemaDriftWithoutChangingTheCurrentVersion(t *testing.T) {
+	root := t.TempDir()
+	initial := filepath.Join(root, "sales.csv")
+	replacement := filepath.Join(root, "drifted.csv")
+	if err := os.WriteFile(initial, []byte("Order,Amount\nA-1,10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(replacement, []byte("Order,Total\nA-2,25\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), initial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datasetID := imported.Datasets[0].ID
+	result, err := service.ReplaceFile(context.Background(), datasetID, replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != ReplacementMappingRequired || result.Drift == nil {
+		t.Fatalf("expected mapping-required drift: %#v", result)
+	}
+	if strings.Join(result.Drift.MissingColumns, ",") != "Amount" || strings.Join(result.Drift.AddedColumns, ",") != "Total" {
+		t.Fatalf("unexpected drift: %#v", result.Drift)
+	}
+	preview, err := service.Preview(context.Background(), datasetID, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := preview.Rows[0][0]; got != "A-1" {
+		t.Fatalf("drifted replacement changed the current version: %#v", got)
 	}
 }
 

@@ -54,6 +54,7 @@ func ensureJSONEnd(decoder *json.Decoder) error {
 type DatasetService interface {
 	ImportFile(ctx context.Context, sourcePath string) (data.ImportResult, error)
 	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
+	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
 	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
 	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
 }
@@ -70,7 +71,15 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 	if request.Method == "system.health" {
 		capabilities := []string{"local-rpc"}
 		if datasets != nil {
-			capabilities = []string{"sqlite", "csv-import", "xlsx-import", "dataset-catalog", "preview"}
+			capabilities = []string{
+				"sqlite",
+				"csv-import",
+				"xlsx-import",
+				"dataset-catalog",
+				"preview",
+				"version-replacement",
+				"schema-drift",
+			}
 		}
 		return success(request.ID, ServiceHealth{
 			Service:         "data-core",
@@ -102,6 +111,17 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ImportFiles(ctx, sourcePaths)
 		if err != nil {
 			return failure(request.ID, "IMPORT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.replace":
+		datasetID, datasetOK := stringParam(request.Params, "datasetId")
+		sourcePath, pathOK := stringParam(request.Params, "sourcePath")
+		if !datasetOK || !pathOK {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId and sourcePath are required", false)
+		}
+		result, err := datasets.ReplaceFile(ctx, datasetID, sourcePath)
+		if err != nil {
+			return failure(request.ID, "REPLACEMENT_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.list":

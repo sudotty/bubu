@@ -14,6 +14,7 @@ import (
 )
 
 var (
+	objectID           = regexp.MustCompile(`^[0-9a-f]{32}$`)
 	internalTableName  = regexp.MustCompile(`^data_[0-9a-f]{32}$`)
 	physicalColumnName = regexp.MustCompile(`^c[0-9]+$`)
 )

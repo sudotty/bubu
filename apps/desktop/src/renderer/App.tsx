@@ -37,6 +37,7 @@ export function App() {
   const [preview, setPreview] = useState<PreviewState>({ kind: "empty" });
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
 
@@ -105,6 +106,40 @@ export function App() {
       setNotice(messageFrom(error));
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function replaceFile(datasetId: string) {
+    setReplacing(true);
+    setNotice(undefined);
+    try {
+      const result = await window.bubu.datasets.replace(datasetId);
+      if (result.status === "cancelled") return;
+      if (result.status === "mapping-required") {
+        const details = [
+          result.drift.missingColumns.length > 0
+            ? `缺少：${result.drift.missingColumns.join("、")}`
+            : undefined,
+          result.drift.addedColumns.length > 0
+            ? `新增：${result.drift.addedColumns.join("、")}`
+            : undefined,
+          result.drift.reordered ? "列顺序发生变化" : undefined,
+        ].filter((value): value is string => value !== undefined);
+        setNotice(`没有覆盖当前数据。新文件需要列映射（${details.join("；")}）。`);
+        return;
+      }
+      const [nextDatasets, nextPreview] = await Promise.all([
+        window.bubu.datasets.list(),
+        window.bubu.datasets.preview({ datasetId: result.dataset.id, limit: 50, offset: 0 }),
+      ]);
+      setDatasets(nextDatasets);
+      setSelectedDatasetId(result.dataset.id);
+      setPreview({ kind: "loaded", value: nextPreview });
+      setNotice(`已创建版本 ${result.dataset.version}，旧版本仍保留在本地。`);
+    } catch (error) {
+      setNotice(messageFrom(error));
+    } finally {
+      setReplacing(false);
     }
   }
 
@@ -188,7 +223,12 @@ export function App() {
             <EmptyWorkspace readiness={readiness} onImport={() => void importFiles()} importing={importing} />
           )}
           {selectedDataset && (
-            <DatasetWorkspace dataset={selectedDataset} preview={preview} />
+            <DatasetWorkspace
+              dataset={selectedDataset}
+              preview={preview}
+              replacing={replacing}
+              onReplace={() => void replaceFile(selectedDataset.id)}
+            />
           )}
         </div>
 
@@ -252,9 +292,13 @@ function EmptyWorkspace({
 function DatasetWorkspace({
   dataset,
   preview,
+  replacing,
+  onReplace,
 }: {
   readonly dataset: DatasetSummary;
   readonly preview: PreviewState;
+  readonly replacing: boolean;
+  readonly onReplace: () => void;
 }) {
   return (
     <>
@@ -264,10 +308,15 @@ function DatasetWorkspace({
           <h3>{dataset.displayName}</h3>
           <p>{dataset.sourceName} · 数据已经物化到本地 SQLite，源文件路径不会写入目录。</p>
         </div>
-        <div className="dataset-metrics">
-          <span><strong>{numberFormat.format(dataset.rowCount)}</strong> 行</span>
-          <span><strong>{dataset.columnCount}</strong> 列</span>
-          <span><strong>{dataset.sourceKind.toUpperCase()}</strong> 来源</span>
+        <div className="dataset-actions">
+          <div className="dataset-metrics">
+            <span><strong>{numberFormat.format(dataset.rowCount)}</strong> 行</span>
+            <span><strong>{dataset.columnCount}</strong> 列</span>
+            <span><strong>{dataset.sourceKind.toUpperCase()}</strong> 来源</span>
+          </div>
+          <button type="button" className="secondary-action" onClick={onReplace} disabled={replacing}>
+            {replacing ? "正在检查…" : "替换数据版本"}
+          </button>
         </div>
       </section>
 

@@ -11,6 +11,18 @@ import (
 type fakeDatasets struct {
 	importedPath  string
 	importedPaths []string
+	replacedID    string
+	replacedPath  string
+}
+
+func (fake *fakeDatasets) ReplaceFile(
+	_ context.Context,
+	datasetID string,
+	sourcePath string,
+) (data.ReplacementResult, error) {
+	fake.replacedID = datasetID
+	fake.replacedPath = sourcePath
+	return data.ReplacementResult{Status: data.ReplacementMappingRequired, Drift: &data.SchemaDrift{}}, nil
 }
 
 func (fake *fakeDatasets) ImportFiles(_ context.Context, sourcePaths []string) (data.ImportResult, error) {
@@ -88,5 +100,23 @@ func TestDatasetBatchImportRejectsAnEmptySelection(t *testing.T) {
 
 	if response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
 		t.Fatalf("unexpected response: %#v", response)
+	}
+}
+
+func TestDatasetReplacementDelegatesDatasetAndPrivatePath(t *testing.T) {
+	fake := &fakeDatasets{}
+	response := HandleWithData(context.Background(), Request{
+		ProtocolVersion: ProtocolVersion,
+		Auth:            testToken,
+		ID:              "replace-1",
+		Method:          "dataset.replace",
+		Params: map[string]any{
+			"datasetId":  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"sourcePath": "/tmp/sales-week-2.csv",
+		},
+	}, testToken, fake)
+
+	if !response.OK || fake.replacedID != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || fake.replacedPath != "/tmp/sales-week-2.csv" {
+		t.Fatalf("unexpected replacement response: %#v, id=%q path=%q", response, fake.replacedID, fake.replacedPath)
 	}
 }

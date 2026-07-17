@@ -58,11 +58,32 @@ export const datasetPreviewSchema = z
 
 export const datasetListSchema = z.array(datasetSummarySchema);
 
+export const schemaDriftSchema = z
+  .object({
+    currentColumns: z.array(z.string().min(1)).min(1),
+    incomingColumns: z.array(z.string().min(1)).min(1),
+    missingColumns: z.array(z.string().min(1)),
+    addedColumns: z.array(z.string().min(1)),
+    reordered: z.boolean(),
+  })
+  .strict();
+
+export const datasetReplacementResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("replaced"), dataset: datasetSummarySchema }).strict(),
+  z.object({ status: z.literal("mapping-required"), drift: schemaDriftSchema }).strict(),
+]);
+
 export type DatasetSummary = z.infer<typeof datasetSummarySchema>;
 export type ColumnProfile = z.infer<typeof columnProfileSchema>;
 export type DatasetImportResult = z.infer<typeof datasetImportResultSchema>;
 export type DatasetPreviewRequest = z.infer<typeof datasetPreviewRequestSchema>;
 export type DatasetPreview = z.infer<typeof datasetPreviewSchema>;
+export type SchemaDrift = z.infer<typeof schemaDriftSchema>;
+export type DatasetReplacementResult = z.infer<typeof datasetReplacementResultSchema>;
+
+export function parseDatasetId(value: unknown): string {
+  return datasetIdSchema.parse(value);
+}
 
 export function parseDatasetSummary(value: unknown): DatasetSummary {
   return datasetSummarySchema.parse(value);
@@ -82,4 +103,8 @@ export function parseDatasetPreviewRequest(value: unknown): DatasetPreviewReques
 
 export function parseDatasetPreview(value: unknown): DatasetPreview {
   return datasetPreviewSchema.parse(value);
+}
+
+export function parseDatasetReplacementResult(value: unknown): DatasetReplacementResult {
+  return datasetReplacementResultSchema.parse(value);
 }

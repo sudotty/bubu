@@ -7,10 +7,12 @@ import {
   parseDatasetImportResult,
   parseDatasetList,
   parseDatasetPreview,
+  parseDatasetReplacementResult,
   parseServiceHealth,
   type DatasetImportResult,
   type DatasetPreview,
   type DatasetPreviewRequest,
+  type DatasetReplacementResult,
   type DatasetSummary,
 } from "@bubu/contracts";
 import type {
@@ -70,6 +72,12 @@ class DataCoreClient implements RuntimeClient {
 
   async preview(request: DatasetPreviewRequest): Promise<DatasetPreview> {
     return parseDatasetPreview(await this.#broker.request("dataset.preview", request));
+  }
+
+  async replaceFile(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult> {
+    return parseDatasetReplacementResult(
+      await this.#broker.request("dataset.replace", { datasetId: datasetID, sourcePath }),
+    );
   }
 
   stop(): void {
@@ -142,6 +150,7 @@ export interface SidecarSupervisor {
   importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult>;
   listDatasets(): Promise<readonly DatasetSummary[]>;
   previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
+  replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
   stop(): void;
 }
 
@@ -172,6 +181,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     },
     listDatasets: () => dataCore.listDatasets(),
     previewDataset: (request) => dataCore.preview(request),
+    replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),
     stop() {
       aiRuntime.stop();
       dataCore.stop();
