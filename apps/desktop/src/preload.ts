@@ -53,6 +53,12 @@ import {
   type WorkflowRun,
   type WorkflowTarget,
   type ModelAuditEvent,
+  type McpConnectionConfigurationInput,
+  type McpConnectionId,
+  type McpConnectionRegistryState,
+  type McpInspectionApproval,
+  type McpInspectionProposal,
+  type McpInspectionSnapshot,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -92,6 +98,20 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.removeProvider, providerId) as Promise<ProviderRegistryState>,
     test: (providerId: ProviderId, operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.testProvider, { operationId, value: providerId }) as Promise<ProviderConnectionResult>,
+  },
+  mcp: {
+    list: () =>
+      ipcRenderer.invoke(desktopChannels.listMcpConnections) as Promise<McpConnectionRegistryState>,
+    save: (value: McpConnectionConfigurationInput) =>
+      ipcRenderer.invoke(desktopChannels.saveMcpConnection, value) as Promise<McpConnectionRegistryState>,
+    remove: (connectionId: McpConnectionId) =>
+      ipcRenderer.invoke(desktopChannels.removeMcpConnection, connectionId) as Promise<McpConnectionRegistryState>,
+    prepareInspection: (connectionId: McpConnectionId) =>
+      ipcRenderer.invoke(desktopChannels.prepareMcpInspection, connectionId) as Promise<McpInspectionProposal>,
+    approveInspection: (value: McpInspectionApproval, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.approveMcpInspection, { operationId, value }) as Promise<McpInspectionSnapshot>,
+    dismissInspection: (value: McpInspectionApproval) =>
+      ipcRenderer.invoke(desktopChannels.dismissMcpInspection, value) as Promise<void>,
   },
   dataProtection: {
     createBackup: (operationId: OperationId) =>

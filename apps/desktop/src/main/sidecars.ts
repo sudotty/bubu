@@ -35,6 +35,8 @@ import {
   parseWorkflowTriggerEvents,
   parseModelAuditEvent,
   parseModelAuditEvents,
+  parseMcpInspectionInvocation,
+  parseMcpInspectionSnapshot,
   type DatasetImportResult,
   type DatasetExportResult,
   type DatasetDeletionResult,
@@ -74,6 +76,8 @@ import {
   type ModelAuditEvent,
   type ModelAuditFinishInput,
   type ModelAuditStartInput,
+  type McpInspectionInvocation,
+  type McpInspectionSnapshot,
 } from "@bubu/contracts";
 import type {
   DesktopServiceHealth,
@@ -349,6 +353,16 @@ class AiRuntimeClient implements RuntimeClient {
     );
   }
 
+  async inspectMcp(invocation: McpInspectionInvocation, signal?: AbortSignal): Promise<McpInspectionSnapshot> {
+    const parsed = parseMcpInspectionInvocation(invocation);
+    return parseMcpInspectionSnapshot(
+      await this.#broker.request("mcp.inspect", parsed, {
+        ...requestOptions(signal),
+        timeoutMs: parsed.budget.maxDurationMs + 5_000,
+      }),
+    );
+  }
+
   stop(): void {
     this.#broker.close(new Error("ai-runtime stopped by desktop"));
     this.#process.kill();
@@ -402,6 +416,7 @@ export interface SidecarSupervisor {
   deleteDatasetRelationship(relationshipID: string): Promise<void>;
   modelContext(datasetID: string, disclosure: DisclosureLevel, signal?: AbortSignal): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation, signal?: AbortSignal): Promise<ModelCompletion>;
+  inspectMcp(invocation: McpInspectionInvocation, signal?: AbortSignal): Promise<McpInspectionSnapshot>;
   executeQueryPlan(plan: SafeQueryPlan, signal?: AbortSignal): Promise<SafeQueryResult>;
   executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult>;
   getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
@@ -464,6 +479,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     deleteDatasetRelationship: (relationshipID) => dataCore.deleteRelationship(relationshipID),
     modelContext: (datasetID, disclosure, signal) => dataCore.modelContext(datasetID, disclosure, signal),
     generateModel: (invocation, signal) => aiRuntime.generate(invocation, signal),
+    inspectMcp: (invocation, signal) => aiRuntime.inspectMcp(invocation, signal),
     executeQueryPlan: (plan, signal) => dataCore.executeQueryPlan(plan, signal),
     executeGroupQueryPlan: (plan, signal) => dataCore.executeGroupQueryPlan(plan, signal),
     getConversation: (target) => dataCore.getConversation(target),

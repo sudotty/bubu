@@ -1,8 +1,12 @@
 import {
   createRpcError,
   createRpcSuccess,
+  parseMcpInspectionInvocation,
+  parseMcpInspectionSnapshot,
   parseModelInvocation,
   parseRpcRequest,
+  type McpInspectionInvocation,
+  type McpInspectionSnapshot,
   type RpcResponse,
 } from "@bubu/contracts";
 import {
@@ -10,6 +14,12 @@ import {
   ProviderInvocationError,
   type ProviderFetch,
 } from "./providers/invoke.js";
+import { inspectMcpStdioServer } from "./mcp/client.js";
+
+export type McpInspector = (
+  invocation: McpInspectionInvocation,
+  signal?: AbortSignal,
+) => Promise<McpInspectionSnapshot>;
 
 const capabilities = [
   "openai-responses",
@@ -19,6 +29,7 @@ const capabilities = [
   "ollama",
   "bounded-http",
   "cancellable-requests",
+  "mcp-stdio-inspection",
 ] as const;
 
 export async function handleAiRuntimeRequest(
@@ -26,6 +37,7 @@ export async function handleAiRuntimeRequest(
   expectedAuth: string,
   fetchProvider?: ProviderFetch,
   signal?: AbortSignal,
+  inspectMcp: McpInspector = inspectMcpStdioServer,
 ): Promise<RpcResponse> {
   let request;
   try {
@@ -67,6 +79,27 @@ export async function handleAiRuntimeRequest(
         return createRpcError(request.id, "PROVIDER_FAILED", error.message, error.retryable);
       }
       return createRpcError(request.id, "PROVIDER_FAILED", "Provider returned an invalid response", false);
+    }
+  }
+
+  if (request.method === "mcp.inspect") {
+    let invocation;
+    try {
+      invocation = parseMcpInspectionInvocation(request.params);
+    } catch {
+      return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid MCP inspection invocation", false);
+    }
+    try {
+      return createRpcSuccess(
+        request.id,
+        parseMcpInspectionSnapshot(await inspectMcp(invocation, signal)),
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      }
+      const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP server inspection failed";
+      return createRpcError(request.id, "MCP_INSPECTION_FAILED", message || "MCP server inspection failed", false);
     }
   }
 

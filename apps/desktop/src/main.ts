@@ -19,6 +19,7 @@ import { startSidecars, type SidecarSupervisor } from "./main/sidecars.js";
 import { createProviderStore } from "./main/provider-store.js";
 import { registerDesktopApi } from "./main/desktop-api.js";
 import { startWorkflowTriggerScheduler } from "./main/workflow-trigger-scheduler.js";
+import { createMcpConnectionStore } from "./main/mcp-connection-store.js";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -154,7 +155,7 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         return resolve({ ok: false, missing: ["模型设置按钮"] });
       }
       settingsButton.click();
-      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置", "本地备份与恢复", "创建本地数据备份", "从备份恢复"];
+      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置", "MCP 连接", "只保存，不启动", "本地备份与恢复", "创建本地数据备份", "从备份恢复"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;
@@ -178,17 +179,24 @@ void app
     if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) registerApplicationProtocol();
     const launchMode = parseLaunchMode(process.argv, process.env, app.getPath("userData"));
     sidecars = startSidecars(launchMode.dataDirectory);
+    const credentialCipher = {
+      isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+      encrypt: (value: string) => safeStorage.encryptString(value),
+      decrypt: (value: Buffer) => safeStorage.decryptString(value),
+    };
     const providerStore = createProviderStore({
       directory: join(launchMode.dataDirectory, "providers"),
-      cipher: {
-        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-        encrypt: (value) => safeStorage.encryptString(value),
-        decrypt: (value) => safeStorage.decryptString(value),
-      },
+      cipher: credentialCipher,
+    });
+    const mcpConnectionStore = createMcpConnectionStore({
+      directory: join(launchMode.dataDirectory, "mcp"),
+      cipher: credentialCipher,
     });
     registerDesktopApi({
       sidecars,
       providerStore,
+      mcpConnectionStore,
+      mcpRuntimeDirectory: join(launchMode.dataDirectory, "mcp", "runtimes"),
       developmentServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
     });
     if (launchMode.kind === "smoke") {

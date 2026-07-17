@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRpcRequest } from "@bubu/contracts";
+import { createRpcRequest, mcpInspectionBudget } from "@bubu/contracts";
 import { createAiRuntimeDispatcher } from "./dispatcher.js";
 
 const auth = "a".repeat(64);
@@ -36,6 +36,32 @@ describe("AI runtime dispatcher", () => {
       params: { requestId: "generate-1" },
     }));
 
+    expect(cancelled).toMatchObject({ ok: true, result: { cancelled: true } });
+    await expect(active).resolves.toMatchObject({ ok: false, error: { code: "CANCELLED" } });
+  });
+
+  it("propagates authenticated cancellation into an active MCP inspection", async () => {
+    const dispatcher = createAiRuntimeDispatcher(auth, undefined, async (_invocation, signal) =>
+      new Promise((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }),
+    );
+    const active = dispatcher.dispatch(createRpcRequest({
+      auth,
+      id: "mcp-1",
+      method: "mcp.inspect",
+      params: {
+        connectionId: "b".repeat(32),
+        command: "/opt/bubu-mcp/bin/server",
+        args: [], environment: {}, workingDirectory: "/tmp/bubu-mcp", budget: mcpInspectionBudget,
+      },
+    }));
+    const cancelled = await dispatcher.dispatch(createRpcRequest({
+      auth,
+      id: "cancel-mcp-1",
+      method: "system.cancel",
+      params: { requestId: "mcp-1" },
+    }));
     expect(cancelled).toMatchObject({ ok: true, result: { cancelled: true } });
     await expect(active).resolves.toMatchObject({ ok: false, error: { code: "CANCELLED" } });
   });

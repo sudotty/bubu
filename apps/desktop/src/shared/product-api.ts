@@ -50,6 +50,12 @@ import type {
   WorkflowTarget,
   WorkflowTrigger,
   ModelAuditEvent,
+  McpConnectionConfigurationInput,
+  McpConnectionId,
+  McpConnectionRegistryState,
+  McpInspectionApproval,
+  McpInspectionProposal,
+  McpInspectionSnapshot,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -72,6 +78,12 @@ export const desktopChannels = {
   selectProvider: "bubu:providers:select",
   removeProvider: "bubu:providers:remove",
   testProvider: "bubu:providers:test",
+  listMcpConnections: "bubu:mcp:list",
+  saveMcpConnection: "bubu:mcp:save",
+  removeMcpConnection: "bubu:mcp:remove",
+  prepareMcpInspection: "bubu:mcp:prepare-inspection",
+  approveMcpInspection: "bubu:mcp:approve-inspection",
+  dismissMcpInspection: "bubu:mcp:dismiss-inspection",
   proposeQueryPlan: "bubu:analysis:propose-query-plan",
   executeQueryPlan: "bubu:analysis:execute-query-plan",
   listDatasetGroups: "bubu:dataset-groups:list",
@@ -135,6 +147,14 @@ export interface BuBuDesktopApi {
     select(providerId: ProviderId): Promise<ProviderRegistryState>;
     remove(providerId: ProviderId): Promise<ProviderRegistryState>;
     test(providerId: ProviderId, operationId: OperationId): Promise<ProviderConnectionResult>;
+  };
+  readonly mcp: {
+    list(): Promise<McpConnectionRegistryState>;
+    save(value: McpConnectionConfigurationInput): Promise<McpConnectionRegistryState>;
+    remove(connectionId: McpConnectionId): Promise<McpConnectionRegistryState>;
+    prepareInspection(connectionId: McpConnectionId): Promise<McpInspectionProposal>;
+    approveInspection(value: McpInspectionApproval, operationId: OperationId): Promise<McpInspectionSnapshot>;
+    dismissInspection(value: McpInspectionApproval): Promise<void>;
   };
   readonly dataProtection: {
     createBackup(operationId: OperationId): Promise<DataBackupSelectionResult>;
@@ -243,6 +263,13 @@ export type {
   WorkflowTarget,
   WorkflowTrigger,
   ModelAuditEvent,
+  McpConnectionConfigurationInput,
+  McpConnectionId,
+  McpConnectionProfile,
+  McpConnectionRegistryState,
+  McpInspectionApproval,
+  McpInspectionProposal,
+  McpInspectionSnapshot,
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,

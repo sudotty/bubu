@@ -31,16 +31,23 @@ import { createOperationRegistry } from "./operation-registry.js";
 import { registerAnalysisApi } from "./analysis-api.js";
 import { registerWorkflowApi } from "./workflow-api.js";
 import { generateAuditedModel } from "./model-audit.js";
+import type { McpConnectionStore } from "./mcp-connection-store.js";
+import { createMcpInspectionApprovalSessionStore } from "./mcp-inspection-approval-sessions.js";
+import { registerMcpApi } from "./mcp-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
   readonly providerStore: ProviderStore;
+  readonly mcpConnectionStore: McpConnectionStore;
+  readonly mcpRuntimeDirectory: string;
   readonly developmentServerUrl: string | undefined;
 }
 
 export function registerDesktopApi({
   sidecars,
   providerStore,
+  mcpConnectionStore,
+  mcpRuntimeDirectory,
   developmentServerUrl,
 }: DesktopApiDependencies): void {
   const replacementSessions = createReplacementSessionStore({
@@ -56,6 +63,10 @@ export function registerDesktopApi({
     now: Date.now,
     newToken: () => randomBytes(32).toString("hex"),
   });
+  const mcpInspectionApprovals = createMcpInspectionApprovalSessionStore({
+    now: Date.now,
+    newToken: () => randomBytes(32).toString("hex"),
+  });
   const assertTrustedSender = (frameUrl: string) => {
     if (!isTrustedFrameUrl(frameUrl, developmentServerUrl)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
@@ -68,6 +79,14 @@ export function registerDesktopApi({
     sidecars, providerStore, operations, aggregateApprovals, aggregateAgentApprovals, assertTrustedSender,
   });
   registerWorkflowApi({ sidecars, operations, assertTrustedSender });
+  registerMcpApi({
+    sidecars,
+    connections: mcpConnectionStore,
+    approvals: mcpInspectionApprovals,
+    operations,
+    runtimeDirectory: mcpRuntimeDirectory,
+    assertTrustedSender,
+  });
 
   ipcMain.handle(desktopChannels.cancelOperation, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

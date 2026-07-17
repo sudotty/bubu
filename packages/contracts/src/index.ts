@@ -19,3 +19,4 @@ export * from "./rpc.js";
 export * from "./visualization.js";
 export * from "./workflow.js";
 export * from "./model-audit.js";
+export * from "./mcp.js";
