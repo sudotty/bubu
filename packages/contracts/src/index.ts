@@ -2,6 +2,7 @@ export * from "./backup.js";
 export * from "./conversation.js";
 export * from "./dataset.js";
 export * from "./dataset-group.js";
+export * from "./distribution.js";
 export * from "./health.js";
 export * from "./group-query-plan.js";
 export * from "./lifecycle.js";

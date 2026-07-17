@@ -36,7 +36,10 @@ capabilities:
   schema-drift-detection: implemented
   schema-drift-mapping: implemented
   column-profiling-baseline: implemented
-  profiling: in-progress
+  profiling: implemented
+  local-column-distributions: implemented
+  numeric-histograms: implemented
+  categorical-top-values: implemented
   local-quality-report: implemented
   persistent-validation-rules: implemented
   validation: implemented

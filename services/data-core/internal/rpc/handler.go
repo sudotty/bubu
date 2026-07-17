@@ -62,6 +62,7 @@ type DatasetService interface {
 	DeleteDataset(ctx context.Context, datasetID string) (data.DatasetDeletionResult, error)
 	CreateBackup(ctx context.Context, targetPath string) (data.DataBackupResult, error)
 	RestoreBackup(ctx context.Context, sourcePath string) (data.DataRestoreResult, error)
+	GetColumnDistribution(ctx context.Context, datasetID string, columnName string) (data.ColumnDistribution, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
@@ -102,6 +103,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"version-replacement",
 				"schema-drift",
 				"local-quality-report",
+				"local-column-distributions",
 				"validation-rules",
 				"privacy-context",
 				"safe-query-plan",
@@ -120,10 +122,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 	if datasets == nil {
 		return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
 	}
-	if response, handled := handleDatasetLifecycle(ctx, request, datasets); handled {
-		return response
-	}
-	if response, handled := handleDataProtection(ctx, request, datasets); handled {
+	if response, handled := handleExtendedMethods(ctx, request, datasets); handled {
 		return response
 	}
 

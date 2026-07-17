@@ -11,6 +11,7 @@ import {
   parseDatasetDeletionResult,
   parseDataBackupResult,
   parseDataRestoreResult,
+  parseColumnDistribution,
   parseDatasetGroup,
   parseDatasetGroupList,
   parseConversationThread,
@@ -135,6 +136,22 @@ try {
   }
   if (preview.rows[0]?.[0] !== "001" || preview.rows[2]?.[2] !== "64.25") {
     throw new Error("Preview did not preserve source values");
+  }
+  const regionDistribution = parseColumnDistribution(
+    await request("dataset.distribution.get", { datasetId: dataset.id, column: "Region" }),
+  );
+  const amountDistribution = parseColumnDistribution(
+    await request("dataset.distribution.get", { datasetId: dataset.id, column: "Amount" }),
+  );
+  if (
+    !regionDistribution.localOnly ||
+    regionDistribution.kind !== "categorical" ||
+    regionDistribution.values[0]?.preview !== "North" ||
+    regionDistribution.values[0]?.count !== 2 ||
+    amountDistribution.kind !== "numeric" ||
+    amountDistribution.bins.reduce((sum, bin) => sum + bin.count, 0) !== 3
+  ) {
+    throw new Error("Bounded local column distributions were not computed correctly");
   }
 
   const replacement = parseDatasetReplacementResult(
@@ -405,7 +422,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

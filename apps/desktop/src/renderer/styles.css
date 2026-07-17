@@ -123,6 +123,17 @@ h2 { margin-bottom: 0; font-size: 22px; }
 .quality-warning { color: #795728; background: #f6e7c7; }
 .quality-error { color: #914c39; background: #f3dfd8; }
 .quality-table { max-height: 320px; border: 1px solid #e5e0d6; border-radius: 12px; }
+.distribution-panel { margin-top: 18px; padding: 16px; border: 1px solid #e5e0d6; border-radius: 14px; background: #faf8f3; }
+.distribution-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.distribution-header h4 { margin: 0 0 4px; }
+.distribution-header small, .distribution-summary { color: #777168; }
+.distribution-header select { max-width: 300px; padding: 8px 10px; border: 1px solid #d9d3c8; border-radius: 9px; background: #fffdf9; }
+.distribution-summary { margin: 14px 0 10px; font-size: 12px; }
+.distribution-bars { display: grid; gap: 7px; }
+.distribution-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(100px, 2fr) auto; align-items: center; gap: 10px; min-width: 0; font-size: 11px; }
+.distribution-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.distribution-row i { display: block; min-width: 2px; height: 8px; border-radius: 999px; background: #8ba58f; }
+.distribution-row strong { min-width: 48px; text-align: right; }
 .rule-editor { margin-top: 20px; padding-top: 18px; border-top: 1px solid #e5e0d6; }
 .rule-editor h4 { margin: 0 0 12px; }
 .rule-controls { display: flex; flex-wrap: wrap; gap: 8px; }

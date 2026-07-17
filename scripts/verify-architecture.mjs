@@ -135,6 +135,21 @@ const qualityContract = read("packages/contracts/src/quality.ts");
 if (qualityContract.includes("failingValues")) {
   failures.push("quality contract exposes raw failing values");
 }
+const localDistribution = read("services/data-core/internal/data/distribution.go");
+for (const invariant of [
+  "distributionBinCount     = 10",
+  "distributionValueCount   = 10",
+  "distributionPreviewRunes = 120",
+  "SELECT substr(%s, 1, ?)",
+  "ORDER BY COUNT(*) DESC",
+  "strings.Map(safeDistributionRune, preview)",
+]) {
+  if (!localDistribution.includes(invariant)) failures.push(`local distribution invariant missing: ${invariant}`);
+}
+const distributionContract = read("packages/contracts/src/distribution.ts");
+if (!distributionContract.includes("localOnly: z.literal(true)")) {
+  failures.push("column distribution is not explicitly local-only");
+}
 
 const relationshipDiscovery = read("services/data-core/internal/data/relationship_discovery.go");
 for (const invariant of [
@@ -222,6 +237,9 @@ for (const invariant of [
   "disclosedRelationships: relationships",
 ]) {
   if (!analysisOrchestrator.includes(invariant)) failures.push(`relationship disclosure invariant missing: ${invariant}`);
+}
+if (analysisOrchestrator.includes("distribution")) {
+  failures.push("raw local distributions entered the model planning boundary");
 }
 
 const providerStore = read("apps/desktop/src/main/provider-store.ts");

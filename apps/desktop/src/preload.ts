@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   desktopChannels,
   type BuBuDesktopApi,
+  type ColumnDistribution,
+  type ColumnDistributionRequest,
   type ConversationTarget,
   type DataBackupSelectionResult,
   type DataRestoreSelectionResult,
@@ -59,6 +61,8 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.applyReplacementMapping, value) as Promise<DatasetReplacementResult>,
     quality: (datasetId: string) =>
       ipcRenderer.invoke(desktopChannels.getDatasetQuality, datasetId) as Promise<DatasetQualityReport>,
+    distribution: (value: ColumnDistributionRequest) =>
+      ipcRenderer.invoke(desktopChannels.getColumnDistribution, value) as Promise<ColumnDistribution>,
     saveValidation: (value: DatasetValidationSaveInput) =>
       ipcRenderer.invoke(desktopChannels.saveDatasetValidation, value) as Promise<DatasetQualityReport>,
   },

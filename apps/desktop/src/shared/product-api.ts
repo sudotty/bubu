@@ -1,5 +1,7 @@
 import type {
   ConversationTarget,
+  ColumnDistribution,
+  ColumnDistributionRequest,
   DataBackupSelectionResult,
   DataRestoreSelectionResult,
   ConversationThread,
@@ -46,6 +48,7 @@ export const desktopChannels = {
   replaceDataset: "bubu:datasets:replace",
   applyReplacementMapping: "bubu:datasets:apply-replacement-mapping",
   getDatasetQuality: "bubu:datasets:get-quality",
+  getColumnDistribution: "bubu:datasets:get-column-distribution",
   saveDatasetValidation: "bubu:datasets:save-validation",
   listProviders: "bubu:providers:list",
   saveProvider: "bubu:providers:save",
@@ -94,6 +97,7 @@ export interface BuBuDesktopApi {
     replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
     applyReplacementMapping(value: DatasetReplacementMappingInput): Promise<DatasetReplacementResult>;
     quality(datasetId: string): Promise<DatasetQualityReport>;
+    distribution(value: ColumnDistributionRequest): Promise<ColumnDistribution>;
     saveValidation(value: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
   };
   readonly providers: {
@@ -130,6 +134,8 @@ export interface BuBuDesktopApi {
 
 export type {
   ColumnProfile,
+  ColumnDistribution,
+  ColumnDistributionRequest,
   ConversationEntry,
   DataBackupSelectionResult,
   DataRestoreSelectionResult,

@@ -6,6 +6,7 @@ import {
   parseDatasetId,
   parseDatasetReplacementMappingInput,
   parseDatasetValidationSaveInput,
+  parseColumnDistributionRequest,
   parseDatasetRelationshipSaveInput,
   parseDatasetPreviewRequest,
   parseConversationTarget,
@@ -140,6 +141,10 @@ export function registerDesktopApi({
   ipcMain.handle(desktopChannels.getDatasetQuality, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     return sidecars.getDatasetQuality(parseDatasetId(value));
+  });
+  ipcMain.handle(desktopChannels.getColumnDistribution, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.getColumnDistribution(parseColumnDistributionRequest(value));
   });
   ipcMain.handle(desktopChannels.saveDatasetValidation, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

@@ -11,6 +11,17 @@ BuBu turns baseline import profiles into a local quality report for every datase
 
 The report does not include a hidden AI judgment. It also does not return raw failing values, prompts, SQL, source paths, or credentials.
 
+## On-demand local distributions
+
+Select a column in **列分布探查** to scan only that column in the current local version. This is deliberately separate from the report response, so opening a 500-column dataset does not calculate or move thousands of distribution values at once.
+
+- Integer and real columns return a mean, numeric range, and ten equal-width histogram bins. A constant numeric column returns one bin.
+- Text, boolean, and date/time columns return at most ten exact-value groups ordered by count and binary value, plus an `otherCount` for the remaining rows.
+- Returned value previews are at most 120 Unicode characters. Tabs/newlines/control characters become visible safe glyphs, and a truncation marker tells the UI that the underlying grouped value was longer.
+- Empty columns return an explicit empty result.
+
+Every distribution carries a required `localOnly: true` marker. The typed preload exposes it only to the local renderer; query planning/model-context code has no distribution input. This lets the user inspect real high-frequency values without quietly broadening the default schema-plus-synthetic disclosure policy.
+
 ## Supported rules
 
 - **Required:** null cells fail.
