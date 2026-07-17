@@ -110,3 +110,25 @@ func TestExecuteQueryPlanEnforcesResultLimitAndReportsTruncation(t *testing.T) {
 		t.Fatalf("expected one truncated row, got %#v", result)
 	}
 }
+
+func TestExecuteQueryPlanRejectsAnOversizedResultCell(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "large-cell.csv")
+	if err := os.WriteFile(source, []byte("Value\n"+strings.Repeat("x", maximumQueryCellBytes+1)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataset := imported.Datasets[0]
+	_, err = service.ExecuteQueryPlan(context.Background(), SafeQueryPlan{
+		SchemaVersion: 1, DatasetID: dataset.ID, VersionID: dataset.VersionID,
+		Purpose: "Read value", Dimensions: []string{"Value"}, Measures: []QueryMeasure{},
+		Filters: []QueryFilter{}, Sort: []QuerySort{}, Limit: 10,
+	})
+	if err == nil || !strings.Contains(err.Error(), "larger than 10000") {
+		t.Fatalf("expected oversized cell rejection, got %v", err)
+	}
+}

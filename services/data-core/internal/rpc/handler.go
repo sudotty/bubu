@@ -61,6 +61,8 @@ type DatasetService interface {
 	SaveGroup(ctx context.Context, groupID string, name string, datasetIDs []string) (data.DatasetGroup, error)
 	ListGroups(ctx context.Context) ([]data.DatasetGroup, error)
 	DeleteGroup(ctx context.Context, groupID string) error
+	GetConversation(ctx context.Context, target data.ConversationTarget) (*data.ConversationThread, error)
+	AppendConversationEntry(ctx context.Context, input data.ConversationAppendInput) (*data.ConversationThread, error)
 	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
 	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
 }
@@ -88,6 +90,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"privacy-context",
 				"safe-query-plan",
 				"dataset-groups",
+				"local-conversations",
 			}
 		}
 		return success(request.ID, ServiceHealth{
@@ -189,6 +192,26 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ExecuteGroupQueryPlan(ctx, plan)
 		if err != nil {
 			return failure(request.ID, "GROUP_QUERY_REJECTED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "conversation.get":
+		target, ok := objectParam[data.ConversationTarget](request.Params, "target")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "target must be a strict conversation target", false)
+		}
+		result, err := datasets.GetConversation(ctx, target)
+		if err != nil {
+			return failure(request.ID, "CONVERSATION_ACCESS_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "conversation.append":
+		input, ok := objectParam[data.ConversationAppendInput](request.Params, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "input must be a strict conversation entry", false)
+		}
+		result, err := datasets.AppendConversationEntry(ctx, input)
+		if err != nil {
+			return failure(request.ID, "CONVERSATION_APPEND_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.list":

@@ -182,7 +182,15 @@ func (service *Service) DeleteGroup(ctx context.Context, groupID string) error {
 	if !objectID.MatchString(groupID) {
 		return errors.New("group id is invalid")
 	}
-	result, err := service.database.ExecContext(ctx, "DELETE FROM dataset_groups WHERE id = ?", groupID)
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin dataset group deletion: %w", err)
+	}
+	defer transaction.Rollback()
+	if _, err := transaction.ExecContext(ctx, "DELETE FROM conversation_threads WHERE target_kind = 'group' AND target_id = ?", groupID); err != nil {
+		return fmt.Errorf("delete dataset group conversation: %w", err)
+	}
+	result, err := transaction.ExecContext(ctx, "DELETE FROM dataset_groups WHERE id = ?", groupID)
 	if err != nil {
 		return fmt.Errorf("delete dataset group: %w", err)
 	}
@@ -192,6 +200,9 @@ func (service *Service) DeleteGroup(ctx context.Context, groupID string) error {
 	}
 	if affected != 1 {
 		return errors.New("dataset group not found")
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit dataset group deletion: %w", err)
 	}
 	return nil
 }

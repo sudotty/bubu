@@ -57,12 +57,22 @@ func TestDatasetGroupLifecycleUsesCurrentImmutableMembers(t *testing.T) {
 	if updated.Name != "经营对比群" || updated.Members[0].ID != imported.Datasets[1].ID {
 		t.Fatalf("group update did not preserve order: %#v", updated)
 	}
+	if _, err := service.AppendConversationEntry(context.Background(), ConversationAppendInput{
+		Target: ConversationTarget{Kind: "group", ID: group.ID},
+		Entry:  ConversationEntryInput{Kind: "question", Role: "user", Payload: []byte(`{"question":"对比目标"}`)},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := service.DeleteGroup(context.Background(), group.ID); err != nil {
 		t.Fatal(err)
 	}
 	groups, err = service.ListGroups(context.Background())
 	if err != nil || len(groups) != 0 {
 		t.Fatalf("group deletion failed: %#v, %v", groups, err)
+	}
+	thread, err := service.GetConversation(context.Background(), ConversationTarget{Kind: "group", ID: group.ID})
+	if err != nil || thread != nil {
+		t.Fatalf("group deletion left an orphan conversation: %#v, %v", thread, err)
 	}
 }
 

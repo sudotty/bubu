@@ -59,7 +59,10 @@ capabilities:
   gemini-provider: implemented
   openai-compatible-provider: implemented
   ollama-provider: implemented
-  dataset-conversations: in-progress
+  dataset-conversations: implemented
+  group-conversations: implemented
+  append-only-local-conversation-history: implemented
+  typed-conversation-artifacts: implemented
   visualizations: in-progress
   local-result-visualizations: implemented
   bar-chart: implemented

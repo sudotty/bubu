@@ -43,6 +43,8 @@ flowchart LR
 
 `dataset_groups` stores a local group identity and label. `dataset_group_members` stores an ordered relationship to 2–8 stable dataset contacts, not a row copy or pinned SQLite table. Reading a group resolves every contact's current ready immutable version; replacing a member therefore updates what the group sees without mutating historical versions. Foreign keys delete orphan membership automatically while group deletion never deletes a dataset.
 
+`conversation_threads` attaches one private primary timeline to a stable dataset/group target. `conversation_entries` stores monotonic typed question/plan/result/error artifacts. The renderer can read these artifacts through a narrow API but only Electron main can request an append after the relevant planning/execution boundary succeeds or fails.
+
 Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping for that drift remains unavailable.
 
 ## Safe analytical queries
