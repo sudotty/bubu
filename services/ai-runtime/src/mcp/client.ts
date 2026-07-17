@@ -5,14 +5,19 @@ import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import {
   mcpInspectionBudget,
   mcpResourceReadBudget,
+  mcpPromptGetBudget,
   parseMcpInspectionInvocation,
   parseMcpInspectionSnapshot,
   parseMcpResourceReadInvocation,
   parseMcpResourceReadResult,
+  parseMcpPromptGetInvocation,
+  parseMcpPromptGetResult,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
   type McpResourceReadInvocation,
   type McpResourceReadResult,
+  type McpPromptGetInvocation,
+  type McpPromptGetResult,
 } from "@bubu/contracts";
 
 interface LimitState {
@@ -27,7 +32,7 @@ interface Page<T> {
 function assertMcpActive(
   signal: AbortSignal | undefined,
   timeoutSignal: AbortSignal,
-  operation: "inspection" | "resource read",
+  operation: "inspection" | "resource read" | "prompt get",
 ): void {
   if (signal?.aborted) throw new Error(`MCP ${operation} was cancelled`);
   if (timeoutSignal.aborted) throw new Error(`MCP ${operation} exceeded its 30-second budget`);
@@ -156,7 +161,7 @@ async function withMcpClient<T>(
   invocation: McpLaunchInvocation,
   signal: AbortSignal | undefined,
   timeoutSignal: AbortSignal,
-  operation: "inspection" | "resource read",
+  operation: "inspection" | "resource read" | "prompt get",
   use: (client: Client, requestOptions: McpRequestOptions) => Promise<T>,
 ): Promise<T> {
   assertMcpActive(signal, timeoutSignal, operation);
@@ -321,6 +326,130 @@ export async function readMcpStdioResource(
       connectionId: invocation.connectionId,
       requestedUri: invocation.resourceUri,
       contents,
+      decodedBytes,
+      localOnly: true,
+      untrustedContent: true,
+    });
+  });
+}
+
+export async function getMcpStdioPrompt(
+  value: McpPromptGetInvocation,
+  signal?: AbortSignal,
+  timeoutSignal: AbortSignal = AbortSignal.timeout(mcpPromptGetBudget.maxDurationMs),
+): Promise<McpPromptGetResult> {
+  const invocation = parseMcpPromptGetInvocation(value);
+  return withMcpClient(invocation, signal, timeoutSignal, "prompt get", async (client, requestOptions) => {
+    const hasPrompts = client.getServerCapabilities()?.prompts !== undefined;
+    if (!hasPrompts) throw new Error("MCP server does not advertise prompts");
+    const discovered = await collectPages(
+      true,
+      invocation.budget.maxDiscoveryPages,
+      invocation.budget.maxDiscoveredPrompts,
+      async (cursor) => {
+        const page = await client.listPrompts(cursor === undefined ? undefined : { cursor }, requestOptions);
+        return { items: page.prompts, ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }) };
+      },
+    );
+    const prompt = discovered.items.find(({ name }) => name === invocation.promptName);
+    if (!prompt) throw new Error("Approved MCP prompt is not present in bounded discovery");
+    const declared = new Map((prompt.arguments ?? []).map((argument) => [argument.name, argument]));
+    if (declared.size !== (prompt.arguments ?? []).length) {
+      throw new Error("MCP prompt declares duplicate argument names");
+    }
+    const provided = Object.fromEntries(invocation.arguments.map(({ name, value: argumentValue }) => [name, argumentValue]));
+    for (const name of Object.keys(provided)) {
+      if (!declared.has(name)) throw new Error(`MCP prompt argument ${name} is not declared`);
+    }
+    for (const argument of declared.values()) {
+      if (argument.required === true && provided[argument.name] === undefined) {
+        throw new Error(`MCP prompt required argument ${argument.name} is missing`);
+      }
+    }
+    const response = await client.getPrompt({
+      name: invocation.promptName,
+      arguments: provided,
+    }, requestOptions);
+    if (response.messages.length > invocation.budget.maxMessages) {
+      throw new Error("MCP prompt returned too many messages");
+    }
+    let decodedBytes = 0;
+    const includeBytes = (bytes: number): number => {
+      decodedBytes += bytes;
+      if (decodedBytes > invocation.budget.maxDecodedBytes) {
+        throw new Error("MCP prompt exceeds its decoded-content budget");
+      }
+      return bytes;
+    };
+    const messages = response.messages.map(({ role, content }) => {
+      if (content.type === "text") {
+        return {
+          role,
+          content: {
+            kind: "text" as const,
+            text: content.text,
+            decodedBytes: includeBytes(new TextEncoder().encode(content.text).byteLength),
+          },
+        };
+      }
+      if (content.type === "image" || content.type === "audio") {
+        const decoded = decodeCanonicalBase64(content.data);
+        return {
+          role,
+          content: {
+            kind: content.type,
+            mimeType: content.mimeType,
+            decodedBytes: includeBytes(decoded.byteLength),
+            sha256: createHash("sha256").update(decoded).digest("hex"),
+          },
+        };
+      }
+      if (content.type === "resource") {
+        const embedded = content.resource;
+        if ("text" in embedded) {
+          return {
+            role,
+            content: {
+              kind: "embedded-text" as const,
+              uri: embedded.uri,
+              ...(embedded.mimeType === undefined ? {} : { mimeType: embedded.mimeType }),
+              text: embedded.text,
+              decodedBytes: includeBytes(new TextEncoder().encode(embedded.text).byteLength),
+            },
+          };
+        }
+        const decoded = decodeCanonicalBase64(embedded.blob);
+        return {
+          role,
+          content: {
+            kind: "embedded-blob" as const,
+            uri: embedded.uri,
+            ...(embedded.mimeType === undefined ? {} : { mimeType: embedded.mimeType }),
+            decodedBytes: includeBytes(decoded.byteLength),
+            sha256: createHash("sha256").update(decoded).digest("hex"),
+          },
+        };
+      }
+      return {
+        role,
+        content: {
+          kind: "resource-link" as const,
+          uri: content.uri,
+          name: content.name,
+          ...(content.title === undefined ? {} : { title: content.title }),
+          ...(content.description === undefined ? {} : { description: content.description }),
+          ...(content.mimeType === undefined ? {} : { mimeType: content.mimeType }),
+          ...(content.size === undefined ? {} : { size: content.size }),
+          decodedBytes: 0 as const,
+        },
+      };
+    });
+    return parseMcpPromptGetResult({
+      schemaVersion: 1,
+      connectionId: invocation.connectionId,
+      promptName: invocation.promptName,
+      ...(response.description === undefined ? {} : { description: response.description }),
+      messages,
       decodedBytes,
       localOnly: true,
       untrustedContent: true,

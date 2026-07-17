@@ -270,6 +270,7 @@ export const mcpResourceReadInvocationSchema = z.object({
 }).strict();
 
 const resourceMimeTypeSchema = z.string().trim().min(1).max(200);
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 const resourceTextContentSchema = z.object({
   kind: z.literal("text"),
   uri: boundedUriSchema,
@@ -308,19 +309,181 @@ export const mcpResourceReadResultSchema = z.object({
   }
 });
 
+const maximumMcpPromptArguments = 20;
+const maximumMcpPromptArgumentBytes = 4_096;
+const maximumMcpPromptArgumentsBytes = 16_384;
+
+export const mcpPromptGetBudget = Object.freeze({
+  maxDurationMs: 30_000 as const,
+  maxDiscoveryPages: 5 as const,
+  maxDiscoveredPrompts: 100 as const,
+  maxMessages: 20 as const,
+  maxDecodedBytes: 262_144 as const,
+  maxResultBytes: 393_216 as const,
+});
+
+export const mcpPromptGetBudgetSchema = z.object({
+  maxDurationMs: z.literal(mcpPromptGetBudget.maxDurationMs),
+  maxDiscoveryPages: z.literal(mcpPromptGetBudget.maxDiscoveryPages),
+  maxDiscoveredPrompts: z.literal(mcpPromptGetBudget.maxDiscoveredPrompts),
+  maxMessages: z.literal(mcpPromptGetBudget.maxMessages),
+  maxDecodedBytes: z.literal(mcpPromptGetBudget.maxDecodedBytes),
+  maxResultBytes: z.literal(mcpPromptGetBudget.maxResultBytes),
+}).strict();
+
+const mcpPromptArgumentValueSchema = z.string().max(maximumMcpPromptArgumentBytes).superRefine((value, context) => {
+  if (new TextEncoder().encode(value).byteLength > maximumMcpPromptArgumentBytes) {
+    context.addIssue({ code: "custom", message: "MCP prompt argument exceeds its byte budget" });
+  }
+});
+const mcpPromptArgumentValuesSchema = z.array(z.object({
+  name: protocolNameSchema,
+  value: mcpPromptArgumentValueSchema,
+}).strict()).max(maximumMcpPromptArguments).superRefine((values, context) => {
+  if (new Set(values.map(({ name }) => name)).size !== values.length) {
+    context.addIssue({ code: "custom", message: "MCP prompt argument names must be unique" });
+  }
+  const payload = Object.fromEntries(values.map(({ name, value }) => [name, value]));
+  if (new TextEncoder().encode(JSON.stringify(payload)).byteLength > maximumMcpPromptArgumentsBytes) {
+    context.addIssue({ code: "custom", message: "MCP prompt arguments exceed their combined byte budget" });
+  }
+});
+
+export const mcpPromptGetRequestSchema = z.object({
+  connectionId: mcpConnectionIdSchema,
+  promptName: protocolNameSchema,
+  arguments: mcpPromptArgumentValuesSchema,
+}).strict();
+export const mcpPromptGetProposalSchema = z.object({
+  approvalToken: approvalTokenSchema,
+  expiresAt: z.string().datetime({ offset: true }),
+  connection: approvedMcpConnectionSchema,
+  promptName: protocolNameSchema,
+  arguments: mcpPromptArgumentValuesSchema,
+  budget: mcpPromptGetBudgetSchema,
+  warning: z.literal("untrusted-local-code-argument-disclosure-and-content"),
+}).strict();
+export const mcpPromptGetApprovalSchema = z.object({
+  approvalToken: approvalTokenSchema,
+  request: mcpPromptGetRequestSchema,
+}).strict();
+export const mcpPromptGetInvocationSchema = z.object({
+  connectionId: mcpConnectionIdSchema,
+  command: mcpDirectExecutableSchema,
+  args: z.array(mcpArgumentSchema).max(maximumMcpArguments),
+  environment: mcpResolvedEnvironmentSchema,
+  workingDirectory: absolutePathSchema,
+  promptName: protocolNameSchema,
+  arguments: mcpPromptArgumentValuesSchema,
+  budget: mcpPromptGetBudgetSchema,
+}).strict();
+
+const promptTextContentSchema = z.object({
+  kind: z.literal("text"),
+  text: z.string().max(mcpPromptGetBudget.maxDecodedBytes),
+  decodedBytes: z.number().int().nonnegative().max(mcpPromptGetBudget.maxDecodedBytes),
+}).strict().superRefine((value, context) => {
+  if (new TextEncoder().encode(value.text).byteLength !== value.decodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP prompt text decoded-byte count is invalid" });
+  }
+});
+const promptImageMetadataSchema = z.object({
+  kind: z.literal("image"),
+  mimeType: resourceMimeTypeSchema,
+  decodedBytes: z.number().int().nonnegative().max(mcpPromptGetBudget.maxDecodedBytes),
+  sha256: sha256Schema,
+}).strict();
+const promptAudioMetadataSchema = z.object({
+  kind: z.literal("audio"),
+  mimeType: resourceMimeTypeSchema,
+  decodedBytes: z.number().int().nonnegative().max(mcpPromptGetBudget.maxDecodedBytes),
+  sha256: sha256Schema,
+}).strict();
+const promptEmbeddedTextSchema = z.object({
+  kind: z.literal("embedded-text"),
+  uri: boundedUriSchema,
+  mimeType: resourceMimeTypeSchema.optional(),
+  text: z.string().max(mcpPromptGetBudget.maxDecodedBytes),
+  decodedBytes: z.number().int().nonnegative().max(mcpPromptGetBudget.maxDecodedBytes),
+}).strict().superRefine((value, context) => {
+  if (new TextEncoder().encode(value.text).byteLength !== value.decodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP embedded text decoded-byte count is invalid" });
+  }
+});
+const promptEmbeddedBlobSchema = z.object({
+  kind: z.literal("embedded-blob"),
+  uri: boundedUriSchema,
+  mimeType: resourceMimeTypeSchema.optional(),
+  decodedBytes: z.number().int().nonnegative().max(mcpPromptGetBudget.maxDecodedBytes),
+  sha256: sha256Schema,
+}).strict();
+const promptResourceLinkSchema = z.object({
+  kind: z.literal("resource-link"),
+  uri: boundedUriSchema,
+  name: z.string().trim().min(1).max(500),
+  title: boundedOptionalText,
+  description: boundedOptionalText,
+  mimeType: resourceMimeTypeSchema.optional(),
+  size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  decodedBytes: z.literal(0),
+}).strict();
+const mcpPromptMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.discriminatedUnion("kind", [
+    promptTextContentSchema,
+    promptImageMetadataSchema,
+    promptAudioMetadataSchema,
+    promptEmbeddedTextSchema,
+    promptEmbeddedBlobSchema,
+    promptResourceLinkSchema,
+  ]),
+}).strict();
+
+export const mcpPromptGetResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  connectionId: mcpConnectionIdSchema,
+  promptName: protocolNameSchema,
+  description: boundedOptionalText,
+  messages: z.array(mcpPromptMessageSchema).max(mcpPromptGetBudget.maxMessages),
+  decodedBytes: z.number().int().nonnegative().max(mcpPromptGetBudget.maxDecodedBytes),
+  localOnly: z.literal(true),
+  untrustedContent: z.literal(true),
+}).strict().superRefine((value, context) => {
+  const decodedBytes = value.messages.reduce((total, message) => total + message.content.decodedBytes, 0);
+  if (decodedBytes !== value.decodedBytes || decodedBytes > mcpPromptGetBudget.maxDecodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP prompt exceeds its decoded-content budget" });
+  }
+  if (new TextEncoder().encode(JSON.stringify(value)).byteLength > mcpPromptGetBudget.maxResultBytes) {
+    context.addIssue({ code: "custom", message: "MCP prompt result exceeds its serialized-byte budget" });
+  }
+});
+
 const mcpAuditIdSchema = z.string().uuid();
-const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 const mcpAuditErrorCodeSchema = z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/u);
 
-export const mcpAuditStartSchema = z.object({
+const mcpAuditStartBaseSchema = z.object({
   auditId: mcpAuditIdSchema,
   connectionId: mcpConnectionIdSchema,
   connectionName: z.string().trim().min(1).max(100),
-  operation: z.literal("resource-read"),
-  resourceUri: boundedUriSchema,
   requestFingerprint: sha256Schema,
   startedAt: z.string().datetime({ offset: true }),
+});
+const mcpResourceAuditStartSchema = mcpAuditStartBaseSchema.extend({
+  operation: z.literal("resource-read"),
+  resourceUri: boundedUriSchema,
 }).strict();
+const mcpPromptAuditStartSchema = mcpAuditStartBaseSchema.extend({
+  operation: z.literal("prompt-get"),
+  promptName: protocolNameSchema,
+  argumentKeys: z.array(protocolNameSchema).max(maximumMcpPromptArguments).superRefine((values, context) => {
+    if (new Set(values).size !== values.length) context.addIssue({ code: "custom", message: "MCP audit argument keys must be unique" });
+  }),
+  argumentBytes: z.number().int().nonnegative().max(maximumMcpPromptArgumentsBytes),
+}).strict();
+export const mcpAuditStartSchema = z.discriminatedUnion("operation", [
+  mcpResourceAuditStartSchema,
+  mcpPromptAuditStartSchema,
+]);
 
 const mcpAuditSuccessOutcomeSchema = z.object({
   auditId: mcpAuditIdSchema,
@@ -340,33 +503,28 @@ export const mcpAuditOutcomeSchema = z.discriminatedUnion("status", [
   mcpAuditFailureOutcomeSchema,
 ]);
 
-const mcpAuditEventBase = mcpAuditStartSchema.omit({ auditId: true });
-const mcpAuditSucceededEventSchema = mcpAuditEventBase.extend({
-  auditId: mcpAuditIdSchema,
+const auditSucceededFields = {
   status: z.literal("succeeded"),
   completedAt: z.string().datetime({ offset: true }),
   contentParts: z.number().int().nonnegative().max(mcpResourceReadBudget.maxContentParts),
   decodedBytes: z.number().int().nonnegative().max(mcpResourceReadBudget.maxDecodedBytes),
-}).strict();
-const mcpAuditFailedEventSchema = mcpAuditEventBase.extend({
-  auditId: mcpAuditIdSchema,
+} as const;
+const auditFailedFields = {
   status: z.literal("failed"),
   completedAt: z.string().datetime({ offset: true }),
   errorCode: mcpAuditErrorCodeSchema,
-}).strict();
-const mcpAuditInterruptedEventSchema = mcpAuditEventBase.extend({
-  auditId: mcpAuditIdSchema,
-  status: z.literal("interrupted"),
-}).strict();
-const mcpAuditInProgressEventSchema = mcpAuditEventBase.extend({
-  auditId: mcpAuditIdSchema,
-  status: z.literal("in-progress"),
-}).strict();
-export const mcpAuditEventSchema = z.discriminatedUnion("status", [
-  mcpAuditSucceededEventSchema,
-  mcpAuditFailedEventSchema,
-  mcpAuditInterruptedEventSchema,
-  mcpAuditInProgressEventSchema,
+} as const;
+const auditInterruptedFields = { status: z.literal("interrupted") } as const;
+const auditInProgressFields = { status: z.literal("in-progress") } as const;
+export const mcpAuditEventSchema = z.union([
+  mcpResourceAuditStartSchema.extend(auditSucceededFields).strict(),
+  mcpResourceAuditStartSchema.extend(auditFailedFields).strict(),
+  mcpResourceAuditStartSchema.extend(auditInterruptedFields).strict(),
+  mcpResourceAuditStartSchema.extend(auditInProgressFields).strict(),
+  mcpPromptAuditStartSchema.extend(auditSucceededFields).strict(),
+  mcpPromptAuditStartSchema.extend(auditFailedFields).strict(),
+  mcpPromptAuditStartSchema.extend(auditInterruptedFields).strict(),
+  mcpPromptAuditStartSchema.extend(auditInProgressFields).strict(),
 ]);
 export const mcpAuditEventsSchema = z.array(mcpAuditEventSchema).max(100).superRefine((events, context) => {
   if (new Set(events.map(({ auditId }) => auditId)).size !== events.length) {
@@ -388,6 +546,11 @@ export type McpResourceReadProposal = z.infer<typeof mcpResourceReadProposalSche
 export type McpResourceReadApproval = z.infer<typeof mcpResourceReadApprovalSchema>;
 export type McpResourceReadInvocation = z.infer<typeof mcpResourceReadInvocationSchema>;
 export type McpResourceReadResult = z.infer<typeof mcpResourceReadResultSchema>;
+export type McpPromptGetRequest = z.infer<typeof mcpPromptGetRequestSchema>;
+export type McpPromptGetProposal = z.infer<typeof mcpPromptGetProposalSchema>;
+export type McpPromptGetApproval = z.infer<typeof mcpPromptGetApprovalSchema>;
+export type McpPromptGetInvocation = z.infer<typeof mcpPromptGetInvocationSchema>;
+export type McpPromptGetResult = z.infer<typeof mcpPromptGetResultSchema>;
 export type McpAuditStart = z.infer<typeof mcpAuditStartSchema>;
 export type McpAuditOutcome = z.infer<typeof mcpAuditOutcomeSchema>;
 export type McpAuditEvent = z.infer<typeof mcpAuditEventSchema>;
@@ -418,6 +581,26 @@ export function parseMcpResourceReadInvocation(value: unknown): McpResourceReadI
 
 export function parseMcpResourceReadResult(value: unknown): McpResourceReadResult {
   return mcpResourceReadResultSchema.parse(value);
+}
+
+export function parseMcpPromptGetRequest(value: unknown): McpPromptGetRequest {
+  return mcpPromptGetRequestSchema.parse(value);
+}
+
+export function parseMcpPromptGetProposal(value: unknown): McpPromptGetProposal {
+  return mcpPromptGetProposalSchema.parse(value);
+}
+
+export function parseMcpPromptGetApproval(value: unknown): McpPromptGetApproval {
+  return mcpPromptGetApprovalSchema.parse(value);
+}
+
+export function parseMcpPromptGetInvocation(value: unknown): McpPromptGetInvocation {
+  return mcpPromptGetInvocationSchema.parse(value);
+}
+
+export function parseMcpPromptGetResult(value: unknown): McpPromptGetResult {
+  return mcpPromptGetResultSchema.parse(value);
 }
 
 export function parseMcpAuditStart(value: unknown): McpAuditStart {

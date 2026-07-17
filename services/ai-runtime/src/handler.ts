@@ -3,12 +3,16 @@ import {
   createRpcSuccess,
   parseMcpInspectionInvocation,
   parseMcpInspectionSnapshot,
+  parseMcpPromptGetInvocation,
+  parseMcpPromptGetResult,
   parseMcpResourceReadInvocation,
   parseMcpResourceReadResult,
   parseModelInvocation,
   parseRpcRequest,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
+  type McpPromptGetInvocation,
+  type McpPromptGetResult,
   type McpResourceReadInvocation,
   type McpResourceReadResult,
   type RpcResponse,
@@ -18,7 +22,7 @@ import {
   ProviderInvocationError,
   type ProviderFetch,
 } from "./providers/invoke.js";
-import { inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
+import { getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
 
 export type McpInspector = (
   invocation: McpInspectionInvocation,
@@ -30,6 +34,11 @@ export type McpResourceReader = (
   signal?: AbortSignal,
 ) => Promise<McpResourceReadResult>;
 
+export type McpPromptGetter = (
+  invocation: McpPromptGetInvocation,
+  signal?: AbortSignal,
+) => Promise<McpPromptGetResult>;
+
 const capabilities = [
   "openai-responses",
   "anthropic-messages",
@@ -40,6 +49,7 @@ const capabilities = [
   "cancellable-requests",
   "mcp-stdio-inspection",
   "mcp-resource-read",
+  "mcp-prompt-get",
 ] as const;
 
 export async function handleAiRuntimeRequest(
@@ -49,6 +59,7 @@ export async function handleAiRuntimeRequest(
   signal?: AbortSignal,
   inspectMcp: McpInspector = inspectMcpStdioServer,
   readMcpResource: McpResourceReader = readMcpStdioResource,
+  getMcpPrompt: McpPromptGetter = getMcpStdioPrompt,
 ): Promise<RpcResponse> {
   let request;
   try {
@@ -132,6 +143,27 @@ export async function handleAiRuntimeRequest(
       }
       const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP resource read failed";
       return createRpcError(request.id, "MCP_RESOURCE_READ_FAILED", message || "MCP resource read failed", false);
+    }
+  }
+
+  if (request.method === "mcp.prompt.get") {
+    let invocation;
+    try {
+      invocation = parseMcpPromptGetInvocation(request.params);
+    } catch {
+      return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid MCP prompt get invocation", false);
+    }
+    try {
+      return createRpcSuccess(
+        request.id,
+        parseMcpPromptGetResult(await getMcpPrompt(invocation, signal)),
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      }
+      const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP prompt get failed";
+      return createRpcError(request.id, "MCP_PROMPT_GET_FAILED", message || "MCP prompt get failed", false);
     }
   }
 

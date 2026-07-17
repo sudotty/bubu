@@ -58,7 +58,15 @@ server.registerPrompt("explain_term", {
   argsSchema: { term: z.string().describe("Term name") },
 }, async ({ term }) => {
   recordInvocation("prompt");
-  return { messages: [{ role: "user", content: { type: "text", text: `Explain ${term}` } }] };
+  return {
+    description: "Fixture explanation",
+    messages: [
+      { role: "user", content: { type: "text", text: `Explain ${term}` } },
+      { role: "assistant", content: { type: "image", data: Buffer.from("binary fixture", "utf8").toString("base64"), mimeType: "image/png" } },
+      { role: "user", content: { type: "resource", resource: { uri: "bubu-dictionary://context", text: "context", mimeType: "text/plain" } } },
+      { role: "assistant", content: { type: "resource_link", uri: "bubu-dictionary://more", name: "more", title: "More terms" } },
+    ],
+  };
 });
 
 const transport = new StdioServerTransport();

@@ -64,6 +64,10 @@ import {
   type McpResourceReadProposal,
   type McpResourceReadRequest,
   type McpResourceReadResult,
+  type McpPromptGetApproval,
+  type McpPromptGetProposal,
+  type McpPromptGetRequest,
+  type McpPromptGetResult,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -125,6 +129,12 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.approveMcpResourceRead, { operationId, value }) as Promise<McpResourceReadResult>,
     dismissResourceRead: (value: McpResourceReadApproval) =>
       ipcRenderer.invoke(desktopChannels.dismissMcpResourceRead, value) as Promise<void>,
+    preparePromptGet: (value: McpPromptGetRequest) =>
+      ipcRenderer.invoke(desktopChannels.prepareMcpPromptGet, value) as Promise<McpPromptGetProposal>,
+    approvePromptGet: (value: McpPromptGetApproval, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.approveMcpPromptGet, { operationId, value }) as Promise<McpPromptGetResult>,
+    dismissPromptGet: (value: McpPromptGetApproval) =>
+      ipcRenderer.invoke(desktopChannels.dismissMcpPromptGet, value) as Promise<void>,
   },
   dataProtection: {
     createBackup: (operationId: OperationId) =>

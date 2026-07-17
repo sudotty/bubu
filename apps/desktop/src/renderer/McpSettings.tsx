@@ -8,6 +8,8 @@ import type {
   McpAuditEvent,
   McpResourceReadProposal,
   McpResourceReadResult,
+  McpPromptGetProposal,
+  McpPromptGetResult,
   OperationId,
 } from "../shared/product-api.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
@@ -23,6 +25,18 @@ interface McpDraft {
   readonly command: string;
   readonly args: readonly string[];
   readonly environment: readonly EnvironmentDraft[];
+}
+
+interface PromptArgumentDraft {
+  readonly name: string;
+  readonly description?: string;
+  readonly required: boolean;
+  readonly value: string;
+}
+
+interface PromptDraft {
+  readonly promptName: string;
+  readonly arguments: readonly PromptArgumentDraft[];
 }
 
 const emptyDraft: McpDraft = { name: "", command: "", args: [], environment: [] };
@@ -54,6 +68,23 @@ function capabilityCount(snapshot: McpInspectionSnapshot): number {
   return snapshot.tools.length + snapshot.resources.length + snapshot.prompts.length;
 }
 
+function PromptMessageContent({ content }: { readonly content: McpPromptGetResult["messages"][number]["content"] }) {
+  if (content.kind === "text") return <pre>{content.text}</pre>;
+  if (content.kind === "embedded-text") return <><code>{content.uri}</code><pre>{content.text}</pre></>;
+  if (content.kind === "resource-link") return <dl>
+    <div><dt>资源链接</dt><dd><code>{content.uri}</code></dd></div>
+    <div><dt>名称</dt><dd>{content.title ?? content.name}</dd></div>
+    {content.description && <div><dt>描述</dt><dd>{content.description}</dd></div>}
+  </dl>;
+  return <dl>
+    <div><dt>类型</dt><dd>{content.kind}</dd></div>
+    {"uri" in content && <div><dt>URI</dt><dd><code>{content.uri}</code></dd></div>}
+    <div><dt>MIME</dt><dd>{content.mimeType}</dd></div>
+    <div><dt>大小</dt><dd>{content.decodedBytes} 字节</dd></div>
+    <div><dt>SHA-256</dt><dd><code>{content.sha256}</code></dd></div>
+  </dl>;
+}
+
 export function McpSettings() {
   const [registry, setRegistry] = useState<McpConnectionRegistryState>();
   const [draft, setDraft] = useState<McpDraft>(emptyDraft);
@@ -62,6 +93,9 @@ export function McpSettings() {
   const [inspectedConnectionId, setInspectedConnectionId] = useState<string>();
   const [resourceProposal, setResourceProposal] = useState<McpResourceReadProposal>();
   const [resourceResult, setResourceResult] = useState<McpResourceReadResult>();
+  const [promptDraft, setPromptDraft] = useState<PromptDraft>();
+  const [promptProposal, setPromptProposal] = useState<McpPromptGetProposal>();
+  const [promptResult, setPromptResult] = useState<McpPromptGetResult>();
   const [audits, setAudits] = useState<readonly McpAuditEvent[]>([]);
   const [operationId, setOperationId] = useState<OperationId>();
   const [busy, setBusy] = useState<string>();
@@ -129,6 +163,9 @@ export function McpSettings() {
       setInspectedConnectionId(undefined);
       setResourceProposal(undefined);
       setResourceResult(undefined);
+      setPromptDraft(undefined);
+      setPromptProposal(undefined);
+      setPromptResult(undefined);
       setNotice("MCP 连接已删除。");
     } catch (error) {
       setNotice(operationErrorMessage(error, "删除 MCP 连接失败"));
@@ -144,6 +181,9 @@ export function McpSettings() {
     setInspectedConnectionId(undefined);
     setResourceProposal(undefined);
     setResourceResult(undefined);
+    setPromptDraft(undefined);
+    setPromptProposal(undefined);
+    setPromptResult(undefined);
     try {
       setProposal(await window.bubu.mcp.prepareInspection(connectionId));
     } catch (error) {
@@ -177,10 +217,11 @@ export function McpSettings() {
 
 
   async function prepareResourceRead(resourceUri: string): Promise<void> {
-    if (!inspectedConnectionId || resourceProposal) return;
+    if (!inspectedConnectionId || resourceProposal || promptProposal) return;
     setBusy(resourceUri);
     setNotice(undefined);
     setResourceResult(undefined);
+    setPromptResult(undefined);
     try {
       setResourceProposal(await window.bubu.mcp.prepareResourceRead({
         connectionId: inspectedConnectionId,
@@ -226,6 +267,97 @@ export function McpSettings() {
     }
   }
 
+  function editPrompt(prompt: McpInspectionSnapshot["prompts"][number]): void {
+    setPromptDraft({
+      promptName: prompt.name,
+      arguments: prompt.arguments.map((argument) => ({
+        name: argument.name,
+        required: argument.required,
+        ...(argument.description === undefined ? {} : { description: argument.description }),
+        value: "",
+      })),
+    });
+    setPromptProposal(undefined);
+    setPromptResult(undefined);
+  }
+
+  function updatePromptArgument(index: number, value: string): void {
+    setPromptDraft((current) => current === undefined ? undefined : ({
+      ...current,
+      arguments: current.arguments.map((argument, currentIndex) =>
+        currentIndex === index ? { ...argument, value } : argument),
+    }));
+  }
+
+  function promptRequest() {
+    if (!promptDraft || !inspectedConnectionId) return undefined;
+    return {
+      connectionId: inspectedConnectionId,
+      promptName: promptDraft.promptName,
+      arguments: promptDraft.arguments.map(({ name, value }) => ({ name, value })),
+    };
+  }
+
+  async function preparePromptGet(): Promise<void> {
+    const request = promptRequest();
+    if (!request || promptProposal) return;
+    setBusy(request.promptName);
+    setNotice(undefined);
+    setPromptResult(undefined);
+    try {
+      setPromptProposal(await window.bubu.mcp.preparePromptGet(request));
+    } catch (error) {
+      setNotice(operationErrorMessage(error, "无法准备 MCP 提示获取审查"));
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function approvePromptGet(): Promise<void> {
+    if (!promptProposal) return;
+    const nextOperationId = createOperationId();
+    setOperationId(nextOperationId);
+    setNotice(undefined);
+    try {
+      const request = {
+        connectionId: promptProposal.connection.id,
+        promptName: promptProposal.promptName,
+        arguments: promptProposal.arguments,
+      };
+      const result = await window.bubu.mcp.approvePromptGet({
+        approvalToken: promptProposal.approvalToken,
+        request,
+      }, nextOperationId);
+      setPromptResult(result);
+      setPromptProposal(undefined);
+      setNotice(`本地提示获取完成：${result.messages.length} 条消息，${result.decodedBytes} 字节；未发送给模型或对话。`);
+    } catch (error) {
+      setPromptProposal(undefined);
+      setNotice(operationErrorMessage(error, "MCP 提示获取失败，请重新发现并审查"));
+    } finally {
+      setOperationId(undefined);
+      await refreshAudits();
+    }
+  }
+
+  async function dismissPromptGet(): Promise<void> {
+    if (!promptProposal) return;
+    try {
+      await window.bubu.mcp.dismissPromptGet({
+        approvalToken: promptProposal.approvalToken,
+        request: {
+          connectionId: promptProposal.connection.id,
+          promptName: promptProposal.promptName,
+          arguments: promptProposal.arguments,
+        },
+      });
+      setPromptProposal(undefined);
+      setNotice("已撤销 MCP 提示获取批准；没有启动本地进程。");
+    } catch (error) {
+      setNotice(operationErrorMessage(error, "撤销 MCP 提示获取批准失败"));
+    }
+  }
+
   async function dismissInspection(): Promise<void> {
     if (!proposal) return;
     try {
@@ -257,8 +389,8 @@ export function McpSettings() {
           </button>
           <div className="provider-badges"><small>stdio</small><small>{connection.transport.environmentKeys.length} 个加密环境值</small></div>
           <div className="provider-actions">
-            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined} onClick={() => void prepareInspection(connection.id)}>审查并检查</button>
-            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined} onClick={() => void remove(connection.id)}>删除</button>
+            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void prepareInspection(connection.id)}>审查并检查</button>
+            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void remove(connection.id)}>删除</button>
           </div>
         </article>)}
       </div>
@@ -297,8 +429,20 @@ export function McpSettings() {
       {snapshot.instructions && <section><strong>服务说明（不可信，不会发送给模型）</strong><p>{snapshot.instructions}</p></section>}
       <div className="mcp-capability-columns">
         <section><h5>Tools · {snapshot.tools.length}</h5>{snapshot.tools.map((tool) => <details key={tool.name}><summary>{tool.title ?? tool.name}</summary><p>{tool.description ?? "无描述"}</p><small>annotations 仅展示，不作为安全事实：{JSON.stringify(tool.annotations ?? {})}</small><pre>{tool.inputSchemaJson}</pre></details>)}</section>
-        <section><h5>Resources · {snapshot.resources.length}</h5>{snapshot.resources.map((resource) => <details key={resource.uri}><summary>{resource.title ?? resource.name}</summary><p>{resource.description ?? "无描述"}</p><code>{resource.uri}</code><div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined} onClick={() => void prepareResourceRead(resource.uri)}>审查读取</button></div></details>)}</section>
-        <section><h5>Prompts · {snapshot.prompts.length}</h5>{snapshot.prompts.map((prompt) => <details key={prompt.name}><summary>{prompt.title ?? prompt.name}</summary><p>{prompt.description ?? "无描述"}</p><small>{prompt.arguments.map(({ name, required }) => `${name}${required ? "*" : ""}`).join("、") || "无参数"}</small></details>)}</section>
+        <section><h5>Resources · {snapshot.resources.length}</h5>{snapshot.resources.map((resource) => <details key={resource.uri}><summary>{resource.title ?? resource.name}</summary><p>{resource.description ?? "无描述"}</p><code>{resource.uri}</code><div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void prepareResourceRead(resource.uri)}>审查读取</button></div></details>)}</section>
+        <section><h5>Prompts · {snapshot.prompts.length}</h5>{snapshot.prompts.map((prompt) => <details key={prompt.name} open={promptDraft?.promptName === prompt.name}>
+          <summary>{prompt.title ?? prompt.name}</summary><p>{prompt.description ?? "无描述"}</p>
+          {prompt.arguments.length === 0 ? <small>无参数</small> : <small>{prompt.arguments.map(({ name, required }) => `${name}${required ? "*" : ""}`).join("、")}</small>}
+          {promptDraft?.promptName === prompt.name && <form className="mcp-prompt-arguments" onSubmit={(event) => { event.preventDefault(); void preparePromptGet(); }}>
+            {promptDraft.arguments.map((argument, index) => <label key={argument.name}>
+              <span>{argument.name}{argument.required ? " *" : "（可选）"}</span>
+              {argument.description && <small>{argument.description}</small>}
+              <input required={argument.required} maxLength={4_096} value={argument.value} onChange={(event) => updatePromptArgument(index, event.target.value)} />
+            </label>)}
+            <button type="submit" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined}>审查精确提示与参数</button>
+          </form>}
+          {promptDraft?.promptName !== prompt.name && <div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => editPrompt(prompt)}>填写参数并审查</button></div>}
+        </details>)}</section>
       </div>
     </article>}
     {resourceProposal && <article className="mcp-launch-review">
@@ -323,12 +467,36 @@ export function McpSettings() {
         {content.kind === "text" ? <pre>{content.text}</pre> : <dl><div><dt>SHA-256</dt><dd><code>{content.sha256}</code></dd></div></dl>}
       </section>)}
     </article>}
+    {promptProposal && <article className="mcp-launch-review">
+      <header><div><strong>批准前检查精确提示获取</strong><small>{promptProposal.connection.name}</small></div><span>{promptProposal.budget.maxDurationMs / 1_000} 秒上限</span></header>
+      <div className="security-warning" role="alert">批准后会再次启动这段本地代码，并把下面的提示名及每个参数值发送给它。返回内容不可信，只在本地显示，不会进入模型、聊天、Agent 或工作流。</div>
+      <dl>
+        <div><dt>规范化可执行文件</dt><dd><code>{promptProposal.connection.command}</code></dd></div>
+        <div><dt>精确提示名称</dt><dd><code>{promptProposal.promptName}</code></dd></div>
+        <div><dt>环境键名</dt><dd>{promptProposal.connection.environmentKeys.join("、") || "无"}</dd></div>
+        <div><dt>批准失效</dt><dd>{new Date(promptProposal.expiresAt).toLocaleTimeString("zh-CN")}</dd></div>
+      </dl>
+      <div><strong>全部进程参数（保持顺序，不拼接 Shell）</strong>{promptProposal.connection.args.length === 0 ? <p>无参数</p> : <ol>{promptProposal.connection.args.map((argument, index) => <li key={index}><code>{argument === "" ? "（空字符串）" : argument}</code></li>)}</ol>}</div>
+      <div><strong>全部提示参数值（原样发送给本地服务）</strong>{promptProposal.arguments.length === 0 ? <p>无参数</p> : <dl>{promptProposal.arguments.map((argument) => <div key={argument.name}><dt>{argument.name}</dt><dd><code>{argument.value === "" ? "（空字符串）" : argument.value}</code></dd></div>)}</dl>}</div>
+      <p>获取前最多重新发现 {promptProposal.budget.maxDiscoveredPrompts} 个提示 / {promptProposal.budget.maxDiscoveryPages} 页；只获取一个提示；最多 {promptProposal.budget.maxMessages} 条消息和 {promptProposal.budget.maxDecodedBytes / 1_024} KiB 解码内容。二进制只保留大小与 SHA-256，超限整体失败。</p>
+      <div className="plan-actions"><button type="button" className="primary-action" onClick={() => void approvePromptGet()}>批准启动一次并获取此提示</button><button type="button" className="secondary-action" onClick={() => void dismissPromptGet()}>撤销且不启动</button></div>
+    </article>}
+    {promptResult && <article className="mcp-prompt-result">
+      <header><div><p className="hero-kicker">LOCAL ONLY · UNTRUSTED PROMPT</p><h4>MCP 本地提示内容</h4><small>{promptResult.promptName} · {promptResult.messages.length} 条消息 · {promptResult.decodedBytes} 字节</small></div><span>未发送给模型或聊天</span></header>
+      {promptResult.description && <p>{promptResult.description}</p>}
+      <div className="security-warning" role="note">以下角色、文本、资源和元数据来自本地 MCP 服务，不作为 BuBu 指令；annotations 与 _meta 已丢弃，二进制正文不进入渲染器。</div>
+      {promptResult.messages.map((message, index) => <section key={index}>
+        <strong>{message.role === "user" ? "用户消息" : "助手消息"} · {message.content.kind}</strong>
+        <small>{message.content.decodedBytes} 字节</small>
+        <PromptMessageContent content={message.content} />
+      </section>)}
+    </article>}
     <article className="mcp-audit-history">
       <header><div><p className="hero-kicker">APPEND-ONLY · NO CONTENT</p><h4>MCP 本地审计</h4></div><button type="button" className="secondary-action" onClick={() => void refreshAudits()}>刷新</button></header>
-      {audits.length === 0 ? <p className="empty-copy">尚无已批准的 MCP 资源读取记录。</p> : <div className="mcp-audit-list">{audits.map((audit) => <div key={audit.auditId}>
+      {audits.length === 0 ? <p className="empty-copy">尚无已批准的 MCP 资源读取或提示获取记录。</p> : <div className="mcp-audit-list">{audits.map((audit) => <div key={audit.auditId}>
         <strong>{audit.connectionName} · {audit.status}</strong>
-        <code>{audit.resourceUri}</code>
-        <small>{new Date(audit.startedAt).toLocaleString("zh-CN")}{audit.status === "succeeded" ? ` · ${audit.contentParts} 片段 / ${audit.decodedBytes} 字节` : audit.status === "failed" ? ` · ${audit.errorCode}` : ""}</small>
+        <code>{audit.operation === "resource-read" ? audit.resourceUri : `${audit.promptName}(${audit.argumentKeys.join(", ")})`}</code>
+        <small>{new Date(audit.startedAt).toLocaleString("zh-CN")}{audit.operation === "prompt-get" ? ` · 参数 ${audit.argumentBytes} 字节` : ""}{audit.status === "succeeded" ? ` · ${audit.contentParts} 片段 / ${audit.decodedBytes} 字节` : audit.status === "failed" ? ` · ${audit.errorCode}` : ""}</small>
       </div>)}</div>}
     </article>
   </section>;

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createRpcRequest, mcpInspectionBudget, mcpResourceReadBudget, parseServiceHealth } from "@bubu/contracts";
+import {
+  createRpcRequest,
+  mcpInspectionBudget,
+  mcpPromptGetBudget,
+  mcpResourceReadBudget,
+  parseServiceHealth,
+} from "@bubu/contracts";
 import { handleAiRuntimeRequest } from "./handler.js";
 
 const auth = "a".repeat(64);
@@ -27,6 +33,7 @@ describe("AI runtime request handler", () => {
         "cancellable-requests",
         "mcp-stdio-inspection",
         "mcp-resource-read",
+        "mcp-prompt-get",
       ],
     });
   });
@@ -153,6 +160,46 @@ describe("AI runtime request handler", () => {
 
     const invalid = await handleAiRuntimeRequest(
       createRpcRequest({ auth, id: "mcp-resource-2", method: "mcp.resource.read", params: { resourceUri: "x" } }),
+      auth,
+    );
+    expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });
+  });
+
+  it("executes only a parsed MCP prompt invocation through the named getter", async () => {
+    const invocation = {
+      connectionId: "b".repeat(32),
+      command: "/opt/bubu-mcp/bin/server",
+      args: ["--stdio"],
+      environment: {},
+      workingDirectory: "/tmp/bubu-mcp-runtime",
+      promptName: "explain-term",
+      arguments: [{ name: "term", value: "gross margin" }],
+      budget: mcpPromptGetBudget,
+    };
+    const response = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-prompt-1", method: "mcp.prompt.get", params: invocation }),
+      auth,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async (parsed) => ({
+        schemaVersion: 1,
+        connectionId: parsed.connectionId,
+        promptName: parsed.promptName,
+        messages: [{
+          role: "user",
+          content: { kind: "text", text: "local prompt", decodedBytes: 12 },
+        }],
+        decodedBytes: 12,
+        localOnly: true,
+        untrustedContent: true,
+      }),
+    );
+    expect(response).toMatchObject({ ok: true, result: { promptName: invocation.promptName } });
+
+    const invalid = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-prompt-2", method: "mcp.prompt.get", params: { promptName: "x" } }),
       auth,
     );
     expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });

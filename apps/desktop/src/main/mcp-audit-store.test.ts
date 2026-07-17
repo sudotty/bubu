@@ -76,4 +76,37 @@ describe("MCP append-only audit store", () => {
       errorCode: "MCP_RESOURCE_READ_FAILED",
     })).toThrow("does not exist");
   });
+
+  it("persists value-free prompt-get metadata through the same strict append-only path", () => {
+    const directory = mkdtempSync(join(tmpdir(), "bubu-mcp-audit-prompt-"));
+    const store = createMcpAuditStore({ directory });
+    const promptAuditId = "323e4567-e89b-42d3-a456-426614174000";
+    store.start({
+      auditId: promptAuditId,
+      connectionId: "a".repeat(32),
+      connectionName: "Dictionary",
+      operation: "prompt-get",
+      promptName: "explain_term",
+      argumentKeys: ["term"],
+      argumentBytes: 23,
+      requestFingerprint: "c".repeat(64),
+      startedAt: "2026-07-17T11:00:00Z",
+    });
+    store.finish({
+      auditId: promptAuditId,
+      status: "succeeded",
+      completedAt: "2026-07-17T11:00:01Z",
+      contentParts: 2,
+      decodedBytes: 42,
+    });
+    expect(store.list()[0]).toMatchObject({
+      operation: "prompt-get",
+      promptName: "explain_term",
+      argumentKeys: ["term"],
+      status: "succeeded",
+    });
+    const persisted = `${readFileSync(join(directory, "starts", `${promptAuditId}.json`), "utf8")}${readFileSync(join(directory, "outcomes", `${promptAuditId}.json`), "utf8")}`;
+    expect(persisted).not.toContain("gross margin");
+    expect(persisted).not.toContain("prompt result");
+  });
 });

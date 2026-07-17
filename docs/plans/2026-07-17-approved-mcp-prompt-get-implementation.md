@@ -2,7 +2,7 @@
 
 > **Execution:** Test-drive every boundary on `main`; treat prompt arguments as an explicit disclosure to local code and returned messages as untrusted local data, never model instructions.
 
-**Status:** Active.
+**Status:** Complete on 2026-07-17. The exact approved local-only `prompts/get` slice is implemented and verified; prompt-to-model/chat/Agent/workflow use and MCP tool execution remain explicitly unavailable.
 
 **Goal:** Let a user choose one prompt discovered during an approved local stdio MCP inspection, fill only its declared string arguments, review every exact value and process detail, approve one bounded `prompts/get`, and inspect normalized messages locally without automatically sending them to a model, conversation, Agent, or workflow.
 
@@ -61,3 +61,10 @@
 - Require exactly one policy-bound `getPrompt` site, exactly one existing resource-read site, no tool/subscription methods, value-free audit, secret-bound drift, named APIs, safe UI, and docs/status agreement.
 - Mark only `mcp-prompt-get` implemented; keep prompt-to-model/tool/Agent/workflow and remote MCP planned.
 - Run `volta run npm run verify`, record evidence, stage only this slice, commit directly to `main`, push, and confirm remote alignment without touching legacy Wails work.
+
+## Verification evidence
+
+- Contracts: 20 files / 66 tests; AI runtime: 6 files / 28 tests; desktop: 25 files / 76 tests; Go data-core packages all passed.
+- Repository, architecture, dependency audit, strict TypeScript, production build, real data-core smoke, real MCP stdio smoke, and packaged Electron launch smoke passed.
+- The real MCP fixture proved discovery invokes no primitive, the approved prompt path invokes exactly one `prompts/get`, and binary bodies do not cross the utility boundary.
+- The 100 MiB / 183,246-row reference gate passed at 4,555.95 ms import/profile, 171.20 ms query p95, and 37.69 MiB peak RSS.
