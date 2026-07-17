@@ -97,7 +97,7 @@ Work proceeds in vertical slices. Each slice starts with a failing deterministic
 | 1 | Complete | Secure packaged Electron shell with typed preload, authenticated Go/Node sidecars, and packaged launch smoke |
 | 2 | Active | Atomic CSV/TSV/XLSX import, SQLite catalog, immutable replacement, drift blocking, type inference/profiles/preview, safe query compiler, and local 2–8-member dataset groups |
 | 3 | Active | Schema-only/synthetic disclosure, encrypted credentials, provider registry/selection/tests, strict natural-language query plans, exact disclosure preview, explicit approval, and bounded local Go execution; streaming/ledger/multi-dataset privacy remain |
-| 4 | Active | Dataset and group chat surfaces now generate reviewable single/multi-table plans and local results; persistence, artifacts, visualizations, tags, and reports remain |
+| 4 | Active | Dataset/group chat surfaces generate reviewable plans, local tables, and deterministic bar/time-series SVG charts; persistence, typed saved artifacts, tags, richer charts, and reports remain |
 | 5–7 | Pending | Must not be represented as shipped; follow the exit criteria above |
 
 The Stage 2 slice is exercised through Go integration tests and `npm run smoke:data-core`. Remaining Stage 2 work is interactive drift mapping, richer profiling, validation, multi-dataset relationships/joins, deletion, and export.

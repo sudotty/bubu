@@ -17,6 +17,7 @@ const requiredFiles = [
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
   "docs/plans/2026-07-17-electron-migration-implementation.md",
   "docs/product/importing-data.md",
+  "docs/product/querying-and-visualizations.md",
 ];
 
 for (const path of requiredFiles) {
@@ -104,6 +105,9 @@ for (const required of [
   "bounded-lookup-joins: implemented",
   "group-natural-language-query-planning: implemented",
   "group-query-approval: implemented",
+  "local-result-visualizations: implemented",
+  "bar-chart: implemented",
+  "time-series-chart: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

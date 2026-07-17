@@ -4,6 +4,7 @@ import type {
   GroupQueryPlanProposal,
   SafeGroupQueryResult,
 } from "../shared/product-api.js";
+import { ResultVisualization } from "./ResultVisualization.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -129,14 +130,17 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
         </article>
       )}
 
-      {result && <article className="query-result">
+      {result && <>
+      <article className="query-result">
         <header className="preview-header"><div><p className="hero-kicker">LOCAL JOIN RESULT</p><h3>关联结果</h3></div><span>{result.rows.length} 行{result.truncated ? " · 已截断" : ""}</span></header>
         <div className="table-scroll"><table>
           <thead><tr>{result.columns.map((column) => <th key={column.label}>{resultLabel(group, column.label)}<small>{column.type}</small></th>)}</tr></thead>
           <tbody>{result.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}</tbody>
         </table></div>
         {result.rows.length === 0 && <p className="empty-copy">这个关联计划没有找到匹配的数据。</p>}
-      </article>}
+      </article>
+      <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "群组查询结果"} />
+      </>}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
         <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>

@@ -198,6 +198,17 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .join-tree strong { color: #8a6d3d; }
 .group-disclosure-source { margin-top: 14px; }
 .group-disclosure-source h5 { margin: 0 0 8px; }
+.result-visualization { overflow: hidden; margin: 0; padding: 18px; border: 1px solid #dcd4c6; border-radius: 16px; background: #fffdf9; }
+.result-visualization figcaption { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.result-visualization h4 { margin: 0; }
+.result-visualization figcaption > span, .result-visualization > small { font-size: 11px; color: #777168; }
+.result-visualization svg { display: block; width: 100%; max-height: 320px; margin-top: 10px; overflow: visible; }
+.chart-axis { stroke: #bdb4a7; stroke-width: 1; }
+.chart-bar { fill: #ba8848; }
+.chart-line { fill: none; stroke: #9b6c35; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.chart-point { fill: #fffdf9; stroke: #9b6c35; stroke-width: 3; }
+.chart-label { fill: #6e675e; font-size: 10px; }
+.chart-value-label { fill: #91887c; font-size: 9px; }
 
 @media (max-width: 1040px) {
   .shell { grid-template-columns: 60px 250px minmax(0, 1fr); }
