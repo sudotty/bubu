@@ -2,12 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   DatasetGroup,
   DatasetPreview,
+  DatasetReplacementMappingInput,
+  DatasetReplacementSelectionResult,
   DatasetSummary,
   ProductReadiness,
 } from "../shared/product-api.js";
 import { ProviderSettings } from "./ProviderSettings.js";
 import { DatasetAnalysis } from "./DatasetAnalysis.js";
 import { DatasetGroupWorkspace } from "./DatasetGroupWorkspace.js";
+import { SchemaMappingPanel } from "./SchemaMappingPanel.js";
+
+type MappingRequired = Extract<DatasetReplacementSelectionResult, { readonly status: "mapping-required" }>;
 
 type ReadinessState =
   | { readonly kind: "loading" }
@@ -45,6 +50,7 @@ export function App() {
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
+  const [pendingMapping, setPendingMapping] = useState<MappingRequired>();
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
 
@@ -90,6 +96,10 @@ export function App() {
     return () => {
       active = false;
     };
+  }, [selectedDatasetId]);
+
+  useEffect(() => {
+    setPendingMapping(undefined);
   }, [selectedDatasetId]);
 
   const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
@@ -144,21 +154,42 @@ export function App() {
             : undefined,
           result.drift.reordered ? "列顺序发生变化" : undefined,
         ].filter((value): value is string => value !== undefined);
-        setNotice(`没有覆盖当前数据。新文件需要列映射（${details.join("；")}）。`);
+        setPendingMapping(result);
+        setNotice(`没有覆盖当前数据。请确认列映射（${details.join("；")}）。`);
         return;
       }
-      const [nextDatasets, nextPreview, nextGroups] = await Promise.all([
-        window.bubu.datasets.list(),
-        window.bubu.datasets.preview({ datasetId: result.dataset.id, limit: 50, offset: 0 }),
-        window.bubu.datasetGroups.list(),
-      ]);
-      setDatasets(nextDatasets);
-      setGroups(nextGroups);
-      setSelectedDatasetId(result.dataset.id);
-      setPreview({ kind: "loaded", value: nextPreview });
-      setNotice(`已创建版本 ${result.dataset.version}，旧版本仍保留在本地。`);
+      await activateReplacement(result.dataset);
     } catch (error) {
       setNotice(messageFrom(error));
+    } finally {
+      setReplacing(false);
+    }
+  }
+
+  async function activateReplacement(dataset: DatasetSummary) {
+    const [nextDatasets, nextPreview, nextGroups] = await Promise.all([
+      window.bubu.datasets.list(),
+      window.bubu.datasets.preview({ datasetId: dataset.id, limit: 50, offset: 0 }),
+      window.bubu.datasetGroups.list(),
+    ]);
+    setDatasets(nextDatasets);
+    setGroups(nextGroups);
+    setSelectedDatasetId(dataset.id);
+    setPreview({ kind: "loaded", value: nextPreview });
+    setPendingMapping(undefined);
+    setNotice(`已创建版本 ${dataset.version}，旧版本仍保留在本地。`);
+  }
+
+  async function applyReplacementMapping(input: DatasetReplacementMappingInput) {
+    setReplacing(true);
+    setNotice(undefined);
+    setPendingMapping(undefined);
+    try {
+      const result = await window.bubu.datasets.applyReplacementMapping(input);
+      if (result.status !== "replaced") throw new Error("映射没有生成新的数据版本，请重新选择文件");
+      await activateReplacement(result.dataset);
+    } catch (error) {
+      setNotice(`${messageFrom(error)}。映射会话已结束，请重新选择替换文件。`);
     } finally {
       setReplacing(false);
     }
@@ -296,7 +327,10 @@ export function App() {
               dataset={selectedDataset}
               preview={preview}
               replacing={replacing}
+              pendingMapping={pendingMapping}
               onReplace={() => void replaceFile(selectedDataset.id)}
+              onApplyMapping={(input) => void applyReplacementMapping(input)}
+              onCancelMapping={() => setPendingMapping(undefined)}
             />
           )}
         </div>
@@ -354,12 +388,18 @@ function DatasetWorkspace({
   dataset,
   preview,
   replacing,
+  pendingMapping,
   onReplace,
+  onApplyMapping,
+  onCancelMapping,
 }: {
   readonly dataset: DatasetSummary;
   readonly preview: PreviewState;
   readonly replacing: boolean;
+  readonly pendingMapping: MappingRequired | undefined;
   readonly onReplace: () => void;
+  readonly onApplyMapping: (input: DatasetReplacementMappingInput) => void;
+  readonly onCancelMapping: () => void;
 }) {
   return (
     <>
@@ -380,6 +420,16 @@ function DatasetWorkspace({
           </button>
         </div>
       </section>
+
+      {pendingMapping && (
+        <SchemaMappingPanel
+          key={pendingMapping.replacementToken}
+          request={pendingMapping}
+          busy={replacing}
+          onApply={onApplyMapping}
+          onCancel={onCancelMapping}
+        />
+      )}
 
       {preview.kind === "loading" && <div className="preview-state">正在读取本地预览与列画像…</div>}
       {preview.kind === "failed" && <div className="preview-state error-text">{preview.message}</div>}

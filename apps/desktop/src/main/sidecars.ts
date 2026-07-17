@@ -19,6 +19,7 @@ import {
   parseSafeQueryResult,
   parseServiceHealth,
   type DatasetImportResult,
+  type ColumnMapping,
   type DatasetGroup,
   type DatasetGroupSaveInput,
   type DatasetPreview,
@@ -99,6 +100,16 @@ class DataCoreClient implements RuntimeClient {
   async replaceFile(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult> {
     return parseDatasetReplacementResult(
       await this.#broker.request("dataset.replace", { datasetId: datasetID, sourcePath }),
+    );
+  }
+
+  async replaceFileWithMapping(
+    datasetID: string,
+    sourcePath: string,
+    mappings: readonly ColumnMapping[],
+  ): Promise<DatasetReplacementResult> {
+    return parseDatasetReplacementResult(
+      await this.#broker.request("dataset.replace.mapped", { datasetId: datasetID, sourcePath, mappings }),
     );
   }
 
@@ -221,6 +232,11 @@ export interface SidecarSupervisor {
   listDatasets(): Promise<readonly DatasetSummary[]>;
   previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
   replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
+  replaceDatasetWithMapping(
+    datasetID: string,
+    sourcePath: string,
+    mappings: readonly ColumnMapping[],
+  ): Promise<DatasetReplacementResult>;
   modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
@@ -261,6 +277,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     listDatasets: () => dataCore.listDatasets(),
     previewDataset: (request) => dataCore.preview(request),
     replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),
+    replaceDatasetWithMapping: (datasetID, sourcePath, mappings) =>
+      dataCore.replaceFileWithMapping(datasetID, sourcePath, mappings),
     modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
     generateModel: (invocation) => aiRuntime.generate(invocation),
     executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),

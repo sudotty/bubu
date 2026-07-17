@@ -34,7 +34,7 @@ capabilities:
   dataset-versioning: in-progress
   same-schema-replacement: implemented
   schema-drift-detection: implemented
-  schema-drift-mapping: planned
+  schema-drift-mapping: implemented
   column-profiling-baseline: implemented
   profiling: in-progress
   validation: planned

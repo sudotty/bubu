@@ -8,6 +8,8 @@ import type {
   DatasetPreview,
   DatasetPreviewRequest,
   DatasetReplacementResult,
+  DatasetReplacementMappingInput,
+  DatasetReplacementSelectionResult,
   DatasetSummary,
   GroupQueryPlanProposal,
   GroupQueryRequest,
@@ -29,6 +31,7 @@ export const desktopChannels = {
   listDatasets: "bubu:datasets:list",
   previewDataset: "bubu:datasets:preview",
   replaceDataset: "bubu:datasets:replace",
+  applyReplacementMapping: "bubu:datasets:apply-replacement-mapping",
   listProviders: "bubu:providers:list",
   saveProvider: "bubu:providers:save",
   selectProvider: "bubu:providers:select",
@@ -43,10 +46,6 @@ export const desktopChannels = {
   executeGroupQueryPlan: "bubu:analysis:execute-group-query-plan",
   getConversation: "bubu:conversations:get",
 } as const;
-
-export type DatasetReplacementSelectionResult =
-  | DatasetReplacementResult
-  | { readonly status: "cancelled" };
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
 export type DesktopServiceStatus = "ready" | "degraded" | "unavailable";
@@ -73,6 +72,7 @@ export interface BuBuDesktopApi {
     list(): Promise<readonly DatasetSummary[]>;
     preview(request: DatasetPreviewRequest): Promise<DatasetPreview>;
     replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
+    applyReplacementMapping(value: DatasetReplacementMappingInput): Promise<DatasetReplacementResult>;
   };
   readonly providers: {
     list(): Promise<ProviderRegistryState>;
@@ -109,6 +109,8 @@ export type {
   DatasetPreview,
   DatasetPreviewRequest,
   DatasetReplacementResult,
+  DatasetReplacementMappingInput,
+  DatasetReplacementSelectionResult,
   DatasetSummary,
   GroupQueryPlanProposal,
   GroupQueryRequest,

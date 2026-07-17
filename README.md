@@ -9,14 +9,14 @@ The product interaction treats a dataset as a contact and a dataset group as a g
 The repository is migrating from the historical Wails prototype to a hardened Electron product:
 
 - Implemented: Electron 43 secure shell, sandboxed React renderer, typed preload API, supervised Node AI utility process, Go data-core sidecar, authenticated versioned RPC, packaging, and packaged smoke verification.
-- Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable same-schema replacement versions, schema-drift blocking, bounded previews, type inference, and baseline column profiles.
+- Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable replacement versions, schema-drift blocking and interactive one-to-one column mapping, bounded previews, type inference, and baseline column profiles.
 - Implemented: schema-only/synthetic model context, a local provider registry, OS-encrypted write-only credentials, active-model selection, connection tests, and bounded OpenAI, Anthropic, Gemini, compatible, and Ollama adapters.
 - Implemented: single-dataset natural-language planning with an exact disclosure preview, explicit user approval, a no-raw-SQL typed plan, and bounded local execution in Go.
 - Implemented: local data groups with 2–8 current dataset contacts, create/edit/delete UI, stable member order, and no raw-data copying.
 - Implemented: natural-language group lookup/join plans, connected-tree enforcement, unique right-side lookup keys, disclosure review, explicit approval, and bounded local multi-table execution.
 - Implemented: deterministic local bar/time-series visualizations for numeric query results, with no result round-trip to a model and a 20-point readability bound.
 - Implemented: append-only local dataset/group conversation history for typed questions, disclosure-bound plans, bounded results, and errors, restored after restart.
-- In progress: interactive drift mapping, richer quality profiles, validation, relationships, deletion, and export.
+- In progress: richer quality profiles, validation, relationships, deletion, and export.
 - Not complete yet: richer charts and reports, full privacy usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
