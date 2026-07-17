@@ -1,0 +1,49 @@
+# macOS and editor metadata
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+
+# JavaScript
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+out/
+.cache/
+
+# Go and desktop build output
+bin/
+build/bin/
+apps/desktop/.vite/
+apps/desktop/out/
+services/data-core/bubu-data-core
+services/data-core/bin/*
+!services/data-core/bin/.gitkeep
+bubu-bi/bubu-bi
+output/
+
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+config.yaml
+**/config.yaml
+!**/config.example.yaml
+
+# User data and runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+uploads/
+**/uploads/
+downloads/
+**/downloads/
+logs/
+**/logs/
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
