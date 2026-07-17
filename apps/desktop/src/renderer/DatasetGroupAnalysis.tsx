@@ -120,7 +120,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
           </div>
           <details className="disclosure-preview">
             <summary>查看所有发送给模型的结构与合成示例</summary>
-            <p>成员显示名称只在本地帮助你阅读。模型收到的是按 1–{proposal.disclosedContexts.length} 编号的列结构和合成示例，不含文件名、预览行或画像值。</p>
+            <p>成员显示名称只在本地帮助你阅读。模型收到的是按 1–{proposal.disclosedContexts.length} 编号的列结构、合成示例，以及 {proposal.disclosedRelationships.length} 条已保存且当前有效的列关系；不含文件名、预览行或画像值。</p>
             {proposal.disclosedContexts.map((context, sourceIndex) => (
               <section className="group-disclosure-source" key={context.datasetId}>
                 <h5>{sourceIndex + 1}. {sourceLabel(group, sourceIndex)}</h5>

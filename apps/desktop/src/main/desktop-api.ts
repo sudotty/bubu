@@ -6,6 +6,7 @@ import {
   parseDatasetId,
   parseDatasetReplacementMappingInput,
   parseDatasetValidationSaveInput,
+  parseDatasetRelationshipSaveInput,
   parseDatasetPreviewRequest,
   parseConversationTarget,
   parseGroupQueryRequest,
@@ -15,6 +16,7 @@ import {
   parseQueryPlanRequest,
   parseSafeGroupQueryPlan,
   parseSafeQueryPlan,
+  parseRelationshipId,
   type ConversationThread,
 } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
@@ -23,6 +25,7 @@ import {
   buildQueryPlanInvocation,
   createGroupQueryPlanProposal,
   createQueryPlanProposal,
+  relationshipHintsForGroup,
 } from "./analysis-orchestrator.js";
 import type { ProviderStore } from "./provider-store.js";
 import { isTrustedFrameUrl } from "./security.js";
@@ -247,18 +250,24 @@ export function registerDesktopApi({
       if (!group) throw new Error("数据群组不存在");
       const activeProviderId = providerStore.state().activeProviderId;
       if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
-      const contexts = await Promise.all(
-        group.members.map(({ id }) => sidecars.modelContext(id, "schema-synthetic")),
+      const [contexts, relationshipOverview] = await Promise.all([
+        Promise.all(group.members.map(({ id }) => sidecars.modelContext(id, "schema-synthetic"))),
+        sidecars.getGroupRelationships(group.id),
+      ]);
+      const relationshipHints = relationshipHintsForGroup(
+        group.members.map(({ id }) => id),
+        relationshipOverview.relationships,
       );
       const completion = await sidecars.generateModel(
         buildGroupQueryPlanInvocation(
           providerStore.resolve(activeProviderId),
           group.id,
           contexts,
+          relationshipHints,
           request.question,
         ),
       );
-      const proposal = createGroupQueryPlanProposal(request.question, contexts, completion);
+      const proposal = createGroupQueryPlanProposal(request.question, contexts, relationshipHints, completion);
       await sidecars.appendConversation({
         target,
         entry: { kind: "plan", role: "assistant", payload: { proposal } },
@@ -291,5 +300,17 @@ export function registerDesktopApi({
   ipcMain.handle(desktopChannels.getConversation, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     return sidecars.getConversation(parseConversationTarget(value));
+  });
+  ipcMain.handle(desktopChannels.getGroupRelationships, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.getGroupRelationships(parseDatasetGroupId(value));
+  });
+  ipcMain.handle(desktopChannels.saveDatasetRelationship, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.saveDatasetRelationship(parseDatasetRelationshipSaveInput(value));
+  });
+  ipcMain.handle(desktopChannels.removeDatasetRelationship, async (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    await sidecars.deleteDatasetRelationship(parseRelationshipId(value));
   });
 }

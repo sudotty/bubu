@@ -214,6 +214,20 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .group-member-option small { color: #777168; }
 .group-actions { display: flex; gap: 9px; }
 .group-actions .primary-action { margin-top: 0; }
+.relationship-panel { overflow: hidden; border: 1px solid #ded8cc; border-radius: 18px; background: #fffdf9; }
+.relationship-panel > p, .relationship-panel > .notice, .relationship-list, .relationship-candidates, .manual-relationship { margin-right: 20px; margin-left: 20px; }
+.relationship-list { display: grid; gap: 8px; margin-bottom: 18px; }
+.relationship-row { display: grid; grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr) auto auto; align-items: center; gap: 9px; padding: 10px; border-radius: 11px; background: #edf5ef; }
+.relationship-invalid { background: #f6e4df; }
+.relationship-row small { color: #716a60; }
+.relationship-row button { border: 0; color: #914c39; background: transparent; cursor: pointer; }
+.relationship-candidates { margin-bottom: 18px; padding: 14px; border-radius: 12px; background: #f3f0e9; }
+.relationship-candidates h4, .manual-relationship h4 { margin: 0 0 10px; }
+.relationship-candidates button { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; width: 100%; padding: 9px; border: 0; border-bottom: 1px solid #dfd9ce; text-align: left; color: inherit; background: transparent; cursor: pointer; }
+.relationship-candidates small { grid-column: 1 / -1; color: #777168; }
+.manual-relationship { margin-bottom: 20px; padding-top: 16px; border-top: 1px solid #e5e0d6; }
+.relationship-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)) auto repeat(2, minmax(120px, 1fr)) auto; align-items: center; gap: 8px; }
+.relationship-editor-grid select { min-width: 0; padding: 9px; border: 1px solid #d9d3c8; border-radius: 9px; background: #faf8f3; }
 .group-analysis { margin-top: 0; }
 .group-source-order { display: flex; flex-wrap: wrap; gap: 8px; }
 .group-source-order span { display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; font-size: 11px; color: #655b4e; background: #e7e0d5; }

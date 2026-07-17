@@ -16,6 +16,8 @@ import {
   type DatasetGroupSaveInput,
   type DatasetSummary,
   type DatasetValidationSaveInput,
+  type DatasetRelationship,
+  type DatasetRelationshipSaveInput,
   type ProviderConfigurationInput,
   type ProviderConnectionResult,
   type ProviderId,
@@ -26,6 +28,7 @@ import {
   type SafeQueryResult,
   type ProductReadiness,
   type GroupQueryPlanProposal,
+  type GroupRelationshipOverview,
   type GroupQueryRequest,
   type SafeGroupQueryPlan,
   type SafeGroupQueryResult,
@@ -84,6 +87,14 @@ const desktopApi: BuBuDesktopApi = {
   conversations: {
     get: (target: ConversationTarget) =>
       ipcRenderer.invoke(desktopChannels.getConversation, target) as Promise<ConversationThread | null>,
+  },
+  datasetRelationships: {
+    overview: (groupId: DatasetGroupId) =>
+      ipcRenderer.invoke(desktopChannels.getGroupRelationships, groupId) as Promise<GroupRelationshipOverview>,
+    save: (value: DatasetRelationshipSaveInput) =>
+      ipcRenderer.invoke(desktopChannels.saveDatasetRelationship, value) as Promise<DatasetRelationship>,
+    remove: (relationshipId: string) =>
+      ipcRenderer.invoke(desktopChannels.removeDatasetRelationship, relationshipId) as Promise<void>,
   },
 };
 

@@ -64,6 +64,9 @@ type DatasetService interface {
 	SaveGroup(ctx context.Context, groupID string, name string, datasetIDs []string) (data.DatasetGroup, error)
 	ListGroups(ctx context.Context) ([]data.DatasetGroup, error)
 	DeleteGroup(ctx context.Context, groupID string) error
+	GetGroupRelationships(ctx context.Context, groupID string) (data.GroupRelationshipOverview, error)
+	SaveRelationship(ctx context.Context, input data.DatasetRelationshipSaveInput) (data.DatasetRelationship, error)
+	DeleteRelationship(ctx context.Context, relationshipID string) error
 	GetConversation(ctx context.Context, target data.ConversationTarget) (*data.ConversationThread, error)
 	AppendConversationEntry(ctx context.Context, input data.ConversationAppendInput) (*data.ConversationThread, error)
 	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
@@ -95,6 +98,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"privacy-context",
 				"safe-query-plan",
 				"dataset-groups",
+				"reusable-relationships",
 				"local-conversations",
 			}
 		}
@@ -219,6 +223,35 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		}
 		if err := datasets.DeleteGroup(ctx, groupID); err != nil {
 			return failure(request.ID, "GROUP_DELETE_FAILED", err.Error(), false)
+		}
+		return success(request.ID, map[string]bool{"deleted": true})
+	case "dataset.group.relationships":
+		groupID, ok := stringParam(request.Params, "groupId")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "groupId is required", false)
+		}
+		result, err := datasets.GetGroupRelationships(ctx, groupID)
+		if err != nil {
+			return failure(request.ID, "RELATIONSHIP_ACCESS_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.relationship.save":
+		input, ok := objectParam[data.DatasetRelationshipSaveInput](request.Params, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "input must be a strict directional relationship", false)
+		}
+		result, err := datasets.SaveRelationship(ctx, input)
+		if err != nil {
+			return failure(request.ID, "RELATIONSHIP_SAVE_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.relationship.delete":
+		relationshipID, ok := stringParam(request.Params, "id")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "relationship id is required", false)
+		}
+		if err := datasets.DeleteRelationship(ctx, relationshipID); err != nil {
+			return failure(request.ID, "RELATIONSHIP_DELETE_FAILED", err.Error(), false)
 		}
 		return success(request.ID, map[string]bool{"deleted": true})
 	case "dataset.group.query.execute":

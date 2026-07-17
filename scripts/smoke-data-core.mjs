@@ -14,6 +14,8 @@ import {
   parseDatasetPreview,
   parseDatasetReplacementResult,
   parseDatasetQualityReport,
+  parseDatasetRelationship,
+  parseGroupRelationshipOverview,
   parseModelContext,
   parseRpcResponse,
   parseSafeQueryResult,
@@ -235,6 +237,26 @@ try {
   if (groups.length !== 1 || group.members.length !== 2 || groups[0]?.id !== group.id) {
     throw new Error("Dataset group was not persisted with two current members");
   }
+  const relationshipDiscovery = parseGroupRelationshipOverview(
+    await request("dataset.group.relationships", { groupId: group.id }),
+  );
+  const lookupCandidate = relationshipDiscovery.candidates.find(({ left, right }) =>
+    left.datasetId === dataset.id && right.datasetId === targetImport.datasets[0].id,
+  );
+  if (!lookupCandidate) {
+    throw new Error("Local relationship discovery did not find the unique right-side Region key");
+  }
+  const savedRelationship = parseDatasetRelationship(
+    await request("dataset.relationship.save", {
+      input: { left: lookupCandidate.left, right: lookupCandidate.right },
+    }),
+  );
+  const relationshipOverview = parseGroupRelationshipOverview(
+    await request("dataset.group.relationships", { groupId: group.id }),
+  );
+  if (savedRelationship.status !== "ready" || relationshipOverview.relationships.length !== 1) {
+    throw new Error("Reusable dataset relationship was not persisted as ready");
+  }
   const groupQueryResult = parseSafeGroupQueryResult(
     await request("dataset.group.query.execute", {
       plan: {
@@ -328,7 +350,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, reusable relationships, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

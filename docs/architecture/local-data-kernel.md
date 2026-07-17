@@ -49,6 +49,8 @@ Every imported dataset starts at version 1. Replacing a dataset with the same no
 
 `dataset_validation_rules` stores at most 100 ordered deterministic rules against stable logical column names. Reports always resolve the current ready version, derive bounded local findings from stored profiles, and execute required, uniqueness, numeric-range, RE2 pattern, and allow-list checks in the Go data core. Failure artifacts contain counts and at most 20 row numbers, never raw failing values. Rules survive compatible replacements and are deleted with their dataset contact.
 
+`dataset_relationships` stores directional many-to-one lookup semantics between stable dataset contacts and logical column names. Discovery is deterministic and bounded to 500 same-name candidates with compatible types and a non-empty, non-null, unique current right key. Saved relationships are reassessed against current versions on every group read. Invalid relationships remain visible but do not enter the model disclosure. Go query execution independently repeats its right-key and connected-tree validation.
+
 ## Safe analytical queries
 
 The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
@@ -79,7 +81,8 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Multi-table left lookup, post-join aggregation, hostile filters, stale/reordered membership, disconnected trees, and non-unique right-key rejection.
 - Architecture fitness rule that rejects whole-file CSV delimiter sampling.
 - Type-aware numeric profile bounds, deterministic quality findings, transactional validation-rule persistence, strict rule operands, and bounded failure samples.
+- Deterministic relationship discovery, directional persistence, current-version invalidation, strict RPC decoding, and schema-only ready-relationship model hints.
 
 ## Not implemented yet
 
-Richer distributions, reusable discovered relationships, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Richer distributions, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
