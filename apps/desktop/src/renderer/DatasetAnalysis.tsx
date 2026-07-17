@@ -198,6 +198,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
       )}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
+        <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。表格内容只自动发送列结构与本地合成示例。</p>
         <label className="sr-only" htmlFor={`question-${datasetId}`}>向这个数据联系人提问</label>
         <textarea
           id={`question-${datasetId}`}

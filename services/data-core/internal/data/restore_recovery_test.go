@@ -117,3 +117,32 @@ WHERE result_json IS NOT NULL`); err != nil {
 		t.Fatal("backup containing a forged workflow artifact was accepted")
 	}
 }
+
+func TestBackupValidationRejectsForgedModelAudit(t *testing.T) {
+	service, dataset := importQueryFixture(t)
+	if _, err := service.StartModelAudit(context.Background(), datasetModelAuditInput(dataset)); err != nil {
+		t.Fatal(err)
+	}
+	snapshotPath := filepath.Join(t.TempDir(), "forged-model-audit.db")
+	if _, err := service.database.ExecContext(context.Background(), "VACUUM main INTO ?", snapshotPath); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec("UPDATE model_disclosure_events SET payload_sha256 = 'not-a-digest'"); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := buildBackupManifest(context.Background(), snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBackupDatabase(context.Background(), snapshotPath, manifest); err == nil {
+		t.Fatal("backup containing a forged model audit was accepted")
+	}
+}

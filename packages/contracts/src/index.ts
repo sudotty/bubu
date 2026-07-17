@@ -15,3 +15,4 @@ export * from "./query-plan.js";
 export * from "./rpc.js";
 export * from "./visualization.js";
 export * from "./workflow.js";
+export * from "./model-audit.js";

@@ -215,6 +215,47 @@ CREATE INDEX workflow_step_runs_run_idx
 ON workflow_step_runs(run_id, ordinal, attempt);
 `,
 	},
+	{
+		version: 8,
+		sql: `
+CREATE TABLE model_disclosure_events (
+    id TEXT PRIMARY KEY,
+    purpose TEXT NOT NULL CHECK (purpose IN ('provider-connection-test', 'query-plan', 'group-query-plan')),
+    target_kind TEXT NOT NULL CHECK (target_kind IN ('system', 'dataset', 'group')),
+    target_id TEXT NOT NULL,
+    disclosure TEXT NOT NULL CHECK (disclosure IN ('none', 'schema-only', 'schema-synthetic')),
+    provider_id TEXT NOT NULL,
+    provider_kind TEXT NOT NULL CHECK (provider_kind IN ('openai', 'anthropic', 'gemini', 'openai-compatible', 'ollama')),
+    provider_name TEXT NOT NULL,
+    model TEXT NOT NULL,
+    endpoint_origin TEXT NOT NULL,
+    dataset_count INTEGER NOT NULL CHECK (dataset_count BETWEEN 0 AND 8),
+    column_count INTEGER NOT NULL CHECK (column_count BETWEEN 0 AND 2048),
+    synthetic_row_count INTEGER NOT NULL CHECK (synthetic_row_count BETWEEN 0 AND 40),
+    relationship_count INTEGER NOT NULL CHECK (relationship_count BETWEEN 0 AND 500),
+    payload_bytes INTEGER NOT NULL CHECK (payload_bytes BETWEEN 1 AND 250000),
+    estimated_input_tokens INTEGER NOT NULL CHECK (estimated_input_tokens BETWEEN 1 AND 250000),
+    max_output_tokens INTEGER NOT NULL CHECK (max_output_tokens BETWEEN 1 AND 32768),
+    payload_sha256 TEXT NOT NULL,
+    contains_raw_rows INTEGER NOT NULL CHECK (contains_raw_rows = 0),
+    started_at TEXT NOT NULL
+);
+
+CREATE TABLE model_disclosure_outcomes (
+    disclosure_id TEXT PRIMARY KEY REFERENCES model_disclosure_events(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('succeeded', 'failed', 'cancelled')),
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    total_tokens INTEGER,
+    output_bytes INTEGER NOT NULL CHECK (output_bytes BETWEEN 0 AND 10485760),
+    error TEXT,
+    finished_at TEXT NOT NULL
+);
+
+CREATE INDEX model_disclosure_events_started_idx
+ON model_disclosure_events(started_at DESC, id DESC);
+`,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

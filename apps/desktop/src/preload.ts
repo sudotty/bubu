@@ -44,6 +44,7 @@ import {
   type WorkflowDefinitionInput,
   type WorkflowRun,
   type WorkflowTarget,
+  type ModelAuditEvent,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -81,8 +82,8 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.selectProvider, providerId) as Promise<ProviderRegistryState>,
     remove: (providerId: ProviderId) =>
       ipcRenderer.invoke(desktopChannels.removeProvider, providerId) as Promise<ProviderRegistryState>,
-    test: (providerId: ProviderId) =>
-      ipcRenderer.invoke(desktopChannels.testProvider, providerId) as Promise<ProviderConnectionResult>,
+    test: (providerId: ProviderId, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.testProvider, { operationId, value: providerId }) as Promise<ProviderConnectionResult>,
   },
   dataProtection: {
     createBackup: (operationId: OperationId) =>
@@ -135,6 +136,10 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.runWorkflow, { operationId, value: workflowId }) as Promise<WorkflowRun>,
     runs: (workflowId: string) =>
       ipcRenderer.invoke(desktopChannels.listWorkflowRuns, workflowId) as Promise<readonly WorkflowRun[]>,
+  },
+  privacy: {
+    listModelAudits: () =>
+      ipcRenderer.invoke(desktopChannels.listModelAudits) as Promise<readonly ModelAuditEvent[]>,
   },
 };
 

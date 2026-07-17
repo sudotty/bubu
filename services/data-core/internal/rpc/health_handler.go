@@ -8,6 +8,8 @@ func handleHealth(request Request, datasets DatasetService) Response {
 			"deterministic-workflows",
 			"workflow-idempotency",
 			"workflow-checkpoints",
+			"model-disclosure-ledger",
+			"model-usage-accounting",
 			"sqlite",
 			"csv-import",
 			"xlsx-import",

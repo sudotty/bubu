@@ -174,6 +174,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
       </>}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
+        <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。群组数据只自动发送结构、合成示例和有效关系。</p>
         <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>
         <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} />
         <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>

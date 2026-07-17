@@ -40,6 +40,7 @@ import type {
   WorkflowDefinitionInput,
   WorkflowRun,
   WorkflowTarget,
+  ModelAuditEvent,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -78,6 +79,7 @@ export const desktopChannels = {
   deleteWorkflow: "bubu:workflows:delete",
   runWorkflow: "bubu:workflows:run",
   listWorkflowRuns: "bubu:workflows:runs-list",
+  listModelAudits: "bubu:privacy:model-audits-list",
 } as const;
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
@@ -117,7 +119,7 @@ export interface BuBuDesktopApi {
     save(value: ProviderConfigurationInput): Promise<ProviderRegistryState>;
     select(providerId: ProviderId): Promise<ProviderRegistryState>;
     remove(providerId: ProviderId): Promise<ProviderRegistryState>;
-    test(providerId: ProviderId): Promise<ProviderConnectionResult>;
+    test(providerId: ProviderId, operationId: OperationId): Promise<ProviderConnectionResult>;
   };
   readonly dataProtection: {
     createBackup(operationId: OperationId): Promise<DataBackupSelectionResult>;
@@ -151,6 +153,9 @@ export interface BuBuDesktopApi {
     delete(workflowId: string): Promise<void>;
     run(workflowId: string, operationId: OperationId): Promise<WorkflowRun>;
     runs(workflowId: string): Promise<readonly WorkflowRun[]>;
+  };
+  readonly privacy: {
+    listModelAudits(): Promise<readonly ModelAuditEvent[]>;
   };
 }
 
@@ -204,6 +209,7 @@ export type {
   WorkflowRun,
   WorkflowStepDefinition,
   WorkflowTarget,
+  ModelAuditEvent,
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,

@@ -30,6 +30,7 @@ Choose **从备份恢复**, select a `.bubu-backup`, then accept the native dest
 - migrations are contiguous and supported;
 - schema objects are allow-listed, physical data tables match version metadata, and no view or trigger exists;
 - workflow definitions, runs, and checkpoints obey their count, deadline, payload, and foreign-key bounds;
+- model disclosure ledger entries obey their data-free schema, request/usage budgets, provider/target identities, and lifecycle invariants;
 - every version is ready, group/conversation bounds hold, and no source locator was persisted;
 - manifest catalog counts match the restored database.
 

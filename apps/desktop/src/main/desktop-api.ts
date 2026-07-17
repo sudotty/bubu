@@ -28,6 +28,7 @@ import { registerBackupApi } from "./backup-api.js";
 import { createOperationRegistry } from "./operation-registry.js";
 import { registerAnalysisApi } from "./analysis-api.js";
 import { registerWorkflowApi } from "./workflow-api.js";
+import { generateAuditedModel } from "./model-audit.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -162,22 +163,34 @@ export function registerDesktopApi({
   });
   ipcMain.handle(desktopChannels.testProvider, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    const resolved = providerStore.resolve(parseProviderId(value));
-    const startedAt = Date.now();
-    const completion = await sidecars.generateModel({
-      provider: resolved.profile,
-      credential: resolved.credential,
-      system: "You are a connectivity check. Return a short confirmation.",
-      user: "Confirm that this model endpoint is reachable.",
-      maxOutputTokens: 16,
+    const envelope = parseOperationEnvelope(value);
+    const resolved = providerStore.resolve(parseProviderId(envelope.value));
+    return operations.run(envelope.operationId, async (signal) => {
+      const startedAt = Date.now();
+      const completion = await generateAuditedModel(sidecars, {
+        provider: resolved.profile,
+        credential: resolved.credential,
+        system: "You are a connectivity check. Return a short confirmation.",
+        user: "Confirm that this model endpoint is reachable.",
+        maxOutputTokens: 16,
+      }, {
+        purpose: "provider-connection-test",
+        target: { kind: "system" },
+        contexts: [],
+        relationshipCount: 0,
+      }, signal);
+      return parseProviderConnectionResult({
+        status: "connected",
+        providerId: completion.providerId,
+        providerKind: completion.providerKind,
+        model: completion.model,
+        latencyMs: Date.now() - startedAt,
+      });
     });
-    return parseProviderConnectionResult({
-      status: "connected",
-      providerId: completion.providerId,
-      providerKind: completion.providerKind,
-      model: completion.model,
-      latencyMs: Date.now() - startedAt,
-    });
+  });
+  ipcMain.handle(desktopChannels.listModelAudits, (event) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.listModelAudits();
   });
   ipcMain.handle(desktopChannels.listDatasetGroups, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

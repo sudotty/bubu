@@ -1,6 +1,6 @@
 # Privacy and model-provider boundary
 
-Status: Model context, provider configuration, encrypted credentials, transports, and connection tests are implemented. Approvals, audit, and safe query execution are still in progress.
+Status: Schema/synthetic model context, provider configuration, encrypted credentials, transports, connection tests, visible query approvals, bounded local execution, and the disclosure/usage ledger are implemented. Aggregate and explicit-row policies remain in progress.
 
 ## Non-disclosure path
 
@@ -40,17 +40,25 @@ The renderer can submit a new credential but the preload API has no credential-r
 
 Connection testing performs one bounded minimal generation request through the same adapter used by later conversations. Only provider identity, model, and latency return to the renderer. Neither stored credentials nor provider response bodies are included in renderer-facing errors.
 
+## Fail-closed disclosure and usage ledger
+
+Every provider connection test, single-dataset plan, and group plan passes through one audited model gateway in Electron main. Before provider I/O, that gateway hashes the exact system-plus-user payload and asks the Go data core to create a `started` event. If validation or persistence fails, the model request is not sent.
+
+The append-only local event records purpose, dataset/group/system target, disclosure level, provider ID/kind/name/model, endpoint origin, dataset/column/synthetic-row/relationship counts, request bytes, a conservative input-token estimate, output-token budget, SHA-256 request fingerprint, and the constant assertion `containsRawRows: false`. That assertion covers BuBu's automatic dataset disclosure; the user's question is necessarily sent verbatim, so both analysis composers warn against pasting sensitive rows or values into it. The event itself does not contain the question, system prompt, complete request, credential, provider response, model text, filenames, source paths, preview rows, or local query results. Base URL user information, path, query, and fragment are absent because only its HTTP(S) origin is retained.
+
+After the bounded provider request, the gateway appends exactly one immutable outcome containing `succeeded`, `failed`, or `cancelled`, response byte count, provider-reported token usage when available, bounded safe error text, and finish time. Request summaries and outcomes are separate tables; no code path updates an existing disclosure row, and the outcome primary key prevents terminal history from being overwritten. A failure to create the starting audit blocks provider I/O. A failure to append the outcome discards a successful completion from the product path and leaves the visible `started` evidence for recovery. On the next data-core startup, recovery appends failure outcomes for interrupted requests. The newest 100 entries are visible under **模型设置 → 模型隐私账本**; the local database retains up to 100,000 and backup/restore validates the complete data-free event schema.
+
 ## Natural-language query approval
 
 For one-dataset analysis, Electron main obtains the schema plus three generated examples from Go and sends exactly that envelope together with the user's question. The model must return one strict JSON query plan and cannot return SQL. The proposal is cryptographically untrusted: its dataset/version identity must equal the disclosed immutable context, and Go validates it again before execution.
 
-The renderer shows the plan's purpose, dimensions, measures, filters, limit, and the complete context disclosure. No local query runs until the user selects **批准并在本地执行**. Execution returns at most 200 rows and does not make a second model request, so query results remain local. Persisted approvals, aggregate/row disclosure to a model, and the append-only usage ledger are still pending.
+The renderer shows the plan's purpose, dimensions, measures, filters, limit, and the complete context disclosure. No local query runs until the user selects **批准并在本地执行**. Execution returns at most 200 rows and does not make a second model request, so query results remain local. Persisted approval identities and aggregate/row disclosure to a model are still pending.
 
 Group analysis applies the same rule to 2–8 ordered contexts. Member display names remain local; the model sees numbered sources. Its plan must build a connected equality-join tree and place only a non-null unique lookup key on every right side. The renderer shows the entire join tree and every disclosed context before approval. Go independently checks group membership/version order, columns, uniqueness, operations, filters, and result limits.
 
 ## Deliberately unavailable
 
-Streaming events, cancellation, usage ledger, aggregate/row disclosure approvals, multi-dataset planning, and fallback routing remain required for the full conversation product. The single-dataset planner and local execution approval are enabled; the end-to-end privacy gateway remains `in-progress` until usage/audit and all higher disclosure levels are enforced.
+Streaming events, aggregate/row disclosure approvals, policy classification, cost tables, and fallback routing remain required for the full conversation product. Cancellation, single/group planning, local execution approval, and data-free usage audit are enabled; the end-to-end privacy gateway remains `in-progress` until all higher disclosure levels are enforced.
 
 ## Official protocol inputs
 

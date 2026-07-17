@@ -67,6 +67,10 @@ capabilities:
   privacy-gateway: in-progress
   model-context-boundary: implemented
   synthetic-examples: implemented
+  fail-closed-model-audit: implemented
+  append-only-model-disclosure-ledger: implemented
+  provider-usage-accounting: implemented
+  crash-recovered-model-audits: implemented
   safe-query-plan: implemented
   natural-language-query-planning: implemented
   visible-query-approval: implemented
