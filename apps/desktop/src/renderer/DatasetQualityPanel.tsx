@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DatasetQualityReport, ValidationRule } from "../shared/product-api.js";
+import { ColumnDistributionPanel } from "./ColumnDistributionPanel.js";
 
 type QualityState =
   | { readonly kind: "loading" }
@@ -175,6 +176,12 @@ export function DatasetQualityPanel({
           ))}</tbody>
         </table>
       </div>
+
+      <ColumnDistributionPanel
+        datasetId={datasetId}
+        versionId={versionId}
+        columns={report.columns}
+      />
 
       <div className="rule-editor">
         <h4>确定性校验规则</h4>

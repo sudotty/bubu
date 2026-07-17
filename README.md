@@ -20,7 +20,8 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: deterministic same-name relationship discovery, manually defined directional lookup relations, current-version validity checks, and schema-only model hints.
 - Implemented: native-path-private streaming CSV export with UTF-8/Excel formula hardening, plus confirmed permanent deletion of all versions and dependent local state with automatic group repair.
 - Implemented: path-private consistent local data backups and destructive restore with strict container/hash/schema/privacy validation, rollback, and interrupted-swap startup recovery.
-- In progress: richer distributions, cancellation, and reference-device performance evidence.
+- Implemented: on-demand local-only column exploration with 10-bin numeric histograms, means/ranges, and bounded categorical Top values that never enter model context.
+- In progress: operation cancellation and reference-device performance evidence.
 - Not complete yet: richer charts and reports, full privacy usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.

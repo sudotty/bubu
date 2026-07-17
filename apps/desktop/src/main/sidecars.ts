@@ -9,6 +9,7 @@ import {
   parseDatasetDeletionResult,
   parseDataBackupResult,
   parseDataRestoreResult,
+  parseColumnDistribution,
   parseDatasetGroup,
   parseDatasetGroupDeletionResult,
   parseDatasetGroupList,
@@ -31,6 +32,8 @@ import {
   type DatasetDeletionResult,
   type DataBackupResult,
   type DataRestoreResult,
+  type ColumnDistribution,
+  type ColumnDistributionRequest,
   type ColumnMapping,
   type DatasetGroup,
   type DatasetGroupSaveInput,
@@ -157,6 +160,12 @@ class DataCoreClient implements RuntimeClient {
   async quality(datasetID: string): Promise<DatasetQualityReport> {
     return parseDatasetQualityReport(
       await this.#broker.request("dataset.quality.get", { datasetId: datasetID }),
+    );
+  }
+
+  async distribution(request: ColumnDistributionRequest): Promise<ColumnDistribution> {
+    return parseColumnDistribution(
+      await this.#broker.request("dataset.distribution.get", request),
     );
   }
 
@@ -313,6 +322,7 @@ export interface SidecarSupervisor {
     mappings: readonly ColumnMapping[],
   ): Promise<DatasetReplacementResult>;
   getDatasetQuality(datasetID: string): Promise<DatasetQualityReport>;
+  getColumnDistribution(request: ColumnDistributionRequest): Promise<ColumnDistribution>;
   saveDatasetValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
   getGroupRelationships(groupID: string): Promise<GroupRelationshipOverview>;
   saveDatasetRelationship(input: DatasetRelationshipSaveInput): Promise<DatasetRelationship>;
@@ -364,6 +374,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     replaceDatasetWithMapping: (datasetID, sourcePath, mappings) =>
       dataCore.replaceFileWithMapping(datasetID, sourcePath, mappings),
     getDatasetQuality: (datasetID) => dataCore.quality(datasetID),
+    getColumnDistribution: (request) => dataCore.distribution(request),
     saveDatasetValidation: (input) => dataCore.saveValidation(input),
     getGroupRelationships: (groupID) => dataCore.groupRelationships(groupID),
     saveDatasetRelationship: (input) => dataCore.saveRelationship(input),

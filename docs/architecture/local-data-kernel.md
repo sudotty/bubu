@@ -55,6 +55,8 @@ CSV export resolves the current ready version and streams it to a same-directory
 
 Local backup uses `VACUUM INTO` to create a consistent standalone snapshot, then streams it into a strict two-entry `.bubu-backup` container with a SHA-256-bound manifest. Restore stages and validates the complete artifact before closing the live connection. It rejects unknown schema objects, views/triggers, invalid migrations or foreign keys, incomplete versions, persisted source locators, and bounded-state violations. Installation keeps the prior database under a restricted rollback name until the restored database opens and migrates successfully; startup also repairs an interrupted swap.
 
+Column distribution profiling is lazy and one-column-at-a-time. Numeric columns use a local mean plus at most ten equal-width bins; categorical columns return at most ten groups, bounded 120-rune display previews, and an aggregate remainder count. The response is marked `localOnly: true` and is not accepted by either single/group model-context construction. This prevents richer local exploration from becoming an implicit raw-value disclosure channel.
+
 ## Safe analytical queries
 
 The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
@@ -89,7 +91,8 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Streaming current-version CSV export, UTF-8/Excel formula hardening, restricted file permissions, path-private typed results, and built-sidecar smoke.
 - Transactional permanent deletion of all version tables and dependent private state, bounded group repair, native destructive confirmation, and integration tests.
 - Consistent local snapshot archive, strict hash/schema/privacy restore validation, destructive native confirmation, database rollback, interrupted-swap recovery, and round-trip integration/binary smoke.
+- On-demand numeric/categorical distributions, deterministic ordering, bounded/sanitized value previews, explicit local-only contracts, UI exploration, and binary smoke.
 
 ## Not implemented yet
 
-Richer distributions, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Operation cancellation and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
