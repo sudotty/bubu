@@ -1,4 +1,5 @@
 export * from "./dataset.js";
+export * from "./dataset-group.js";
 export * from "./health.js";
 export * from "./privacy.js";
 export * from "./provider.js";

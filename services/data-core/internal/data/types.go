@@ -39,6 +39,14 @@ type ImportResult struct {
 	Datasets []DatasetSummary `json:"datasets"`
 }
 
+type DatasetGroup struct {
+	ID        string           `json:"id"`
+	Name      string           `json:"name"`
+	Members   []DatasetSummary `json:"members"`
+	CreatedAt string           `json:"createdAt"`
+	UpdatedAt string           `json:"updatedAt"`
+}
+
 type ReplacementStatus string
 
 const (

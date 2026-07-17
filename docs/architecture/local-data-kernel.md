@@ -41,6 +41,8 @@ flowchart LR
 
 `schema_migrations` records monotonic migrations. `datasets` is the stable contact identity. `dataset_versions` records immutable materializations and points to a validated internal table name. `dataset_columns` stores ordered semantic names, physical names, inferred types, nullability, null count, distinct count, and lexical minimum/maximum.
 
+`dataset_groups` stores a local group identity and label. `dataset_group_members` stores an ordered relationship to 2–8 stable dataset contacts, not a row copy or pinned SQLite table. Reading a group resolves every contact's current ready immutable version; replacing a member therefore updates what the group sees without mutating historical versions. Foreign keys delete orphan membership automatically while group deletion never deletes a dataset.
+
 Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping for that drift remains unavailable.
 
 ## Safe analytical queries
@@ -64,6 +66,7 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - CSV, TSV, multi-sheet XLSX, header normalization, type inference, and leading-zero preservation.
 - Transaction rollback for malformed rows and for an entire multi-file selection.
 - Same-schema replacement, monotonic version numbers, schema-drift blocking, and migration from the version-1 catalog.
+- Transactional create/update/delete and current-version resolution for ordered local dataset groups.
 - Catalog and preview integration through temporary SQLite databases.
 - Built-sidecar smoke for import, list, inference, preview, file permissions, and absolute-path non-persistence.
 - Typed aggregation, hostile bound-filter, stale-version, unknown-column, numeric-operation, limit, and truncation tests plus built-sidecar query smoke.

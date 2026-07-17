@@ -65,11 +65,15 @@ for (const invariant of [
   "setPermissionCheckHandler(() => false)",
   'setWindowOpenHandler(() => ({ action: "deny" }))',
   'protocol.registerSchemesAsPrivileged',
-  'isTrustedFrameUrl(frameUrl',
   "safeStorage.isEncryptionAvailable()",
   "safeStorage.encryptString(value)",
 ]) {
   if (!main.includes(invariant)) failures.push(`main-process security gate missing: ${invariant}`);
+}
+
+const desktopApi = read("apps/desktop/src/main/desktop-api.ts");
+if (!desktopApi.includes("isTrustedFrameUrl(frameUrl")) {
+  failures.push("desktop API is missing sender-origin validation");
 }
 
 const providerStore = read("apps/desktop/src/main/provider-store.ts");

@@ -7,6 +7,8 @@ import { createInterface } from "node:readline";
 import {
   PROTOCOL_VERSION,
   parseDatasetImportResult,
+  parseDatasetGroup,
+  parseDatasetGroupList,
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
@@ -20,6 +22,7 @@ const dataDirectory = resolve(root, "data");
 const sourcePath = resolve(root, "synthetic-sales.csv");
 const replacementPath = resolve(root, "synthetic-sales-week-2.csv");
 const driftedPath = resolve(root, "synthetic-sales-drifted.csv");
+const targetsPath = resolve(root, "synthetic-targets.csv");
 const executable = resolve("services", "data-core", "bin", "bubu-data-core");
 const auth = randomBytes(32).toString("hex");
 let stderr = "";
@@ -27,6 +30,11 @@ let stderr = "";
 await writeFile(
   sourcePath,
   "Order ID,Region,Amount,Date\n001,North,128.50,2026-07-15\n002,South,256.00,2026-07-16\n003,North,64.25,2026-07-17\n",
+  { mode: 0o600 },
+);
+await writeFile(
+  targetsPath,
+  "Region,Target\nWest,600\nNorth,50\n",
   { mode: 0o600 },
 );
 await writeFile(
@@ -173,6 +181,19 @@ try {
   if (queryResult.rows[0]?.[0] !== "West" || queryResult.rows[0]?.[1] !== 512) {
     throw new Error(`Safe query returned an unexpected result: ${JSON.stringify(queryResult.rows)}`);
   }
+  const targetImport = parseDatasetImportResult(
+    await request("dataset.import.batch", { sourcePaths: [targetsPath] }),
+  );
+  const group = parseDatasetGroup(
+    await request("dataset.group.save", {
+      name: "Synthetic comparison",
+      datasetIds: [dataset.id, targetImport.datasets[0].id],
+    }),
+  );
+  const groups = parseDatasetGroupList(await request("dataset.group.list", {}));
+  if (groups.length !== 1 || group.members.length !== 2 || groups[0]?.id !== group.id) {
+    throw new Error("Dataset group was not persisted with two current members");
+  }
 
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
@@ -187,13 +208,13 @@ try {
     throw new Error(`Database permissions are ${(database.mode & 0o777).toString(8)}, want 600`);
   }
   const databaseBytes = await readFile(databasePath);
-  for (const privatePath of [sourcePath, replacementPath, driftedPath]) {
+  for (const privatePath of [sourcePath, replacementPath, driftedPath, targetsPath]) {
     if (databaseBytes.includes(Buffer.from(privatePath))) {
       throw new Error("Database persisted an absolute source path");
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, replacement, drift, synthetic disclosure, safe query, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, replacement, drift, groups, synthetic disclosure, safe query, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

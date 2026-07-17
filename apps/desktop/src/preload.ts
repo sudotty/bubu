@@ -6,6 +6,9 @@ import {
   type DatasetPreviewRequest,
   type DatasetReplacementSelectionResult,
   type DatasetImportResult,
+  type DatasetGroup,
+  type DatasetGroupId,
+  type DatasetGroupSaveInput,
   type DatasetSummary,
   type ProviderConfigurationInput,
   type ProviderConnectionResult,
@@ -49,6 +52,14 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.proposeQueryPlan, value) as Promise<QueryPlanProposal>,
     execute: (plan: SafeQueryPlan) =>
       ipcRenderer.invoke(desktopChannels.executeQueryPlan, plan) as Promise<SafeQueryResult>,
+  },
+  datasetGroups: {
+    list: () =>
+      ipcRenderer.invoke(desktopChannels.listDatasetGroups) as Promise<readonly DatasetGroup[]>,
+    save: (value: DatasetGroupSaveInput) =>
+      ipcRenderer.invoke(desktopChannels.saveDatasetGroup, value) as Promise<DatasetGroup>,
+    remove: (groupId: DatasetGroupId) =>
+      ipcRenderer.invoke(desktopChannels.removeDatasetGroup, groupId) as Promise<readonly DatasetGroup[]>,
   },
 };
 

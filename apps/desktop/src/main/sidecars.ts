@@ -5,6 +5,9 @@ import { join, resolve } from "node:path";
 import { app, utilityProcess, type UtilityProcess } from "electron";
 import {
   parseDatasetImportResult,
+  parseDatasetGroup,
+  parseDatasetGroupDeletionResult,
+  parseDatasetGroupList,
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
@@ -13,6 +16,8 @@ import {
   parseSafeQueryResult,
   parseServiceHealth,
   type DatasetImportResult,
+  type DatasetGroup,
+  type DatasetGroupSaveInput,
   type DatasetPreview,
   type DatasetPreviewRequest,
   type DatasetReplacementResult,
@@ -86,6 +91,20 @@ class DataCoreClient implements RuntimeClient {
   async replaceFile(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult> {
     return parseDatasetReplacementResult(
       await this.#broker.request("dataset.replace", { datasetId: datasetID, sourcePath }),
+    );
+  }
+
+  async listGroups(): Promise<readonly DatasetGroup[]> {
+    return parseDatasetGroupList(await this.#broker.request("dataset.group.list", {}));
+  }
+
+  async saveGroup(input: DatasetGroupSaveInput): Promise<DatasetGroup> {
+    return parseDatasetGroup(await this.#broker.request("dataset.group.save", input));
+  }
+
+  async deleteGroup(groupID: string): Promise<void> {
+    parseDatasetGroupDeletionResult(
+      await this.#broker.request("dataset.group.delete", { id: groupID }),
     );
   }
 
@@ -179,6 +198,9 @@ export interface SidecarSupervisor {
   modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
+  listGroups(): Promise<readonly DatasetGroup[]>;
+  saveGroup(input: DatasetGroupSaveInput): Promise<DatasetGroup>;
+  deleteGroup(groupID: string): Promise<void>;
   stop(): void;
 }
 
@@ -213,6 +235,9 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
     generateModel: (invocation) => aiRuntime.generate(invocation),
     executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),
+    listGroups: () => dataCore.listGroups(),
+    saveGroup: (input) => dataCore.saveGroup(input),
+    deleteGroup: (groupID) => dataCore.deleteGroup(groupID),
     stop() {
       aiRuntime.stop();
       dataCore.stop();

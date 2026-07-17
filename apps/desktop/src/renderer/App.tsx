@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
+  DatasetGroup,
   DatasetPreview,
   DatasetSummary,
   ProductReadiness,
 } from "../shared/product-api.js";
 import { ProviderSettings } from "./ProviderSettings.js";
 import { DatasetAnalysis } from "./DatasetAnalysis.js";
+import { DatasetGroupWorkspace } from "./DatasetGroupWorkspace.js";
 
 type ReadinessState =
   | { readonly kind: "loading" }
@@ -33,10 +35,12 @@ function messageFrom(error: unknown): string {
 }
 
 export function App() {
-  const [view, setView] = useState<"datasets" | "settings">("datasets");
+  const [view, setView] = useState<"datasets" | "groups" | "settings">("datasets");
   const [readiness, setReadiness] = useState<ReadinessState>({ kind: "loading" });
   const [datasets, setDatasets] = useState<readonly DatasetSummary[]>([]);
+  const [groups, setGroups] = useState<readonly DatasetGroup[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>();
+  const [selectedGroupId, setSelectedGroupId] = useState<string>();
   const [preview, setPreview] = useState<PreviewState>({ kind: "empty" });
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
@@ -46,12 +50,14 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([window.bubu.system.getReadiness(), window.bubu.datasets.list()])
-      .then(([nextReadiness, nextDatasets]) => {
+    void Promise.all([window.bubu.system.getReadiness(), window.bubu.datasets.list(), window.bubu.datasetGroups.list()])
+      .then(([nextReadiness, nextDatasets, nextGroups]) => {
         if (!active) return;
         setReadiness({ kind: "loaded", value: nextReadiness });
         setDatasets(nextDatasets);
+        setGroups(nextGroups);
         setSelectedDatasetId(nextDatasets[0]?.id);
+        setSelectedGroupId(nextGroups[0]?.id);
         setCatalogLoading(false);
       })
       .catch((error: unknown) => {
@@ -87,6 +93,7 @@ export function App() {
   }, [selectedDatasetId]);
 
   const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
+  const selectedGroup = groups.find((group) => group.id === selectedGroupId);
   const filteredDatasets = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("zh-CN");
     if (!query) return datasets;
@@ -94,6 +101,15 @@ export function App() {
       `${dataset.displayName} ${dataset.sourceName}`.toLocaleLowerCase("zh-CN").includes(query),
     );
   }, [datasets, search]);
+  const filteredGroups = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("zh-CN");
+    if (!query) return groups;
+    return groups.filter((group) =>
+      `${group.name} ${group.members.map(({ displayName }) => displayName).join(" ")}`
+        .toLocaleLowerCase("zh-CN")
+        .includes(query),
+    );
+  }, [groups, search]);
 
   async function importFiles() {
     setImporting(true);
@@ -131,11 +147,13 @@ export function App() {
         setNotice(`没有覆盖当前数据。新文件需要列映射（${details.join("；")}）。`);
         return;
       }
-      const [nextDatasets, nextPreview] = await Promise.all([
+      const [nextDatasets, nextPreview, nextGroups] = await Promise.all([
         window.bubu.datasets.list(),
         window.bubu.datasets.preview({ datasetId: result.dataset.id, limit: 50, offset: 0 }),
+        window.bubu.datasetGroups.list(),
       ]);
       setDatasets(nextDatasets);
+      setGroups(nextGroups);
       setSelectedDatasetId(result.dataset.id);
       setPreview({ kind: "loaded", value: nextPreview });
       setNotice(`已创建版本 ${result.dataset.version}，旧版本仍保留在本地。`);
@@ -156,7 +174,12 @@ export function App() {
           title="数据联系人"
           onClick={() => setView("datasets")}
         >▦</button>
-        <div className="rail-item" title="工作流">⌘</div>
+        <button
+          type="button"
+          className={`rail-item ${view === "groups" ? "rail-item-active" : ""}`}
+          title="数据群组"
+          onClick={() => { setView("groups"); setSearch(""); }}
+        >◎</button>
         <div className="rail-spacer" />
         <button
           type="button"
@@ -169,18 +192,18 @@ export function App() {
       <section className="contacts">
         <header className="contacts-header">
           <div>
-            <p className="eyebrow">LOCAL DATA AGENT</p>
-            <h1>BuBu</h1>
+            <p className="eyebrow">{view === "groups" ? "DATA GROUPS" : "LOCAL DATA AGENT"}</p>
+            <h1>{view === "groups" ? "群组" : "BuBu"}</h1>
           </div>
           <button
             type="button"
             className="add-button"
-            onClick={() => void importFiles()}
-            disabled={importing}
-            aria-label="导入 Excel 或 CSV"
-            title="导入 Excel 或 CSV"
+            onClick={() => view === "groups" ? setSelectedGroupId(undefined) : void importFiles()}
+            disabled={view !== "groups" && importing}
+            aria-label={view === "groups" ? "创建数据群组" : "导入 Excel 或 CSV"}
+            title={view === "groups" ? "创建数据群组" : "导入 Excel 或 CSV"}
           >
-            {importing ? "…" : "＋"}
+            {view !== "groups" && importing ? "…" : "＋"}
           </button>
         </header>
         <label className="search-field">
@@ -188,20 +211,20 @@ export function App() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="搜索数据联系人"
+            placeholder={view === "groups" ? "搜索数据群组" : "搜索数据联系人"}
           />
         </label>
 
         <div className="contact-list" aria-busy={catalogLoading}>
           {catalogLoading && <p className="empty-copy">正在读取本地数据目录…</p>}
-          {!catalogLoading && filteredDatasets.length === 0 && (
+          {view !== "groups" && !catalogLoading && filteredDatasets.length === 0 && (
             <div className="empty-contact">
               <span className="contact-avatar">＋</span>
               <strong>{datasets.length === 0 ? "导入第一个表格" : "没有匹配的数据"}</strong>
               <small>{datasets.length === 0 ? "CSV 与 XLSX 会转换为本地表" : "尝试其他关键词"}</small>
             </div>
           )}
-          {filteredDatasets.map((dataset) => (
+          {view !== "groups" && filteredDatasets.map((dataset) => (
             <button
               type="button"
               className={`contact-card ${dataset.id === selectedDatasetId ? "contact-card-active" : ""}`}
@@ -215,15 +238,33 @@ export function App() {
               </span>
             </button>
           ))}
+          {view === "groups" && !catalogLoading && filteredGroups.length === 0 && (
+            <div className="empty-contact">
+              <span className="contact-avatar">＋</span>
+              <strong>创建第一个数据群组</strong>
+              <small>选择 2–8 个数据联系人</small>
+            </div>
+          )}
+          {view === "groups" && filteredGroups.map((group) => (
+            <button
+              type="button"
+              className={`contact-card ${group.id === selectedGroupId ? "contact-card-active" : ""}`}
+              key={group.id}
+              onClick={() => setSelectedGroupId(group.id)}
+            >
+              <span className="contact-avatar">G</span>
+              <span><strong>{group.name}</strong><small>{group.members.length} 个数据联系人</small></span>
+            </button>
+          ))}
         </div>
-        <p className="local-note">默认本地模式 · 原始数据不会自动出站</p>
+        <p className="local-note">{view === "groups" ? "群组只保存成员关系 · 不复制原始数据" : "默认本地模式 · 原始数据不会自动出站"}</p>
       </section>
 
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <p className="eyebrow">{view === "settings" ? "SECURE LOCAL CONFIG" : "PRIVATE BY DEFAULT"}</p>
-            <h2>{view === "settings" ? "模型设置" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
+            <p className="eyebrow">{view === "settings" ? "SECURE LOCAL CONFIG" : view === "groups" ? "LOCAL GROUP WORKSPACE" : "PRIVATE BY DEFAULT"}</p>
+            <h2>{view === "settings" ? "模型设置" : view === "groups" ? selectedGroup?.name ?? "创建数据群组" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
           </div>
           <span className="mode-pill">
             {readiness.kind === "loaded" && readiness.value.status === "ready" ? "本地服务就绪" : "本地模式"}
@@ -232,6 +273,20 @@ export function App() {
 
         <div className="conversation">
           {view === "settings" && <ProviderSettings />}
+          {view === "groups" && (
+            <DatasetGroupWorkspace
+              group={selectedGroup}
+              datasets={datasets}
+              onSaved={(saved) => {
+                setGroups((current) => [saved, ...current.filter(({ id }) => id !== saved.id)]);
+                setSelectedGroupId(saved.id);
+              }}
+              onDeleted={(nextGroups) => {
+                setGroups(nextGroups);
+                setSelectedGroupId(nextGroups[0]?.id);
+              }}
+            />
+          )}
           {view === "datasets" && notice && <div className="notice" role="status">{notice}</div>}
           {view === "datasets" && !selectedDataset && (
             <EmptyWorkspace readiness={readiness} onImport={() => void importFiles()} importing={importing} />
