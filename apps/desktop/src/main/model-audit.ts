@@ -12,10 +12,14 @@ import {
 } from "@bubu/contracts";
 
 export interface ModelAuditScope {
-  readonly purpose: "provider-connection-test" | "query-plan" | "group-query-plan";
+  readonly purpose: "provider-connection-test" | "query-plan" | "group-query-plan" | "aggregate-explanation";
   readonly target: ModelAuditTarget;
   readonly contexts: readonly ModelContext[];
   readonly relationshipCount: number;
+  readonly disclosure?: "aggregates";
+  readonly datasetCount?: number;
+  readonly columnCount?: number;
+  readonly aggregateRowCount?: number;
 }
 
 export interface AuditedModelRuntime {
@@ -28,7 +32,7 @@ export function buildModelAuditStart(
   invocation: ModelInvocation,
   scope: ModelAuditScope,
 ): ModelAuditStartInput {
-  const disclosure = scope.contexts[0]?.disclosure ?? "none";
+  const disclosure = scope.disclosure ?? scope.contexts[0]?.disclosure ?? "none";
   if (scope.contexts.some((context) => context.disclosure !== disclosure)) {
     throw new Error("一次模型请求不能混用不同的数据披露等级");
   }
@@ -43,9 +47,10 @@ export function buildModelAuditStart(
     providerName: invocation.provider.name,
     model: invocation.provider.model,
     endpointOrigin: new URL(invocation.provider.baseUrl).origin,
-    datasetCount: scope.contexts.length,
-    columnCount: scope.contexts.reduce((total, context) => total + context.columns.length, 0),
+    datasetCount: scope.datasetCount ?? scope.contexts.length,
+    columnCount: scope.columnCount ?? scope.contexts.reduce((total, context) => total + context.columns.length, 0),
     syntheticRowCount: scope.contexts.reduce((total, context) => total + context.syntheticRows.length, 0),
+    aggregateRowCount: scope.aggregateRowCount ?? 0,
     relationshipCount: scope.relationshipCount,
     payloadBytes,
     estimatedInputTokens: Math.max(1, Math.ceil(payloadBytes / 3)),

@@ -23,6 +23,7 @@ import type { ProviderStore } from "./provider-store.js";
 import { isTrustedFrameUrl } from "./security.js";
 import type { SidecarSupervisor } from "./sidecars.js";
 import { createReplacementSessionStore } from "./replacement-sessions.js";
+import { createAggregateApprovalSessionStore } from "./aggregate-approval-sessions.js";
 import { registerDatasetLifecycleApi } from "./dataset-lifecycle-api.js";
 import { registerBackupApi } from "./backup-api.js";
 import { createOperationRegistry } from "./operation-registry.js";
@@ -46,6 +47,10 @@ export function registerDesktopApi({
     newToken: () => randomBytes(16).toString("hex"),
   });
   const operations = createOperationRegistry();
+  const aggregateApprovals = createAggregateApprovalSessionStore({
+    now: Date.now,
+    newToken: () => randomBytes(32).toString("hex"),
+  });
   const assertTrustedSender = (frameUrl: string) => {
     if (!isTrustedFrameUrl(frameUrl, developmentServerUrl)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
@@ -54,7 +59,7 @@ export function registerDesktopApi({
 
   registerDatasetLifecycleApi({ sidecars, assertTrustedSender, operations });
   registerBackupApi({ sidecars, assertTrustedSender, operations });
-  registerAnalysisApi({ sidecars, providerStore, operations, assertTrustedSender });
+  registerAnalysisApi({ sidecars, providerStore, operations, aggregateApprovals, assertTrustedSender });
   registerWorkflowApi({ sidecars, operations, assertTrustedSender });
 
   ipcMain.handle(desktopChannels.cancelOperation, (event, value: unknown) => {

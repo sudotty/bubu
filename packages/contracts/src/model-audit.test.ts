@@ -13,6 +13,7 @@ const start = {
   datasetCount: 1,
   columnCount: 8,
   syntheticRowCount: 3,
+  aggregateRowCount: 0,
   relationshipCount: 0,
   payloadBytes: 2_048,
   estimatedInputTokens: 683,
@@ -29,6 +30,29 @@ describe("model disclosure audit contracts", () => {
   it("rejects false disclosure counts and raw-row claims", () => {
     expect(() => parseModelAuditStartInput({ ...start, syntheticRowCount: 2 })).toThrow("Synthetic");
     expect(() => parseModelAuditStartInput({ ...start, containsRawRows: true })).toThrow();
+  });
+
+  it("accepts a bounded aggregate explanation scope without synthetic or raw rows", () => {
+    expect(parseModelAuditStartInput({
+      ...start,
+      purpose: "aggregate-explanation",
+      disclosure: "aggregates",
+      syntheticRowCount: 0,
+      aggregateRowCount: 2,
+      columnCount: 3,
+    })).toMatchObject({
+      purpose: "aggregate-explanation",
+      disclosure: "aggregates",
+      aggregateRowCount: 2,
+      containsRawRows: false,
+    });
+    expect(() => parseModelAuditStartInput({
+      ...start,
+      purpose: "aggregate-explanation",
+      disclosure: "aggregates",
+      syntheticRowCount: 0,
+      aggregateRowCount: 0,
+    })).toThrow("Aggregate");
   });
 
   it("requires terminal audit consistency", () => {

@@ -8,6 +8,8 @@
 
 **Tech stack:** TypeScript 7, Zod, React 19, Electron typed IPC, Node AI utility process, Go, SQLite, Vitest, Go integration tests.
 
+**Status:** Complete and fully verified on 2026-07-17. `volta run npm run verify` passed contracts (51 tests), AI runtime (16), desktop (43), all Go packages, type checks, dependency audit, production packaging, data-core and packaged-desktop smoke tests, and the 100 MiB performance gate (183,246 rows; 4.09 s import/profile; 184.81 ms query p95; 37.02 MiB peak RSS).
+
 ---
 
 ## Task 1: Define strict aggregate disclosure and explanation contracts

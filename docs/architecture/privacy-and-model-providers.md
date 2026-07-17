@@ -1,6 +1,6 @@
 # Privacy and model-provider boundary
 
-Status: Schema/synthetic model context, provider configuration, encrypted credentials, transports, connection tests, visible query approvals, bounded local execution, and the disclosure/usage ledger are implemented. Aggregate and explicit-row policies remain in progress.
+Status: Schema/synthetic model context, provider configuration, encrypted credentials, transports, connection tests, visible query approvals, bounded local execution, privacy-safe aggregate explanations, and the disclosure/usage ledger are implemented. General agent/workflow aggregate use and explicit-row disclosure remain in progress.
 
 ## Non-disclosure path
 
@@ -42,9 +42,9 @@ Connection testing performs one bounded minimal generation request through the s
 
 ## Fail-closed disclosure and usage ledger
 
-Every provider connection test, single-dataset plan, and group plan passes through one audited model gateway in Electron main. Before provider I/O, that gateway hashes the exact system-plus-user payload and asks the Go data core to create a `started` event. If validation or persistence fails, the model request is not sent.
+Every provider connection test, single-dataset plan, group plan, and approved aggregate explanation passes through one audited model gateway in Electron main. Before provider I/O, that gateway hashes the exact system-plus-user payload and asks the Go data core to create a `started` event. If validation or persistence fails, the model request is not sent.
 
-The append-only local event records purpose, dataset/group/system target, disclosure level, provider ID/kind/name/model, endpoint origin, dataset/column/synthetic-row/relationship counts, request bytes, a conservative input-token estimate, output-token budget, SHA-256 request fingerprint, and the constant assertion `containsRawRows: false`. That assertion covers BuBu's automatic dataset disclosure; the user's question is necessarily sent verbatim, so both analysis composers warn against pasting sensitive rows or values into it. The event itself does not contain the question, system prompt, complete request, credential, provider response, model text, filenames, source paths, preview rows, or local query results. Base URL user information, path, query, and fragment are absent because only its HTTP(S) origin is retained.
+The append-only local event records purpose, dataset/group/system target, disclosure level, provider ID/kind/name/model, endpoint origin, dataset/column/synthetic-row/aggregate-row/relationship counts, request bytes, a conservative input-token estimate, output-token budget, SHA-256 request fingerprint, and the constant assertion `containsRawRows: false`. That assertion covers BuBu's automatic dataset disclosure; the user's question is necessarily sent verbatim, so both analysis composers warn against pasting sensitive rows or values into it. The event itself does not contain the question, system prompt, complete request, credential, provider response, model text, filenames, source paths, preview rows, aggregate values, or local query results. Base URL user information, path, query, and fragment are absent because only its HTTP(S) origin is retained.
 
 After the bounded provider request, the gateway appends exactly one immutable outcome containing `succeeded`, `failed`, or `cancelled`, response byte count, provider-reported token usage when available, bounded safe error text, and finish time. Request summaries and outcomes are separate tables; no code path updates an existing disclosure row, and the outcome primary key prevents terminal history from being overwritten. A failure to create the starting audit blocks provider I/O. A failure to append the outcome discards a successful completion from the product path and leaves the visible `started` evidence for recovery. On the next data-core startup, recovery appends failure outcomes for interrupted requests. The newest 100 entries are visible under **模型设置 → 模型隐私账本**; the local database retains up to 100,000 and backup/restore validates the complete data-free event schema.
 
@@ -52,13 +52,21 @@ After the bounded provider request, the gateway appends exactly one immutable ou
 
 For one-dataset analysis, Electron main obtains the schema plus three generated examples from Go and sends exactly that envelope together with the user's question. The model must return one strict JSON query plan and cannot return SQL. The proposal is cryptographically untrusted: its dataset/version identity must equal the disclosed immutable context, and Go validates it again before execution.
 
-The renderer shows the plan's purpose, dimensions, measures, filters, limit, and the complete context disclosure. No local query runs until the user selects **批准并在本地执行**. Execution returns at most 200 rows and does not make a second model request, so query results remain local. Persisted approval identities and aggregate/row disclosure to a model are still pending.
+The renderer shows the plan's purpose, dimensions, measures, filters, limit, and the complete context disclosure. No local query runs until the user selects **批准并在本地执行**. Execution returns at most 200 rows and does not make a second model request, so query results remain local. A qualifying aggregate can enter only the separate approval flow below; explicit-row disclosure remains unavailable.
 
 Group analysis applies the same rule to 2–8 ordered contexts. Member display names remain local; the model sees numbered sources. Its plan must build a connected equality-join tree and place only a non-null unique lookup key on every right side. The renderer shows the entire join tree and every disclosed context before approval. Go independently checks group membership/version order, columns, uniqueness, operations, filters, and result limits.
 
+## Aggregate explanation approval
+
+Local query results never automatically return to a model. After an executed result has been linked to its exact reviewed plan in the append-only conversation, the user may select **检查并预览发送内容**. Electron main, not the renderer, reloads that persisted pair and derives a candidate. A candidate is rejected unless the plan contains `COUNT(*)`, contains no `minimum` or `maximum` measure, every disclosed group count is an integer of at least five, identities still match the immutable dataset/group versions, the payload is at most 64 KiB, and no more than 50 rows are selected. Additional local rows are represented only by `truncated: true`.
+
+The review shows the complete outbound question/purpose, every column and aggregate cell, selected provider/model, exact endpoint origin, expiry, and the k>=5 policy. Main holds at most 20 candidates as opaque 256-bit tokens for ten minutes. Approval consumes a token before provider I/O; dismissal revokes it. The renderer cannot attach a replacement payload, and changing the provider destination invalidates the approval.
+
+Aggregate strings are labeled untrusted data and never instructions. This request has no tools. The model must return strict JSON with bounded summary/findings/caveats/questions and cell coordinates; coordinates outside the approved disclosure are rejected. The typed insight is rendered as text, appended locally, and each finding shows its exact `R# / column / value` evidence. The disclosure ledger records `aggregates` and the row count without storing values.
+
 ## Deliberately unavailable
 
-Streaming events, aggregate/row disclosure approvals, policy classification, cost tables, and fallback routing remain required for the full conversation product. Cancellation, single/group planning, local execution approval, and data-free usage audit are enabled; the end-to-end privacy gateway remains `in-progress` until all higher disclosure levels are enforced.
+Streaming events, generalized aggregate authorization for agents/workflows, explicit-row approvals, richer policy classification, cost tables, and fallback routing remain required for the full conversation product. Cancellation, single/group planning, local execution approval, one-use aggregate explanations, and data-free usage audit are enabled; the end-to-end privacy gateway remains `in-progress` until all higher disclosure paths are enforced.
 
 ## Official protocol inputs
 

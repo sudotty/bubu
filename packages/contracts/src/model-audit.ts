@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { datasetIdSchema } from "./dataset.js";
-import { disclosureLevelSchema } from "./privacy.js";
+import { modelDisclosureLevelSchema } from "./privacy.js";
 import { providerIdSchema, providerKindSchema } from "./provider.js";
 
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
@@ -13,9 +13,9 @@ export const modelAuditTargetSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const modelAuditStartInputSchema = z.object({
-  purpose: z.enum(["provider-connection-test", "query-plan", "group-query-plan"]),
+  purpose: z.enum(["provider-connection-test", "query-plan", "group-query-plan", "aggregate-explanation"]),
   target: modelAuditTargetSchema,
-  disclosure: z.union([z.literal("none"), disclosureLevelSchema]),
+  disclosure: z.union([z.literal("none"), modelDisclosureLevelSchema]),
   providerId: providerIdSchema,
   providerKind: providerKindSchema,
   providerName: z.string().trim().min(1).max(100),
@@ -24,6 +24,7 @@ export const modelAuditStartInputSchema = z.object({
   datasetCount: z.number().int().min(0).max(8),
   columnCount: z.number().int().min(0).max(2_048),
   syntheticRowCount: z.number().int().min(0).max(40),
+  aggregateRowCount: z.number().int().min(0).max(50),
   relationshipCount: z.number().int().min(0).max(500),
   payloadBytes: z.number().int().min(1).max(250_000),
   estimatedInputTokens: z.number().int().min(1).max(250_000),
@@ -35,17 +36,30 @@ export const modelAuditStartInputSchema = z.object({
     if (
       input.purpose !== "provider-connection-test" || input.disclosure !== "none" ||
       input.datasetCount !== 0 || input.columnCount !== 0 ||
-      input.syntheticRowCount !== 0 || input.relationshipCount !== 0
+      input.syntheticRowCount !== 0 || input.aggregateRowCount !== 0 || input.relationshipCount !== 0
     ) {
       context.addIssue({ code: "custom", message: "System model audits cannot disclose dataset context" });
     }
     return;
   }
-  const expectedPurpose = input.target.kind === "dataset" ? "query-plan" : "group-query-plan";
   const validDatasetCount = input.target.kind === "dataset"
     ? input.datasetCount === 1
     : input.datasetCount >= 2;
-  if (input.purpose !== expectedPurpose || input.disclosure === "none" || !validDatasetCount || input.columnCount < 1) {
+  if (input.purpose === "aggregate-explanation") {
+    if (
+      input.disclosure !== "aggregates" || !validDatasetCount || input.columnCount < 2 ||
+      input.syntheticRowCount !== 0 || input.aggregateRowCount < 1 || input.relationshipCount !== 0
+    ) {
+      context.addIssue({ code: "custom", message: "Aggregate model audit scope is inconsistent" });
+    }
+    return;
+  }
+  const expectedPurpose = input.target.kind === "dataset" ? "query-plan" : "group-query-plan";
+  if (
+    input.purpose !== expectedPurpose ||
+    (input.disclosure !== "schema-only" && input.disclosure !== "schema-synthetic") ||
+    !validDatasetCount || input.columnCount < 1 || input.aggregateRowCount !== 0
+  ) {
     context.addIssue({ code: "custom", message: "Data model audit scope is inconsistent" });
   }
   const expectedSyntheticRows = input.disclosure === "schema-synthetic" ? input.datasetCount * 3 : 0;

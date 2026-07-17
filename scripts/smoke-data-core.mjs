@@ -245,7 +245,7 @@ try {
     await request("conversation.append", {
       input: {
         target: conversationTarget,
-        entry: { kind: "result", role: "assistant", payload: { result: queryResult } },
+        entry: { kind: "result", role: "assistant", payload: { result: queryResult, sourcePlan: singlePlan } },
       },
     }),
   );
@@ -441,6 +441,7 @@ try {
       datasetCount: 1,
       columnCount: modelContext.columns.length,
       syntheticRowCount: modelContext.syntheticRows.length,
+      aggregateRowCount: 0,
       relationshipCount: 0,
       payloadBytes: 2_048,
       estimatedInputTokens: 683,
@@ -462,6 +463,42 @@ try {
   }));
   if (finishedModelAudit.status !== "succeeded" || finishedModelAudit.totalTokens !== 120) {
     throw new Error("Model disclosure and usage audit did not persist");
+  }
+  const aggregateModelAudit = parseModelAuditEvent(await request("privacy.disclosure.start", {
+    input: {
+      purpose: "aggregate-explanation",
+      target: { kind: "dataset", id: dataset.id },
+      disclosure: "aggregates",
+      providerId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      providerKind: "openai",
+      providerName: "Synthetic provider",
+      model: "synthetic-model",
+      endpointOrigin: "https://api.example.com",
+      datasetCount: 1,
+      columnCount: 3,
+      syntheticRowCount: 0,
+      aggregateRowCount: 1,
+      relationshipCount: 0,
+      payloadBytes: 512,
+      estimatedInputTokens: 171,
+      maxOutputTokens: 4_096,
+      payloadSha256: "c".repeat(64),
+      containsRawRows: false,
+    },
+  }));
+  const finishedAggregateAudit = parseModelAuditEvent(await request("privacy.disclosure.finish", {
+    input: {
+      id: aggregateModelAudit.id,
+      status: "succeeded",
+      inputTokens: 40,
+      outputTokens: 12,
+      totalTokens: 52,
+      outputBytes: 120,
+      error: null,
+    },
+  }));
+  if (finishedAggregateAudit.aggregateRowCount !== 1 || finishedAggregateAudit.disclosure !== "aggregates") {
+    throw new Error("Aggregate disclosure audit did not persist its bounded row count");
   }
 
   const exportedRaw = await request("dataset.export", {
@@ -521,7 +558,8 @@ try {
     restoredWorkflows[0]?.id !== workflow.id ||
     !restoredWorkflowRuns.some(({ id }) => id === workflowRun.id) ||
     !restoredWorkflowRuns.some(({ id }) => id === triggeredRun.id) ||
-    restoredModelAudits[0]?.id !== modelAudit.id
+    !restoredModelAudits.some(({ id }) => id === modelAudit.id) ||
+    !restoredModelAudits.some(({ id }) => id === aggregateModelAudit.id)
   ) {
     throw new Error("Verified backup restore did not recover the private local workspace");
   }
@@ -545,7 +583,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, model disclosure/usage audit, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-row disclosure/usage audit, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

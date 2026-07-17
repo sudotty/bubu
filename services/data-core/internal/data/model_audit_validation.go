@@ -31,12 +31,14 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 	}
 	if input.DatasetCount < 0 || input.DatasetCount > 8 || input.ColumnCount < 0 || input.ColumnCount > 2_048 ||
 		input.SyntheticRowCount < 0 || input.SyntheticRowCount > 40 ||
+		input.AggregateRowCount < 0 || input.AggregateRowCount > 50 ||
 		input.RelationshipCount < 0 || input.RelationshipCount > 500 {
 		return errors.New("model audit context counts are invalid")
 	}
 	if input.Target.Kind == "system" {
 		if input.Target.ID != "" || input.Purpose != "provider-connection-test" || input.Disclosure != "none" ||
-			input.DatasetCount != 0 || input.ColumnCount != 0 || input.SyntheticRowCount != 0 || input.RelationshipCount != 0 {
+			input.DatasetCount != 0 || input.ColumnCount != 0 || input.SyntheticRowCount != 0 ||
+			input.AggregateRowCount != 0 || input.RelationshipCount != 0 {
 			return errors.New("system model audit cannot disclose dataset context")
 		}
 		return nil
@@ -44,15 +46,24 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 	if !objectID.MatchString(input.Target.ID) {
 		return errors.New("model audit target identity is invalid")
 	}
-	expectedPurpose := "query-plan"
 	validDatasetCount := input.DatasetCount == 1
 	if input.Target.Kind == "group" {
-		expectedPurpose = "group-query-plan"
 		validDatasetCount = input.DatasetCount >= 2
 	} else if input.Target.Kind != "dataset" {
 		return errors.New("model audit target kind is invalid")
 	}
-	if input.Purpose != expectedPurpose || input.Disclosure == "none" || !validDatasetCount || input.ColumnCount < 1 {
+	if input.Purpose == "aggregate-explanation" {
+		if input.Disclosure != "aggregates" || !validDatasetCount || input.ColumnCount < 2 ||
+			input.SyntheticRowCount != 0 || input.AggregateRowCount < 1 || input.RelationshipCount != 0 {
+			return errors.New("model audit aggregate scope is inconsistent")
+		}
+		return nil
+	}
+	expectedPurpose := "query-plan"
+	if input.Target.Kind == "group" {
+		expectedPurpose = "group-query-plan"
+	}
+	if input.Purpose != expectedPurpose || !validDatasetCount || input.ColumnCount < 1 || input.AggregateRowCount != 0 {
 		return errors.New("model audit data scope is inconsistent")
 	}
 	expectedSyntheticRows := 0

@@ -272,7 +272,7 @@ WHERE length(resolved_input_json) > ? OR length(COALESCE(result_json, '')) > ?`,
 		}
 	}
 	if manifest.SchemaVersion >= 8 {
-		if err := validateBackupModelAudits(ctx, database); err != nil {
+		if err := validateBackupModelAudits(ctx, database, manifest.SchemaVersion); err != nil {
 			return err
 		}
 	}

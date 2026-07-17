@@ -96,8 +96,8 @@ Work proceeds in vertical slices. Each slice starts with a failing deterministic
 | 0 | Complete | Repository, architecture, privacy, secret, dependency, and toolchain contracts |
 | 1 | Complete | Secure packaged Electron shell with typed preload, authenticated Go/Node sidecars, and packaged launch smoke |
 | 2 | Complete | Atomic CSV/TSV/XLSX import, SQLite catalog, immutable replacement, drift blocking, type inference/quality/on-demand distributions, safe query compiler, groups/relationships, Excel-safe export, deletion, verified backup/restore, end-to-end cancellation, and the executable 100 MiB performance gate |
-| 3 | Active | Schema-only/synthetic disclosure, encrypted credentials, provider registry/selection/tests, strict single/group natural-language query plans, exact disclosure preview, explicit approval, bounded local Go execution, and a fail-closed disclosure/usage ledger are implemented; streaming and aggregate/explicit-row policies remain |
-| 4 | Active | Dataset/group chat surfaces persist typed append-only questions/plans/results/errors and restore local tables/charts; tags, multiple threads, richer charts, and reports remain |
+| 3 | Active | Schema-only/synthetic disclosure, encrypted credentials, provider registry/selection/tests, strict single/group plans, local execution approval, fail-closed disclosure/usage ledger, and exact one-use k>=5 aggregate explanation approval are implemented; streaming, generalized aggregate agent/workflow use, and explicit rows remain |
+| 4 | Active | Dataset/group chat surfaces persist typed append-only questions/plans/source-linked results/cell-cited insights/errors and restore local tables/charts; tags, multiple threads, richer charts, and reports remain |
 | 5 | Active | Versioned query workflows provide current-version rebinding, idempotency, bounded retries/deadlines, cancellation, typed checkpoints, local audit, persistent 24-hour/7-day/data-version triggers, restart recovery, and atomic chat delivery; wall-clock/OS reminders, approvals, partial-run resume, agents, MCP, and RAG remain |
 | 6–7 | Pending | Must not be represented as shipped; follow the exit criteria above |
 

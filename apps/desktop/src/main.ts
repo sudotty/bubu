@@ -227,7 +227,7 @@ void app
         const result = await sidecars.executeQueryPlan(plan);
         await sidecars.appendConversation({
           target,
-          entry: { kind: "result", role: "assistant", payload: { result } },
+          entry: { kind: "result", role: "assistant", payload: { result, sourcePlan: plan } },
         });
       }
     }

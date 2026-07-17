@@ -1,5 +1,6 @@
 import type { ConversationThread, DatasetGroup } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
+import { AggregateExplanationCard } from "./AggregateExplanationCard.js";
 
 function localResultLabel(group: DatasetGroup | undefined, label: string): string {
   if (!group) return label;
@@ -33,6 +34,9 @@ export function ConversationHistory({
         }
         if (entry.kind === "error") {
           return <div className="notice error-text" role="status" key={entry.id}>{entry.payload.message}</div>;
+        }
+        if (entry.kind === "insight") {
+          return <AggregateExplanationCard key={entry.id} explanation={entry.payload.explanation} />;
         }
         const result = entry.payload.result;
         return <div className="history-result" key={entry.id}>

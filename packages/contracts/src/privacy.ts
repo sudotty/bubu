@@ -2,6 +2,12 @@ import { z } from "zod";
 import { columnTypeSchema, datasetIdSchema } from "./dataset.js";
 
 export const disclosureLevelSchema = z.enum(["schema-only", "schema-synthetic"]);
+export const modelDisclosureLevelSchema = z.enum([
+  "schema-only",
+  "schema-synthetic",
+  "aggregates",
+  "explicit-rows",
+]);
 
 const modelContextColumnSchema = z
   .object({
@@ -43,6 +49,7 @@ export const modelContextSchema = z
   });
 
 export type DisclosureLevel = z.infer<typeof disclosureLevelSchema>;
+export type ModelDisclosureLevel = z.infer<typeof modelDisclosureLevelSchema>;
 export type ModelContext = z.infer<typeof modelContextSchema>;
 
 export function parseDisclosureLevel(value: unknown): DisclosureLevel {

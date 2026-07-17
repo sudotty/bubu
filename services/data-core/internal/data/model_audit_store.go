@@ -41,12 +41,12 @@ func (service *Service) StartModelAudit(
 INSERT INTO model_disclosure_events(
   id, purpose, target_kind, target_id, disclosure, provider_id, provider_kind,
   provider_name, model, endpoint_origin, dataset_count, column_count,
-  synthetic_row_count, relationship_count, payload_bytes, estimated_input_tokens,
+  synthetic_row_count, aggregate_row_count, relationship_count, payload_bytes, estimated_input_tokens,
   max_output_tokens, payload_sha256, contains_raw_rows, started_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
 		id, input.Purpose, input.Target.Kind, input.Target.ID, input.Disclosure,
 		input.ProviderID, input.ProviderKind, input.ProviderName, input.Model, input.EndpointOrigin,
-		input.DatasetCount, input.ColumnCount, input.SyntheticRowCount, input.RelationshipCount,
+		input.DatasetCount, input.ColumnCount, input.SyntheticRowCount, input.AggregateRowCount, input.RelationshipCount,
 		input.PayloadBytes, input.EstimatedInputTokens, input.MaximumOutputTokens,
 		input.PayloadSHA256, startedAt,
 	); err != nil {
@@ -90,7 +90,7 @@ WHERE events.id = ?
 }
 
 func (service *Service) ListModelAudits(ctx context.Context) ([]ModelAuditEvent, error) {
-	rows, err := service.database.QueryContext(ctx, modelAuditSelect+" ORDER BY events.started_at DESC, events.id DESC LIMIT 100")
+	rows, err := service.database.QueryContext(ctx, modelAuditSelect(len(migrations))+" ORDER BY events.started_at DESC, events.id DESC LIMIT 100")
 	if err != nil {
 		return nil, fmt.Errorf("list model audits: %w", err)
 	}
@@ -107,20 +107,26 @@ func (service *Service) ListModelAudits(ctx context.Context) ([]ModelAuditEvent,
 }
 
 func (service *Service) getModelAudit(ctx context.Context, id string) (ModelAuditEvent, error) {
-	return scanModelAudit(service.database.QueryRowContext(ctx, modelAuditSelect+" WHERE events.id = ?", id))
+	return scanModelAudit(service.database.QueryRowContext(ctx, modelAuditSelect(len(migrations))+" WHERE events.id = ?", id))
 }
 
-const modelAuditSelect = `SELECT
+func modelAuditSelect(schemaVersion int) string {
+	aggregateRows := "events.aggregate_row_count"
+	if schemaVersion < 10 {
+		aggregateRows = "0"
+	}
+	return fmt.Sprintf(`SELECT
   events.id, events.purpose, events.target_kind, events.target_id, events.disclosure,
   events.provider_id, events.provider_kind, events.provider_name, events.model,
   events.endpoint_origin, events.dataset_count, events.column_count,
-  events.synthetic_row_count, events.relationship_count, events.payload_bytes,
+  events.synthetic_row_count, %s, events.relationship_count, events.payload_bytes,
   events.estimated_input_tokens, events.max_output_tokens, events.payload_sha256,
   events.contains_raw_rows, COALESCE(outcomes.status, 'started'), outcomes.input_tokens,
   outcomes.output_tokens, outcomes.total_tokens, outcomes.output_bytes, outcomes.error,
   events.started_at, outcomes.finished_at
 FROM model_disclosure_events events
-LEFT JOIN model_disclosure_outcomes outcomes ON outcomes.disclosure_id = events.id`
+LEFT JOIN model_disclosure_outcomes outcomes ON outcomes.disclosure_id = events.id`, aggregateRows)
+}
 
 func scanModelAudit(scanner workflowScanner) (ModelAuditEvent, error) {
 	var event ModelAuditEvent
@@ -130,7 +136,7 @@ func scanModelAudit(scanner workflowScanner) (ModelAuditEvent, error) {
 		&event.ID, &event.Purpose, &event.Target.Kind, &event.Target.ID, &event.Disclosure,
 		&event.ProviderID, &event.ProviderKind, &event.ProviderName, &event.Model,
 		&event.EndpointOrigin, &event.DatasetCount, &event.ColumnCount, &event.SyntheticRowCount,
-		&event.RelationshipCount, &event.PayloadBytes, &event.EstimatedInputTokens,
+		&event.AggregateRowCount, &event.RelationshipCount, &event.PayloadBytes, &event.EstimatedInputTokens,
 		&event.MaximumOutputTokens, &event.PayloadSHA256, &event.ContainsRawRows, &event.Status,
 		&inputTokens, &outputTokens, &totalTokens, &outputBytes, &errorText, &event.StartedAt, &finishedAt,
 	); errors.Is(err, sql.ErrNoRows) {

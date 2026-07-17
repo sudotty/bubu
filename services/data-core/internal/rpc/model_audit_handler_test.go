@@ -31,7 +31,7 @@ func TestHandleModelAuditRequiresStrictDataFreeInput(t *testing.T) {
 		"disclosure": "schema-synthetic", "providerId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"providerKind": "openai", "providerName": "Provider", "model": "model",
 		"endpointOrigin": "https://api.example.com", "datasetCount": float64(1),
-		"columnCount": float64(3), "syntheticRowCount": float64(3), "relationshipCount": float64(0),
+		"columnCount": float64(3), "syntheticRowCount": float64(3), "aggregateRowCount": float64(0), "relationshipCount": float64(0),
 		"payloadBytes": float64(100), "estimatedInputTokens": float64(34), "maxOutputTokens": float64(100),
 		"payloadSha256":   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		"containsRawRows": false,

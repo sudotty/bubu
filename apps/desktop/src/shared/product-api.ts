@@ -1,4 +1,8 @@
 import type {
+  AggregateExplanation,
+  AggregateExplanationApproval,
+  AggregateExplanationPreparation,
+  AggregateExplanationProposal,
   ConversationTarget,
   ColumnDistribution,
   ColumnDistributionRequest,
@@ -71,6 +75,9 @@ export const desktopChannels = {
   removeDatasetGroup: "bubu:dataset-groups:remove",
   proposeGroupQueryPlan: "bubu:analysis:propose-group-query-plan",
   executeGroupQueryPlan: "bubu:analysis:execute-group-query-plan",
+  prepareAggregateExplanation: "bubu:analysis:prepare-aggregate-explanation",
+  approveAggregateExplanation: "bubu:analysis:approve-aggregate-explanation",
+  dismissAggregateExplanation: "bubu:analysis:dismiss-aggregate-explanation",
   getConversation: "bubu:conversations:get",
   getGroupRelationships: "bubu:relationships:group-overview",
   saveDatasetRelationship: "bubu:relationships:save",
@@ -134,6 +141,9 @@ export interface BuBuDesktopApi {
     execute(plan: SafeQueryPlan, operationId: OperationId): Promise<SafeQueryResult>;
     proposeGroup(value: GroupQueryRequest, operationId: OperationId): Promise<GroupQueryPlanProposal>;
     executeGroup(plan: SafeGroupQueryPlan, operationId: OperationId): Promise<SafeGroupQueryResult>;
+    prepareAggregateExplanation(value: AggregateExplanationPreparation): Promise<AggregateExplanationProposal>;
+    approveAggregateExplanation(value: AggregateExplanationApproval, operationId: OperationId): Promise<AggregateExplanation>;
+    dismissAggregateExplanation(value: AggregateExplanationApproval): Promise<void>;
   };
   readonly datasetGroups: {
     list(): Promise<readonly DatasetGroup[]>;
@@ -161,6 +171,11 @@ export interface BuBuDesktopApi {
 }
 
 export type {
+  AggregateDisclosure,
+  AggregateExplanation,
+  AggregateExplanationApproval,
+  AggregateExplanationPreparation,
+  AggregateExplanationProposal,
   ColumnProfile,
   ColumnDistribution,
   ColumnDistributionRequest,

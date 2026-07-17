@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func validateBackupModelAudits(ctx context.Context, database *sql.DB) error {
+func validateBackupModelAudits(ctx context.Context, database *sql.DB, schemaVersion int) error {
 	var count int
 	if err := database.QueryRowContext(ctx, "SELECT COUNT(*) FROM model_disclosure_events").Scan(&count); err != nil {
 		return fmt.Errorf("count backup model audits: %w", err)
@@ -15,7 +15,7 @@ func validateBackupModelAudits(ctx context.Context, database *sql.DB) error {
 	if count > maximumModelAuditEvents {
 		return errors.New("backup exceeds the model disclosure audit limit")
 	}
-	rows, err := database.QueryContext(ctx, modelAuditSelect)
+	rows, err := database.QueryContext(ctx, modelAuditSelect(schemaVersion))
 	if err != nil {
 		return fmt.Errorf("inspect backup model audits: %w", err)
 	}

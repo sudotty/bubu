@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   desktopChannels,
   type BuBuDesktopApi,
+  type AggregateExplanation,
+  type AggregateExplanationApproval,
+  type AggregateExplanationPreparation,
+  type AggregateExplanationProposal,
   type ColumnDistribution,
   type ColumnDistributionRequest,
   type ConversationTarget,
@@ -104,6 +108,12 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.proposeGroupQueryPlan, { operationId, value }) as Promise<GroupQueryPlanProposal>,
     executeGroup: (plan: SafeGroupQueryPlan, operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.executeGroupQueryPlan, { operationId, value: plan }) as Promise<SafeGroupQueryResult>,
+    prepareAggregateExplanation: (value: AggregateExplanationPreparation) =>
+      ipcRenderer.invoke(desktopChannels.prepareAggregateExplanation, value) as Promise<AggregateExplanationProposal>,
+    approveAggregateExplanation: (value: AggregateExplanationApproval, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.approveAggregateExplanation, { operationId, value }) as Promise<AggregateExplanation>,
+    dismissAggregateExplanation: (value: AggregateExplanationApproval) =>
+      ipcRenderer.invoke(desktopChannels.dismissAggregateExplanation, value) as Promise<void>,
   },
   datasetGroups: {
     list: () =>
