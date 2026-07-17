@@ -88,3 +88,14 @@ Exit: `npm run verify` and packaged smoke checks pass; the manifest contains no 
 ## Execution rule
 
 Work proceeds in vertical slices. Each slice starts with a failing deterministic check, crosses the smallest necessary process boundaries, updates documentation and the manifest, and is committed only after the full relevant gate passes. A visually convincing shell without its data, privacy, failure, and audit contracts is not product completion.
+
+## Verified progress on 2026-07-17
+
+| Stage | State | Verified product surface |
+| --- | --- | --- |
+| 0 | Complete | Repository, architecture, privacy, secret, dependency, and toolchain contracts |
+| 1 | Complete | Secure packaged Electron shell with typed preload, authenticated Go/Node sidecars, and packaged launch smoke |
+| 2 | Active | Atomic CSV/TSV/XLSX selection import, local SQLite catalog, immutable first versions, type inference, baseline profiles, and preview |
+| 3–7 | Pending | Must not be represented as shipped; follow the exit criteria above |
+
+The Stage 2 slice is exercised through Go integration tests and `npm run smoke:data-core`. Remaining Stage 2 work is replacement/version drift, richer profiling, validation, relationships, deletion, and export.

@@ -2,11 +2,14 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/sudotty/bubu/services/data-core/internal/data"
 )
 
 func DecodeRequest(raw []byte) (Request, error) {
@@ -48,21 +51,118 @@ func ensureJSONEnd(decoder *json.Decoder) error {
 	return nil
 }
 
+type DatasetService interface {
+	ImportFile(ctx context.Context, sourcePath string) (data.ImportResult, error)
+	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
+	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
+	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
+}
+
 func Handle(request Request, expectedAuth string) Response {
+	return HandleWithData(context.Background(), request, expectedAuth, nil)
+}
+
+func HandleWithData(ctx context.Context, request Request, expectedAuth string, datasets DatasetService) Response {
 	if request.Auth != expectedAuth {
 		return failure(request.ID, "UNAUTHORIZED", "Invalid process credential", false)
 	}
 
 	if request.Method == "system.health" {
+		capabilities := []string{"local-rpc"}
+		if datasets != nil {
+			capabilities = []string{"sqlite", "csv-import", "xlsx-import", "dataset-catalog", "preview"}
+		}
 		return success(request.ID, ServiceHealth{
 			Service:         "data-core",
 			ProtocolVersion: ProtocolVersion,
 			Status:          "ready",
-			Capabilities:    []string{"local-rpc"},
+			Capabilities:    capabilities,
 		})
+	}
+	if datasets == nil {
+		return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
+	}
+
+	switch request.Method {
+	case "dataset.import":
+		sourcePath, ok := stringParam(request.Params, "sourcePath")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "sourcePath is required", false)
+		}
+		result, err := datasets.ImportFile(ctx, sourcePath)
+		if err != nil {
+			return failure(request.ID, "IMPORT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.import.batch":
+		sourcePaths, ok := stringSliceParam(request.Params, "sourcePaths", 100)
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "sourcePaths must contain between 1 and 100 file paths", false)
+		}
+		result, err := datasets.ImportFiles(ctx, sourcePaths)
+		if err != nil {
+			return failure(request.ID, "IMPORT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.list":
+		result, err := datasets.ListDatasets(ctx)
+		if err != nil {
+			return failure(request.ID, "DATA_ACCESS_FAILED", err.Error(), true)
+		}
+		return success(request.ID, result)
+	case "dataset.preview":
+		datasetID, ok := stringParam(request.Params, "datasetId")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId is required", false)
+		}
+		limit, ok := integerParam(request.Params, "limit")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "limit must be an integer", false)
+		}
+		offset, ok := integerParam(request.Params, "offset")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "offset must be an integer", false)
+		}
+		result, err := datasets.Preview(ctx, datasetID, limit, offset)
+		if err != nil {
+			return failure(request.ID, "PREVIEW_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
 	}
 
 	return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
+}
+
+func stringParam(params map[string]any, key string) (string, bool) {
+	value, ok := params[key].(string)
+	if !ok || strings.TrimSpace(value) == "" {
+		return "", false
+	}
+	return value, true
+}
+
+func integerParam(params map[string]any, key string) (int, bool) {
+	value, ok := params[key].(float64)
+	if !ok || value != float64(int(value)) {
+		return 0, false
+	}
+	return int(value), true
+}
+
+func stringSliceParam(params map[string]any, key string, maximum int) ([]string, bool) {
+	values, ok := params[key].([]any)
+	if !ok || len(values) == 0 || len(values) > maximum {
+		return nil, false
+	}
+	result := make([]string, len(values))
+	for index, value := range values {
+		text, ok := value.(string)
+		if !ok || strings.TrimSpace(text) == "" || len(text) > 32*1024 {
+			return nil, false
+		}
+		result[index] = text
+	}
+	return result, true
 }
 
 func success(id string, result any) Response {

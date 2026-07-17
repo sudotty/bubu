@@ -1,0 +1,40 @@
+import { describe, expect, it } from "vitest";
+import {
+  parseDatasetImportResult,
+  parseDatasetPreviewRequest,
+  parseDatasetSummary,
+} from "./dataset.js";
+
+const summary = {
+  id: "a".repeat(32),
+  versionId: "b".repeat(32),
+  displayName: "Sales",
+  sourceKind: "csv",
+  sourceName: "sales.csv",
+  rowCount: 2,
+  columnCount: 3,
+  importedAt: "2026-07-17T10:00:00Z",
+  version: 1,
+};
+
+describe("dataset boundary", () => {
+  it("parses a local dataset summary without a source path", () => {
+    expect(parseDatasetSummary(summary)).toEqual(summary);
+    expect(() => parseDatasetSummary({ ...summary, sourcePath: "/private/sales.csv" })).toThrow();
+  });
+
+  it("parses an import result and an explicit canceled selection", () => {
+    expect(parseDatasetImportResult({ datasets: [summary] })).toEqual({ datasets: [summary] });
+    expect(parseDatasetImportResult({ datasets: [] })).toEqual({ datasets: [] });
+  });
+
+  it("applies bounded preview defaults and rejects malformed ids", () => {
+    expect(parseDatasetPreviewRequest({ datasetId: summary.id })).toEqual({
+      datasetId: summary.id,
+      limit: 50,
+      offset: 0,
+    });
+    expect(() => parseDatasetPreviewRequest({ datasetId: "../secrets", limit: 50 })).toThrow();
+    expect(() => parseDatasetPreviewRequest({ datasetId: summary.id, limit: 501 })).toThrow();
+  });
+});

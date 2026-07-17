@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const platformDirectory = `BuBu-${process.platform}-${process.arch}`;
@@ -20,12 +21,32 @@ if (!existsSync(executable)) {
   process.exit(1);
 }
 
+const smokeRoot = mkdtempSync(resolve(tmpdir(), "bubu-desktop-smoke-"));
+const sourcePath = resolve(smokeRoot, "synthetic-sales.csv");
+const dataDirectory = resolve(smokeRoot, "data");
+writeFileSync(
+  sourcePath,
+  "Order ID,Region,Amount,Date\n001,North,128.50,2026-07-15\n002,South,256.00,2026-07-16\n003,North,64.25,2026-07-17\n",
+  { mode: 0o600 },
+);
+
 const result = spawnSync(executable, ["--bubu-smoke-test"], {
   encoding: "utf8",
-  timeout: 15_000,
+  timeout: 20_000,
+  env: {
+    ...process.env,
+    BUBU_SMOKE_DATA_DIR: dataDirectory,
+    BUBU_SMOKE_SOURCE: sourcePath,
+  },
 });
+rmSync(smokeRoot, { recursive: true, force: true });
 
-if (result.error || result.status !== 0 || !result.stdout.includes("BUBU_PACKAGED_SMOKE_OK")) {
+if (
+  result.error ||
+  result.status !== 0 ||
+  !result.stdout.includes("BUBU_PACKAGED_SMOKE_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_IMPORT_UI_OK")
+) {
   console.error("Packaged desktop smoke failed.");
   if (result.error) console.error(result.error.message);
   if (result.stdout) console.error(result.stdout.trimEnd());

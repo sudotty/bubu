@@ -8,13 +8,13 @@ function read(path) {
   return readFileSync(join(root, path), "utf8");
 }
 
-function sourceFiles(directory) {
+function sourceFiles(directory, extensions = [".ts", ".tsx"]) {
   const result = [];
   const visit = (absolutePath) => {
     for (const entry of readdirSync(absolutePath)) {
       const child = join(absolutePath, entry);
       if (statSync(child).isDirectory()) visit(child);
-      else if ([".ts", ".tsx"].includes(extname(child))) result.push(child);
+      else if (extensions.includes(extname(child))) result.push(child);
     }
   };
   visit(join(root, directory));
@@ -28,6 +28,14 @@ for (const path of rendererFiles) {
     if (forbidden.test(contents)) {
       failures.push(`renderer crosses desktop privilege boundary: ${path.slice(root.length + 1)}`);
     }
+  }
+}
+
+const dataCoreFiles = sourceFiles("services/data-core/internal", [".go"]);
+for (const path of dataCoreFiles) {
+  const lineCount = readFileSync(path, "utf8").split("\n").length;
+  if (lineCount > 350) {
+    failures.push(`data-core source mixes too many responsibilities (${lineCount} lines): ${path.slice(root.length + 1)}`);
   }
 }
 
@@ -65,6 +73,14 @@ for (const invariant of [
 const sidecars = read("apps/desktop/src/main/sidecars.ts");
 if (!sidecars.includes("utilityProcess.fork")) failures.push("AI runtime is not an Electron utility process");
 if (!sidecars.includes('BUBU_RPC_TOKEN')) failures.push("sidecars are missing per-process credentials");
+
+const tabularSource = read("services/data-core/internal/data/source.go");
+if (tabularSource.includes("os.ReadFile")) {
+  failures.push("tabular import reads an entire source file before parsing");
+}
+if (!tabularSource.includes("io.LimitReader(file, 64*1024)")) {
+  failures.push("delimiter detection is missing its bounded streaming sample");
+}
 
 for (const path of sourceFiles("apps/desktop/src")) {
   if (path.endsWith("src/main/sidecars.ts")) continue;

@@ -12,8 +12,10 @@ const requiredFiles = [
   "docs/adr/0002-local-sqlite-and-hub-postgresql.md",
   "docs/adr/0003-provider-neutral-ai-tools-and-mcp.md",
   "docs/adr/0004-privacy-gateway-and-safe-query-plans.md",
+  "docs/architecture/local-data-kernel.md",
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
   "docs/plans/2026-07-17-electron-migration-implementation.md",
+  "docs/product/importing-data.md",
 ];
 
 for (const path of requiredFiles) {
@@ -80,6 +82,10 @@ for (const required of [
   "aiRuntime: node-utility-process",
   "dataCore: go-sidecar",
   "remoteRawRowsByDefault: false",
+  "csv-import: implemented",
+  "xlsx-import: implemented",
+  "atomic-batch-import: implemented",
+  "dataset-preview: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);
