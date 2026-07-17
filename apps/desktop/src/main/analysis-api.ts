@@ -18,6 +18,7 @@ import type { OperationRegistry } from "./operation-registry.js";
 import type { ProviderStore } from "./provider-store.js";
 import type { SidecarSupervisor } from "./sidecars.js";
 import { containsProposedPlan } from "./conversation-plan.js";
+import { generateAuditedModel } from "./model-audit.js";
 
 interface AnalysisApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -62,8 +63,10 @@ export function registerAnalysisApi({
           sidecars.modelContext(request.datasetId, "schema-synthetic", signal),
           Promise.resolve(providerStore.resolve(activeProviderId)),
         ]);
-        const completion = await sidecars.generateModel(
+        const completion = await generateAuditedModel(
+          sidecars,
           buildQueryPlanInvocation(resolved, context, request.question),
+          { purpose: "query-plan", target, contexts: [context], relationshipCount: 0 },
           signal,
         );
         const proposal = createQueryPlanProposal(request.question, context, completion);
@@ -127,7 +130,8 @@ export function registerAnalysisApi({
           group.members.map(({ id }) => id),
           relationshipOverview.relationships,
         );
-        const completion = await sidecars.generateModel(
+        const completion = await generateAuditedModel(
+          sidecars,
           buildGroupQueryPlanInvocation(
             providerStore.resolve(activeProviderId),
             group.id,
@@ -135,6 +139,10 @@ export function registerAnalysisApi({
             relationshipHints,
             request.question,
           ),
+          {
+            purpose: "group-query-plan", target, contexts,
+            relationshipCount: relationshipHints.length,
+          },
           signal,
         );
         const proposal = createGroupQueryPlanProposal(

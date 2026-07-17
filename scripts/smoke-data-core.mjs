@@ -29,6 +29,8 @@ import {
   parseWorkflowDefinitions,
   parseWorkflowRun,
   parseWorkflowRuns,
+  parseModelAuditEvent,
+  parseModelAuditEvents,
 } from "../packages/contracts/dist/index.js";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
@@ -385,6 +387,42 @@ try {
     throw new Error("Version-rebound idempotent workflow execution did not checkpoint correctly");
   }
 
+  const modelAudit = parseModelAuditEvent(await request("privacy.disclosure.start", {
+    input: {
+      purpose: "query-plan",
+      target: { kind: "dataset", id: dataset.id },
+      disclosure: "schema-synthetic",
+      providerId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      providerKind: "openai",
+      providerName: "Synthetic provider",
+      model: "synthetic-model",
+      endpointOrigin: "https://api.example.com",
+      datasetCount: 1,
+      columnCount: modelContext.columns.length,
+      syntheticRowCount: modelContext.syntheticRows.length,
+      relationshipCount: 0,
+      payloadBytes: 2_048,
+      estimatedInputTokens: 683,
+      maxOutputTokens: 4_096,
+      payloadSha256: "b".repeat(64),
+      containsRawRows: false,
+    },
+  }));
+  const finishedModelAudit = parseModelAuditEvent(await request("privacy.disclosure.finish", {
+    input: {
+      id: modelAudit.id,
+      status: "succeeded",
+      inputTokens: 100,
+      outputTokens: 20,
+      totalTokens: 120,
+      outputBytes: 80,
+      error: null,
+    },
+  }));
+  if (finishedModelAudit.status !== "succeeded" || finishedModelAudit.totalTokens !== 120) {
+    throw new Error("Model disclosure and usage audit did not persist");
+  }
+
   const exportedRaw = await request("dataset.export", {
     datasetId: dataset.id,
     targetPath: exportPath,
@@ -431,13 +469,17 @@ try {
   const restoredWorkflowRuns = parseWorkflowRuns(
     await request("workflow.runs.list", { id: workflow.id }),
   );
+  const restoredModelAudits = parseModelAuditEvents(
+    await request("privacy.disclosure.list", {}),
+  );
   if (
     JSON.stringify(restoreRaw).includes(backupPath) ||
     restore.backupCreatedAt !== backup.backupCreatedAt ||
     restoredDatasets[0]?.id !== dataset.id ||
     restoredConversation.entries.length !== 3 ||
     restoredWorkflows[0]?.id !== workflow.id ||
-    restoredWorkflowRuns[0]?.id !== workflowRun.id
+    restoredWorkflowRuns[0]?.id !== workflowRun.id ||
+    restoredModelAudits[0]?.id !== modelAudit.id
   ) {
     throw new Error("Verified backup restore did not recover the private local workspace");
   }
@@ -461,7 +503,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, version-rebound idempotent workflows, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, model disclosure/usage audit, version-rebound idempotent workflows, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

@@ -159,6 +159,11 @@ func backupSchemaObjects(schemaVersion int) (map[string]bool, map[string]bool) {
 		indexes["workflow_runs_workflow_idx"] = true
 		indexes["workflow_step_runs_run_idx"] = true
 	}
+	if schemaVersion >= 8 {
+		tables["model_disclosure_events"] = true
+		tables["model_disclosure_outcomes"] = true
+		indexes["model_disclosure_events_started_idx"] = true
+	}
 	return tables, indexes
 }
 
@@ -259,6 +264,11 @@ WHERE length(resolved_input_json) > ? OR length(COALESCE(result_json, '')) > ?`,
 			return errors.New("backup contains oversized workflow checkpoints")
 		}
 		if err := validateBackupWorkflows(ctx, database); err != nil {
+			return err
+		}
+	}
+	if manifest.SchemaVersion >= 8 {
+		if err := validateBackupModelAudits(ctx, database); err != nil {
 			return err
 		}
 	}

@@ -31,6 +31,8 @@ import {
   parseWorkflowDefinitions,
   parseWorkflowRun,
   parseWorkflowRuns,
+  parseModelAuditEvent,
+  parseModelAuditEvents,
   type DatasetImportResult,
   type DatasetExportResult,
   type DatasetDeletionResult,
@@ -65,6 +67,9 @@ import {
   type WorkflowDefinitionInput,
   type WorkflowRun,
   type WorkflowTarget,
+  type ModelAuditEvent,
+  type ModelAuditFinishInput,
+  type ModelAuditStartInput,
 } from "@bubu/contracts";
 import type {
   DesktopServiceHealth,
@@ -278,6 +283,18 @@ class DataCoreClient implements RuntimeClient {
     return parseWorkflowRuns(await this.#broker.request("workflow.runs.list", { id: workflowID }));
   }
 
+  async startModelAudit(input: ModelAuditStartInput): Promise<ModelAuditEvent> {
+    return parseModelAuditEvent(await this.#broker.request("privacy.disclosure.start", { input }));
+  }
+
+  async finishModelAudit(input: ModelAuditFinishInput): Promise<ModelAuditEvent> {
+    return parseModelAuditEvent(await this.#broker.request("privacy.disclosure.finish", { input }));
+  }
+
+  async listModelAudits(): Promise<readonly ModelAuditEvent[]> {
+    return parseModelAuditEvents(await this.#broker.request("privacy.disclosure.list", {}));
+  }
+
   stop(): void {
     this.#broker.close(new Error("data-core stopped by desktop"));
     this.#process.kill("SIGTERM");
@@ -382,6 +399,9 @@ export interface SidecarSupervisor {
   deleteWorkflow(workflowID: string): Promise<void>;
   runWorkflow(workflowID: string, idempotencyKey: string, signal?: AbortSignal): Promise<WorkflowRun>;
   listWorkflowRuns(workflowID: string): Promise<readonly WorkflowRun[]>;
+  startModelAudit(input: ModelAuditStartInput): Promise<ModelAuditEvent>;
+  finishModelAudit(input: ModelAuditFinishInput): Promise<ModelAuditEvent>;
+  listModelAudits(): Promise<readonly ModelAuditEvent[]>;
   listGroups(): Promise<readonly DatasetGroup[]>;
   saveGroup(input: DatasetGroupSaveInput): Promise<DatasetGroup>;
   deleteGroup(groupID: string): Promise<void>;
@@ -440,6 +460,9 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     runWorkflow: (workflowID, idempotencyKey, signal) =>
       dataCore.runWorkflow(workflowID, idempotencyKey, signal),
     listWorkflowRuns: (workflowID) => dataCore.listWorkflowRuns(workflowID),
+    startModelAudit: (input) => dataCore.startModelAudit(input),
+    finishModelAudit: (input) => dataCore.finishModelAudit(input),
+    listModelAudits: () => dataCore.listModelAudits(),
     listGroups: () => dataCore.listGroups(),
     saveGroup: (input) => dataCore.saveGroup(input),
     deleteGroup: (groupID) => dataCore.deleteGroup(groupID),

@@ -4,7 +4,10 @@ import type {
   ProviderKind,
   ProviderRegistryState,
   ProviderSummary,
+  OperationId,
 } from "../shared/product-api.js";
+import { PrivacyLedgerPanel } from "./PrivacyLedgerPanel.js";
+import { createOperationId } from "./operation.js";
 
 const providerLabels: Readonly<Record<ProviderKind, string>> = {
   openai: "OpenAI",
@@ -71,6 +74,8 @@ export function ProviderSettings() {
   const [draft, setDraft] = useState<ProviderDraft>(newProviderDraft);
   const [busy, setBusy] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [ledgerRevision, setLedgerRevision] = useState(0);
+  const [testOperationId, setTestOperationId] = useState<OperationId>();
 
   useEffect(() => {
     let active = true;
@@ -133,16 +138,26 @@ export function ProviderSettings() {
   }
 
   async function testProvider(providerId: string): Promise<void> {
+    const operationId = createOperationId();
     setBusy(providerId);
+    setTestOperationId(operationId);
     setNotice("正在进行一次最小化模型请求…");
     try {
-      const result = await window.bubu.providers.test(providerId);
+      const result = await window.bubu.providers.test(providerId, operationId);
       setNotice(`连接成功 · ${result.model} · ${result.latencyMs} ms`);
     } catch (error) {
       setNotice(errorMessage(error));
     } finally {
+      setLedgerRevision((value) => value + 1);
       setBusy(undefined);
+      setTestOperationId((current) => current === operationId ? undefined : current);
     }
+  }
+
+  async function cancelProviderTest(): Promise<void> {
+    if (!testOperationId) return;
+    await window.bubu.operations.cancel(testOperationId);
+    setNotice("正在取消连接测试…");
   }
 
   async function removeProvider(providerId: string): Promise<void> {
@@ -195,6 +210,7 @@ export function ProviderSettings() {
               <div className="provider-actions">
                 <button type="button" onClick={() => void selectProvider(summary.profile.id)} disabled={busy !== undefined}>设为当前</button>
                 <button type="button" onClick={() => void testProvider(summary.profile.id)} disabled={busy !== undefined}>测试</button>
+                {busy === summary.profile.id && testOperationId && <button type="button" onClick={() => void cancelProviderTest()}>取消测试</button>}
                 <button type="button" onClick={() => void removeProvider(summary.profile.id)} disabled={busy !== undefined}>删除</button>
               </div>
             </article>
@@ -240,6 +256,7 @@ export function ProviderSettings() {
           {busy === "save" ? "正在安全保存…" : "安全保存配置"}
         </button>
       </form>
+      <PrivacyLedgerPanel refreshKey={ledgerRevision} />
     </div>
   );
 }

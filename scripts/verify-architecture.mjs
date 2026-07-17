@@ -288,6 +288,45 @@ if (!providerInvocation.includes("AbortSignal.any([signal, AbortSignal.timeout(1
   failures.push("provider request does not combine user cancellation with its network deadline");
 }
 
+const modelAudit = read("apps/desktop/src/main/model-audit.ts");
+for (const invariant of [
+  "runtime.startModelAudit(buildModelAuditStart(invocation, scope))",
+  "runtime.generateModel(invocation, signal)",
+  "runtime.finishModelAudit",
+  'createHash("sha256")',
+  "containsRawRows: false",
+  'new URL(invocation.provider.baseUrl).origin',
+]) {
+  if (!modelAudit.includes(invariant)) failures.push(`model audit boundary missing: ${invariant}`);
+}
+for (const path of sourceFiles("apps/desktop/src/main")) {
+  if (path.endsWith("model-audit.ts") || path.endsWith(".test.ts")) continue;
+  if (readFileSync(path, "utf8").includes(".generateModel(")) {
+    failures.push(`model invocation bypasses the disclosure ledger: ${path.slice(root.length + 1)}`);
+  }
+}
+const modelAuditValidation = read("services/data-core/internal/data/model_audit_validation.go");
+for (const invariant of [
+  "maximumModelAuditEvents  = 100_000",
+  "maximumModelPayloadBytes = 250_000",
+  "input.ContainsRawRows",
+  "validateModelAuditEvent",
+]) {
+  if (!modelAuditValidation.includes(invariant)) failures.push(`model audit data-core invariant missing: ${invariant}`);
+}
+const modelAuditStore = read("services/data-core/internal/data/model_audit_store.go");
+for (const invariant of [
+  "INSERT INTO model_disclosure_events(",
+  "INSERT INTO model_disclosure_outcomes(",
+  "NOT EXISTS (",
+  "LEFT JOIN model_disclosure_outcomes",
+]) {
+  if (!modelAuditStore.includes(invariant)) failures.push(`append-only model ledger invariant missing: ${invariant}`);
+}
+if (modelAuditStore.includes("UPDATE model_disclosure_")) {
+  failures.push("model disclosure ledger mutates an existing audit row");
+}
+
 const workflowValidation = read("services/data-core/internal/data/workflow_validation.go");
 for (const invariant of [
   "maximumWorkflowDefinitions = 500",
