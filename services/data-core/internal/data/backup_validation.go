@@ -151,6 +151,14 @@ func backupSchemaObjects(schemaVersion int) (map[string]bool, map[string]bool) {
 		indexes["dataset_relationships_left_dataset_idx"] = true
 		indexes["dataset_relationships_right_dataset_idx"] = true
 	}
+	if schemaVersion >= 7 {
+		tables["workflow_definitions"] = true
+		tables["workflow_runs"] = true
+		tables["workflow_step_runs"] = true
+		indexes["workflow_definitions_target_idx"] = true
+		indexes["workflow_runs_workflow_idx"] = true
+		indexes["workflow_step_runs_run_idx"] = true
+	}
 	return tables, indexes
 }
 
@@ -230,6 +238,28 @@ SELECT COUNT(*) FROM (
   SELECT thread_id FROM conversation_entries GROUP BY thread_id HAVING COUNT(*) > ?
 )`, maximumConversationEntries).Scan(&excessiveThreads); err != nil || excessiveThreads != 0 {
 			return errors.New("backup contains oversized conversation histories")
+		}
+	}
+	if manifest.SchemaVersion >= 7 {
+		var excessiveDefinitions int
+		if err := database.QueryRowContext(ctx, `
+SELECT CASE WHEN COUNT(*) > ? THEN 1 ELSE 0 END FROM workflow_definitions WHERE deleted_at IS NULL`, maximumWorkflowDefinitions).Scan(&excessiveDefinitions); err != nil || excessiveDefinitions != 0 {
+			return errors.New("backup exceeds the active-workflow limit")
+		}
+		var invalidWorkflowPayloads int
+		if err := database.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM workflow_definitions
+WHERE length(steps_json) > ? OR timeout_ms < 1000 OR timeout_ms > 600000`, maximumWorkflowJSONBytes).Scan(&invalidWorkflowPayloads); err != nil || invalidWorkflowPayloads != 0 {
+			return errors.New("backup contains invalid workflow definitions")
+		}
+		var invalidRunPayloads int
+		if err := database.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM workflow_step_runs
+WHERE length(resolved_input_json) > ? OR length(COALESCE(result_json, '')) > ?`, maximumWorkflowJSONBytes, maximumWorkflowJSONBytes).Scan(&invalidRunPayloads); err != nil || invalidRunPayloads != 0 {
+			return errors.New("backup contains oversized workflow checkpoints")
+		}
+		if err := validateBackupWorkflows(ctx, database); err != nil {
+			return err
 		}
 	}
 	return nil

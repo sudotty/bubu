@@ -25,6 +25,10 @@ import {
   parseRpcResponse,
   parseSafeQueryResult,
   parseSafeGroupQueryResult,
+  parseWorkflowDefinition,
+  parseWorkflowDefinitions,
+  parseWorkflowRun,
+  parseWorkflowRuns,
 } from "../packages/contracts/dist/index.js";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
@@ -354,6 +358,33 @@ try {
     throw new Error("Local validation rules did not persist and run on the current version");
   }
 
+  const workflow = parseWorkflowDefinition(
+    await request("workflow.save", {
+      input: {
+        name: "Synthetic regional totals",
+        target: { kind: "dataset", id: dataset.id },
+        trigger: { kind: "manual" },
+        timeoutMs: 60_000,
+        steps: [{ id: "regional-totals", kind: "dataset-query", plan: singlePlan, maxAttempts: 2 }],
+      },
+    }),
+  );
+  const workflowIdempotencyKey = "123e4567-e89b-42d3-a456-426614174000";
+  const workflowRun = parseWorkflowRun(
+    await request("workflow.run", { id: workflow.id, idempotencyKey: workflowIdempotencyKey }),
+  );
+  const repeatedWorkflowRun = parseWorkflowRun(
+    await request("workflow.run", { id: workflow.id, idempotencyKey: workflowIdempotencyKey }),
+  );
+  if (
+    workflowRun.status !== "succeeded" ||
+    workflowRun.steps.length !== 1 ||
+    workflowRun.steps[0]?.result?.value.versionId !== mappedReplacement.dataset.versionId ||
+    repeatedWorkflowRun.id !== workflowRun.id
+  ) {
+    throw new Error("Version-rebound idempotent workflow execution did not checkpoint correctly");
+  }
+
   const exportedRaw = await request("dataset.export", {
     datasetId: dataset.id,
     targetPath: exportPath,
@@ -394,11 +425,19 @@ try {
   const restoredConversation = parseConversationThread(
     await request("conversation.get", { target: conversationTarget }),
   );
+  const restoredWorkflows = parseWorkflowDefinitions(
+    await request("workflow.list", { target: { kind: "dataset", id: dataset.id } }),
+  );
+  const restoredWorkflowRuns = parseWorkflowRuns(
+    await request("workflow.runs.list", { id: workflow.id }),
+  );
   if (
     JSON.stringify(restoreRaw).includes(backupPath) ||
     restore.backupCreatedAt !== backup.backupCreatedAt ||
     restoredDatasets[0]?.id !== dataset.id ||
-    restoredConversation.entries.length !== 3
+    restoredConversation.entries.length !== 3 ||
+    restoredWorkflows[0]?.id !== workflow.id ||
+    restoredWorkflowRuns[0]?.id !== workflowRun.id
   ) {
     throw new Error("Verified backup restore did not recover the private local workspace");
   }
@@ -422,7 +461,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, version-rebound idempotent workflows, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

@@ -40,6 +40,10 @@ import {
   type OperationId,
   type SafeGroupQueryPlan,
   type SafeGroupQueryResult,
+  type WorkflowDefinition,
+  type WorkflowDefinitionInput,
+  type WorkflowRun,
+  type WorkflowTarget,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -119,6 +123,18 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.saveDatasetRelationship, value) as Promise<DatasetRelationship>,
     remove: (relationshipId: string) =>
       ipcRenderer.invoke(desktopChannels.removeDatasetRelationship, relationshipId) as Promise<void>,
+  },
+  workflows: {
+    save: (value: WorkflowDefinitionInput) =>
+      ipcRenderer.invoke(desktopChannels.saveWorkflow, value) as Promise<WorkflowDefinition>,
+    list: (target: WorkflowTarget) =>
+      ipcRenderer.invoke(desktopChannels.listWorkflows, target) as Promise<readonly WorkflowDefinition[]>,
+    delete: (workflowId: string) =>
+      ipcRenderer.invoke(desktopChannels.deleteWorkflow, workflowId) as Promise<void>,
+    run: (workflowId: string, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.runWorkflow, { operationId, value: workflowId }) as Promise<WorkflowRun>,
+    runs: (workflowId: string) =>
+      ipcRenderer.invoke(desktopChannels.listWorkflowRuns, workflowId) as Promise<readonly WorkflowRun[]>,
   },
 };
 

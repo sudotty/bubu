@@ -36,6 +36,10 @@ import type {
   SafeGroupQueryResult,
   SafeQueryPlan,
   SafeQueryResult,
+  WorkflowDefinition,
+  WorkflowDefinitionInput,
+  WorkflowRun,
+  WorkflowTarget,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -69,6 +73,11 @@ export const desktopChannels = {
   getGroupRelationships: "bubu:relationships:group-overview",
   saveDatasetRelationship: "bubu:relationships:save",
   removeDatasetRelationship: "bubu:relationships:remove",
+  saveWorkflow: "bubu:workflows:save",
+  listWorkflows: "bubu:workflows:list",
+  deleteWorkflow: "bubu:workflows:delete",
+  runWorkflow: "bubu:workflows:run",
+  listWorkflowRuns: "bubu:workflows:runs-list",
 } as const;
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
@@ -136,6 +145,13 @@ export interface BuBuDesktopApi {
     save(value: DatasetRelationshipSaveInput): Promise<DatasetRelationship>;
     remove(relationshipId: string): Promise<void>;
   };
+  readonly workflows: {
+    save(value: WorkflowDefinitionInput): Promise<WorkflowDefinition>;
+    list(target: WorkflowTarget): Promise<readonly WorkflowDefinition[]>;
+    delete(workflowId: string): Promise<void>;
+    run(workflowId: string, operationId: OperationId): Promise<WorkflowRun>;
+    runs(workflowId: string): Promise<readonly WorkflowRun[]>;
+  };
 }
 
 export type {
@@ -183,6 +199,11 @@ export type {
   SafeQueryResult,
   SchemaDrift,
   ValidationRule,
+  WorkflowDefinition,
+  WorkflowDefinitionInput,
+  WorkflowRun,
+  WorkflowStepDefinition,
+  WorkflowTarget,
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,

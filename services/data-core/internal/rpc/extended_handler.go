@@ -8,6 +8,7 @@ func handleExtendedMethods(
 	datasets DatasetService,
 ) (Response, bool) {
 	for _, handler := range []func(context.Context, Request, DatasetService) (Response, bool){
+		handleWorkflow,
 		handleDatasetLifecycle,
 		handleDataProtection,
 		handleDistribution,

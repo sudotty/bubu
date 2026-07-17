@@ -9,6 +9,7 @@ import type {
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
+import { WorkflowPanel } from "./WorkflowPanel.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -178,6 +179,10 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
         <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
+      <WorkflowPanel
+        target={{ kind: "group", id: group.id }}
+        draft={proposal ? { kind: "group-query", groupPlan: proposal.plan } : undefined}
+      />
     </section>
   );
 }

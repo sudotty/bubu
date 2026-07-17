@@ -80,3 +80,40 @@ END`); err != nil {
 		t.Fatal("backup database containing a trigger was accepted")
 	}
 }
+
+func TestBackupValidationRejectsForgedWorkflowArtifacts(t *testing.T) {
+	service, dataset := importQueryFixture(t)
+	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(dataset, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RunWorkflow(
+		context.Background(), definition.ID, "123e4567-e89b-42d3-a456-426614174010",
+	); err != nil {
+		t.Fatal(err)
+	}
+	snapshotPath := filepath.Join(t.TempDir(), "forged-workflow.db")
+	if _, err := service.database.ExecContext(context.Background(), "VACUUM main INTO ?", snapshotPath); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE workflow_step_runs
+SET result_json = '{"kind":"shell","value":{"command":"rm"}}'
+WHERE result_json IS NOT NULL`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := buildBackupManifest(context.Background(), snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBackupDatabase(context.Background(), snapshotPath, manifest); err == nil {
+		t.Fatal("backup containing a forged workflow artifact was accepted")
+	}
+}

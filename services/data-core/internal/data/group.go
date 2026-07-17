@@ -196,6 +196,10 @@ func (service *Service) DeleteGroup(ctx context.Context, groupID string) error {
 		return fmt.Errorf("begin dataset group deletion: %w", err)
 	}
 	defer transaction.Rollback()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if err := retireTargetWorkflows(ctx, transaction, WorkflowTarget{Kind: "group", ID: groupID}, now); err != nil {
+		return err
+	}
 	if _, err := transaction.ExecContext(ctx, "DELETE FROM conversation_threads WHERE target_kind = 'group' AND target_id = ?", groupID); err != nil {
 		return fmt.Errorf("delete dataset group conversation: %w", err)
 	}

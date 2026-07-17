@@ -33,11 +33,18 @@ func (service *Service) DeleteDataset(
 	if err != nil {
 		return DatasetDeletionResult{}, err
 	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if err := retireTargetWorkflows(ctx, transaction, WorkflowTarget{Kind: "dataset", ID: datasetID}, now); err != nil {
+		return DatasetDeletionResult{}, err
+	}
 	if _, err := transaction.ExecContext(ctx, "DELETE FROM conversation_threads WHERE target_kind = 'dataset' AND target_id = ?", datasetID); err != nil {
 		return DatasetDeletionResult{}, fmt.Errorf("delete dataset conversation: %w", err)
 	}
 	removedGroupIDs := make([]string, 0)
 	for _, group := range groups {
+		if err := retireTargetWorkflows(ctx, transaction, WorkflowTarget{Kind: "group", ID: group.id}, now); err != nil {
+			return DatasetDeletionResult{}, err
+		}
 		if group.memberCount > minimumGroupMembers {
 			continue
 		}
@@ -58,7 +65,6 @@ func (service *Service) DeleteDataset(
 		return DatasetDeletionResult{}, errors.New("dataset not found")
 	}
 	updatedGroupIDs := make([]string, 0)
-	now := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, group := range groups {
 		if group.memberCount <= minimumGroupMembers {
 			continue

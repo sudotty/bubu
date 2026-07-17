@@ -27,6 +27,7 @@ import { registerDatasetLifecycleApi } from "./dataset-lifecycle-api.js";
 import { registerBackupApi } from "./backup-api.js";
 import { createOperationRegistry } from "./operation-registry.js";
 import { registerAnalysisApi } from "./analysis-api.js";
+import { registerWorkflowApi } from "./workflow-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -53,6 +54,7 @@ export function registerDesktopApi({
   registerDatasetLifecycleApi({ sidecars, assertTrustedSender, operations });
   registerBackupApi({ sidecars, assertTrustedSender, operations });
   registerAnalysisApi({ sidecars, providerStore, operations, assertTrustedSender });
+  registerWorkflowApi({ sidecars, operations, assertTrustedSender });
 
   ipcMain.handle(desktopChannels.cancelOperation, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

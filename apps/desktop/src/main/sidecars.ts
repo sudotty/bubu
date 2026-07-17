@@ -27,6 +27,10 @@ import {
   parseSafeGroupQueryResult,
   parseSafeQueryResult,
   parseServiceHealth,
+  parseWorkflowDefinition,
+  parseWorkflowDefinitions,
+  parseWorkflowRun,
+  parseWorkflowRuns,
   type DatasetImportResult,
   type DatasetExportResult,
   type DatasetDeletionResult,
@@ -57,6 +61,10 @@ import {
   type SafeGroupQueryResult,
   type SafeQueryPlan,
   type SafeQueryResult,
+  type WorkflowDefinition,
+  type WorkflowDefinitionInput,
+  type WorkflowRun,
+  type WorkflowTarget,
 } from "@bubu/contracts";
 import type {
   DesktopServiceHealth,
@@ -242,6 +250,34 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
+  async saveWorkflow(input: WorkflowDefinitionInput): Promise<WorkflowDefinition> {
+    return parseWorkflowDefinition(await this.#broker.request("workflow.save", { input }));
+  }
+
+  async listWorkflows(target: WorkflowTarget): Promise<readonly WorkflowDefinition[]> {
+    return parseWorkflowDefinitions(await this.#broker.request("workflow.list", { target }));
+  }
+
+  async deleteWorkflow(workflowID: string): Promise<void> {
+    await this.#broker.request("workflow.delete", { id: workflowID });
+  }
+
+  async runWorkflow(
+    workflowID: string,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<WorkflowRun> {
+    return parseWorkflowRun(await this.#broker.request(
+      "workflow.run",
+      { id: workflowID, idempotencyKey },
+      requestOptions(signal),
+    ));
+  }
+
+  async listWorkflowRuns(workflowID: string): Promise<readonly WorkflowRun[]> {
+    return parseWorkflowRuns(await this.#broker.request("workflow.runs.list", { id: workflowID }));
+  }
+
   stop(): void {
     this.#broker.close(new Error("data-core stopped by desktop"));
     this.#process.kill("SIGTERM");
@@ -341,6 +377,11 @@ export interface SidecarSupervisor {
   executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult>;
   getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
   appendConversation(input: ConversationAppendInput): Promise<ConversationThread>;
+  saveWorkflow(input: WorkflowDefinitionInput): Promise<WorkflowDefinition>;
+  listWorkflows(target: WorkflowTarget): Promise<readonly WorkflowDefinition[]>;
+  deleteWorkflow(workflowID: string): Promise<void>;
+  runWorkflow(workflowID: string, idempotencyKey: string, signal?: AbortSignal): Promise<WorkflowRun>;
+  listWorkflowRuns(workflowID: string): Promise<readonly WorkflowRun[]>;
   listGroups(): Promise<readonly DatasetGroup[]>;
   saveGroup(input: DatasetGroupSaveInput): Promise<DatasetGroup>;
   deleteGroup(groupID: string): Promise<void>;
@@ -393,6 +434,12 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     executeGroupQueryPlan: (plan, signal) => dataCore.executeGroupQueryPlan(plan, signal),
     getConversation: (target) => dataCore.getConversation(target),
     appendConversation: (input) => dataCore.appendConversation(input),
+    saveWorkflow: (input) => dataCore.saveWorkflow(input),
+    listWorkflows: (target) => dataCore.listWorkflows(target),
+    deleteWorkflow: (workflowID) => dataCore.deleteWorkflow(workflowID),
+    runWorkflow: (workflowID, idempotencyKey, signal) =>
+      dataCore.runWorkflow(workflowID, idempotencyKey, signal),
+    listWorkflowRuns: (workflowID) => dataCore.listWorkflowRuns(workflowID),
     listGroups: () => dataCore.listGroups(),
     saveGroup: (input) => dataCore.saveGroup(input),
     deleteGroup: (groupID) => dataCore.deleteGroup(groupID),
