@@ -247,8 +247,8 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .mcp-array-editor { display: grid; gap: 8px; padding: 10px; border: 1px solid #ded9e8; border-radius: 10px; }
 .mcp-array-editor > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 7px; }
 .mcp-array-editor > div input:only-of-type { grid-column: 1 / 3; }
-.mcp-launch-review, .mcp-inspection-result, .mcp-resource-result, .mcp-audit-history { display: grid; gap: 12px; padding: 15px; border: 1px solid #b9aed2; border-radius: 13px; background: #f7f4ff; }
-.mcp-launch-review > header, .mcp-inspection-result > header, .mcp-resource-result > header, .mcp-audit-history > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.mcp-launch-review, .mcp-inspection-result, .mcp-resource-result, .mcp-prompt-result, .mcp-audit-history { display: grid; gap: 12px; padding: 15px; border: 1px solid #b9aed2; border-radius: 13px; background: #f7f4ff; }
+.mcp-launch-review > header, .mcp-inspection-result > header, .mcp-resource-result > header, .mcp-prompt-result > header, .mcp-audit-history > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .mcp-launch-review dl { display: grid; gap: 8px; margin: 0; }
 .mcp-launch-review dl > div { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 10px; }
 .mcp-launch-review code, .mcp-inspection-result code { overflow-wrap: anywhere; }
@@ -256,9 +256,11 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .mcp-capability-columns > section { min-width: 0; padding: 10px; border-radius: 10px; background: #fff; }
 .mcp-capability-columns details { padding: 8px 0; border-top: 1px solid #ebe7f2; }
 .mcp-capability-columns pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
-.mcp-resource-result > section { display: grid; gap: 7px; min-width: 0; padding: 11px; border-radius: 10px; background: #fff; }
-.mcp-resource-result > section small, .mcp-resource-result code { overflow-wrap: anywhere; }
-.mcp-resource-result pre { max-height: 280px; overflow: auto; margin: 0; padding: 10px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; color: #393440; background: #efecf5; }
+.mcp-resource-result > section, .mcp-prompt-result > section { display: grid; gap: 7px; min-width: 0; padding: 11px; border-radius: 10px; background: #fff; }
+.mcp-resource-result > section small, .mcp-resource-result code, .mcp-prompt-result > section small, .mcp-prompt-result code { overflow-wrap: anywhere; }
+.mcp-resource-result pre, .mcp-prompt-result pre { max-height: 280px; overflow: auto; margin: 0; padding: 10px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; color: #393440; background: #efecf5; }
+.mcp-prompt-arguments { display: grid; gap: 8px; margin-top: 8px; }
+.mcp-prompt-arguments label { display: grid; gap: 4px; }
 .mcp-audit-list { display: grid; gap: 8px; max-height: 320px; overflow: auto; }
 .mcp-audit-list > div { display: grid; gap: 5px; min-width: 0; padding: 10px; border-radius: 9px; background: #fff; }
 .mcp-audit-list code, .mcp-audit-list small { overflow-wrap: anywhere; }

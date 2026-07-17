@@ -7,8 +7,10 @@ import { resolve } from "node:path";
 import {
   createRpcRequest,
   mcpInspectionBudget,
+  mcpPromptGetBudget,
   mcpResourceReadBudget,
   parseMcpInspectionSnapshot,
+  parseMcpPromptGetResult,
   parseMcpResourceReadResult,
   parseRpcResponse,
 } from "@bubu/contracts";
@@ -116,7 +118,26 @@ try {
   ) {
     throw new Error(`MCP smoke violated approved local resource policy: ${JSON.stringify(resource)}`);
   }
-  console.log("MCP smoke passed: authenticated isolated stdio discovery invoked nothing; the separately approved exact URI invoked one resource, returned bounded local-only text/blob metadata, exposed no blob bytes, and cleaned up both child trees.");
+  rmSync(sentinel, { force: true });
+  const prompt = parseMcpPromptGetResult(await requestRuntime("mcp.prompt.get", {
+    ...launch,
+    promptName: "explain_term",
+    arguments: [{ name: "term", value: "gross margin" }],
+    budget: mcpPromptGetBudget,
+  }));
+  if (
+    prompt.messages.length !== 4 ||
+    prompt.decodedBytes !== 41 ||
+    prompt.messages[0]?.content.kind !== "text" ||
+    prompt.messages[1]?.content.kind !== "image" ||
+    prompt.messages[2]?.content.kind !== "embedded-text" ||
+    prompt.messages[3]?.content.kind !== "resource-link" ||
+    readFileSync(sentinel, "utf8") !== "prompt\n" ||
+    JSON.stringify(prompt).includes("YmluYXJ5IGZpeHR1cmU=")
+  ) {
+    throw new Error(`MCP smoke violated approved local prompt policy: ${JSON.stringify(prompt)}`);
+  }
+  console.log("MCP smoke passed: discovery invoked nothing; separately approved exact resource and prompt requests each invoked one primitive, returned bounded local-only normalized content, exposed no binary body, and cleaned up every child tree.");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

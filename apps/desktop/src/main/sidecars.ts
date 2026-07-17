@@ -37,6 +37,8 @@ import {
   parseModelAuditEvents,
   parseMcpInspectionInvocation,
   parseMcpInspectionSnapshot,
+  parseMcpPromptGetInvocation,
+  parseMcpPromptGetResult,
   parseMcpResourceReadInvocation,
   parseMcpResourceReadResult,
   type DatasetImportResult,
@@ -80,6 +82,8 @@ import {
   type ModelAuditStartInput,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
+  type McpPromptGetInvocation,
+  type McpPromptGetResult,
   type McpResourceReadInvocation,
   type McpResourceReadResult,
 } from "@bubu/contracts";
@@ -377,6 +381,16 @@ class AiRuntimeClient implements RuntimeClient {
     );
   }
 
+  async getMcpPrompt(invocation: McpPromptGetInvocation, signal?: AbortSignal): Promise<McpPromptGetResult> {
+    const parsed = parseMcpPromptGetInvocation(invocation);
+    return parseMcpPromptGetResult(
+      await this.#broker.request("mcp.prompt.get", parsed, {
+        ...requestOptions(signal),
+        timeoutMs: parsed.budget.maxDurationMs + 5_000,
+      }),
+    );
+  }
+
   stop(): void {
     this.#broker.close(new Error("ai-runtime stopped by desktop"));
     this.#process.kill();
@@ -432,6 +446,7 @@ export interface SidecarSupervisor {
   generateModel(invocation: ModelInvocation, signal?: AbortSignal): Promise<ModelCompletion>;
   inspectMcp(invocation: McpInspectionInvocation, signal?: AbortSignal): Promise<McpInspectionSnapshot>;
   readMcpResource(invocation: McpResourceReadInvocation, signal?: AbortSignal): Promise<McpResourceReadResult>;
+  getMcpPrompt(invocation: McpPromptGetInvocation, signal?: AbortSignal): Promise<McpPromptGetResult>;
   executeQueryPlan(plan: SafeQueryPlan, signal?: AbortSignal): Promise<SafeQueryResult>;
   executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult>;
   getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
@@ -496,6 +511,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     generateModel: (invocation, signal) => aiRuntime.generate(invocation, signal),
     inspectMcp: (invocation, signal) => aiRuntime.inspectMcp(invocation, signal),
     readMcpResource: (invocation, signal) => aiRuntime.readMcpResource(invocation, signal),
+    getMcpPrompt: (invocation, signal) => aiRuntime.getMcpPrompt(invocation, signal),
     executeQueryPlan: (plan, signal) => dataCore.executeQueryPlan(plan, signal),
     executeGroupQueryPlan: (plan, signal) => dataCore.executeGroupQueryPlan(plan, signal),
     getConversation: (target) => dataCore.getConversation(target),

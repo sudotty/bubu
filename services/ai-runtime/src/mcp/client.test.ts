@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 import {
   mcpInspectionBudget,
   mcpResourceReadBudget,
+  mcpPromptGetBudget,
   type McpInspectionInvocation,
   type McpResourceReadInvocation,
+  type McpPromptGetInvocation,
 } from "@bubu/contracts";
-import { inspectMcpStdioServer, readMcpStdioResource } from "./client.js";
+import { getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./client.js";
 
 function fixtureInvocation(root: string): McpInspectionInvocation {
   return {
@@ -31,6 +33,20 @@ function resourceInvocation(root: string, resourceUri = "bubu-dictionary://defin
     workingDirectory: inspected.workingDirectory,
     resourceUri,
     budget: mcpResourceReadBudget,
+  };
+}
+
+function promptInvocation(root: string, promptName = "explain_term"): McpPromptGetInvocation {
+  const inspected = fixtureInvocation(root);
+  return {
+    connectionId: inspected.connectionId,
+    command: inspected.command,
+    args: inspected.args,
+    environment: inspected.environment,
+    workingDirectory: inspected.workingDirectory,
+    promptName,
+    arguments: [{ name: "term", value: "gross margin" }],
+    budget: mcpPromptGetBudget,
   };
 }
 
@@ -106,5 +122,38 @@ describe("MCP stdio inspection client", () => {
     const invocation = resourceInvocation(root, "bubu-dictionary://not-listed");
     await expect(readMcpStdioResource(invocation)).rejects.toThrow("not present");
     expect(existsSync(invocation.environment.FIXTURE_SENTINEL!)).toBe(false);
+  });
+
+  it("re-discovers and gets one approved prompt with local-only normalized blocks", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "bubu-mcp-prompt-"));
+    const invocation = promptInvocation(root);
+    const result = await getMcpStdioPrompt(invocation);
+    expect(result).toMatchObject({
+      connectionId: invocation.connectionId,
+      promptName: invocation.promptName,
+      description: "Fixture explanation",
+      decodedBytes: 41,
+      localOnly: true,
+      untrustedContent: true,
+    });
+    expect(result.messages).toEqual([
+      { role: "user", content: { kind: "text", text: "Explain gross margin", decodedBytes: 20 } },
+      { role: "assistant", content: { kind: "image", mimeType: "image/png", decodedBytes: 14, sha256: "a6c12f479dd1b4cc225f316ec635cdda0abcb8bbdd7b115acd4b43b6771235e2" } },
+      { role: "user", content: { kind: "embedded-text", uri: "bubu-dictionary://context", mimeType: "text/plain", text: "context", decodedBytes: 7 } },
+      { role: "assistant", content: { kind: "resource-link", uri: "bubu-dictionary://more", name: "more", title: "More terms", decodedBytes: 0 } },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("YmluYXJ5IGZpeHR1cmU=");
+    expect(readFileSync(invocation.environment.FIXTURE_SENTINEL!, "utf8")).toBe("prompt\n");
+  });
+
+  it("rejects missing/unknown arguments or an undiscovered prompt before primitive use", async () => {
+    for (const invocation of [
+      { ...promptInvocation(mkdtempSync(resolve(tmpdir(), "bubu-mcp-prompt-"))), arguments: [] },
+      { ...promptInvocation(mkdtempSync(resolve(tmpdir(), "bubu-mcp-prompt-"))), arguments: [{ name: "unknown", value: "x" }] },
+      promptInvocation(mkdtempSync(resolve(tmpdir(), "bubu-mcp-prompt-")), "not_listed"),
+    ]) {
+      await expect(getMcpStdioPrompt(invocation)).rejects.toThrow();
+      expect(existsSync(invocation.environment.FIXTURE_SENTINEL!)).toBe(false);
+    }
   });
 });

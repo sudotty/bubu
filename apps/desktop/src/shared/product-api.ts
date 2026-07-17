@@ -61,6 +61,10 @@ import type {
   McpResourceReadProposal,
   McpResourceReadRequest,
   McpResourceReadResult,
+  McpPromptGetApproval,
+  McpPromptGetProposal,
+  McpPromptGetRequest,
+  McpPromptGetResult,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -93,6 +97,9 @@ export const desktopChannels = {
   prepareMcpResourceRead: "bubu:mcp:prepare-resource-read",
   approveMcpResourceRead: "bubu:mcp:approve-resource-read",
   dismissMcpResourceRead: "bubu:mcp:dismiss-resource-read",
+  prepareMcpPromptGet: "bubu:mcp:prepare-prompt-get",
+  approveMcpPromptGet: "bubu:mcp:approve-prompt-get",
+  dismissMcpPromptGet: "bubu:mcp:dismiss-prompt-get",
   proposeQueryPlan: "bubu:analysis:propose-query-plan",
   executeQueryPlan: "bubu:analysis:execute-query-plan",
   listDatasetGroups: "bubu:dataset-groups:list",
@@ -168,6 +175,9 @@ export interface BuBuDesktopApi {
     prepareResourceRead(value: McpResourceReadRequest): Promise<McpResourceReadProposal>;
     approveResourceRead(value: McpResourceReadApproval, operationId: OperationId): Promise<McpResourceReadResult>;
     dismissResourceRead(value: McpResourceReadApproval): Promise<void>;
+    preparePromptGet(value: McpPromptGetRequest): Promise<McpPromptGetProposal>;
+    approvePromptGet(value: McpPromptGetApproval, operationId: OperationId): Promise<McpPromptGetResult>;
+    dismissPromptGet(value: McpPromptGetApproval): Promise<void>;
   };
   readonly dataProtection: {
     createBackup(operationId: OperationId): Promise<DataBackupSelectionResult>;
@@ -288,6 +298,10 @@ export type {
   McpResourceReadProposal,
   McpResourceReadRequest,
   McpResourceReadResult,
+  McpPromptGetApproval,
+  McpPromptGetProposal,
+  McpPromptGetRequest,
+  McpPromptGetResult,
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,

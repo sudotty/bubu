@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mcpInspectionBudget,
   mcpResourceReadBudget,
+  mcpPromptGetBudget,
   parseMcpAuditEvents,
   parseMcpAuditOutcome,
   parseMcpAuditStart,
@@ -15,6 +16,11 @@ import {
   parseMcpResourceReadProposal,
   parseMcpResourceReadRequest,
   parseMcpResourceReadResult,
+  parseMcpPromptGetInvocation,
+  parseMcpPromptGetApproval,
+  parseMcpPromptGetProposal,
+  parseMcpPromptGetRequest,
+  parseMcpPromptGetResult,
 } from "./mcp.js";
 
 const connectionId = "a".repeat(32);
@@ -267,5 +273,98 @@ describe("local MCP connection contracts", () => {
       { ...start, auditId: "223e4567-e89b-42d3-a456-426614174000", status: "interrupted" },
     ])).toHaveLength(2);
     expect(() => parseMcpAuditOutcome({ ...succeeded, resourceContent: "must-not-persist" })).toThrow();
+  });
+
+  it("binds declared prompt arguments and fixed local-only get budgets to approval", () => {
+    const request = {
+      connectionId,
+      promptName: "explain_term",
+      arguments: [{ name: "term", value: "gross margin" }],
+    };
+    expect(parseMcpPromptGetRequest(request)).toEqual(request);
+    expect(() => parseMcpPromptGetRequest({
+      ...request,
+      arguments: [...request.arguments, request.arguments[0]],
+    })).toThrow("unique");
+    const proposal = {
+      approvalToken: "f".repeat(64),
+      expiresAt: "2026-07-17T11:10:00Z",
+      connection: {
+        id: connectionId,
+        name: configuration.name,
+        command: "/private/opt/bubu-mcp/bin/dictionary-server",
+        args: configuration.args,
+        environmentKeys: ["DICTIONARY_TOKEN"],
+      },
+      promptName: request.promptName,
+      arguments: request.arguments,
+      budget: mcpPromptGetBudget,
+      warning: "untrusted-local-code-argument-disclosure-and-content" as const,
+    };
+    expect(parseMcpPromptGetProposal(proposal)).toEqual(proposal);
+    expect(parseMcpPromptGetApproval({ approvalToken: proposal.approvalToken, request })).toEqual({
+      approvalToken: proposal.approvalToken,
+      request,
+    });
+    const invocation = {
+      connectionId,
+      command: configuration.command,
+      args: configuration.args,
+      environment: { DICTIONARY_TOKEN: "secret" },
+      workingDirectory: "/tmp/bubu-mcp/runtime-a",
+      promptName: request.promptName,
+      arguments: request.arguments,
+      budget: mcpPromptGetBudget,
+    };
+    expect(parseMcpPromptGetInvocation(invocation)).toEqual(invocation);
+    expect(() => parseMcpPromptGetInvocation({
+      ...invocation,
+      arguments: [{ name: "term", value: "汉".repeat(6_000) }],
+    })).toThrow();
+  });
+
+  it("normalizes prompt messages without raw binary, annotations, or server metadata", () => {
+    const result = {
+      schemaVersion: 1,
+      connectionId,
+      promptName: "explain_term",
+      description: "Explain one term",
+      messages: [
+        { role: "user" as const, content: { kind: "text" as const, text: "Explain margin", decodedBytes: 14 } },
+        { role: "assistant" as const, content: { kind: "image" as const, mimeType: "image/png", decodedBytes: 14, sha256: "a".repeat(64) } },
+        { role: "user" as const, content: { kind: "embedded-text" as const, uri: "bubu://context", text: "context", decodedBytes: 7 } },
+        { role: "assistant" as const, content: { kind: "resource-link" as const, uri: "bubu://more", name: "more", decodedBytes: 0 } },
+      ],
+      decodedBytes: 35,
+      localOnly: true,
+      untrustedContent: true,
+    };
+    expect(parseMcpPromptGetResult(result)).toEqual(result);
+    expect(() => parseMcpPromptGetResult({
+      ...result,
+      messages: [{ role: "assistant", content: { ...result.messages[1]!.content, data: "raw-base64" } }],
+    })).toThrow();
+    expect(() => parseMcpPromptGetResult({
+      ...result,
+      messages: [{ role: "user", content: { kind: "text", text: "x", decodedBytes: 1, _meta: {} } }],
+    })).toThrow();
+  });
+
+  it("adds value-free prompt-get starts without weakening resource audit states", () => {
+    const start = {
+      auditId: "323e4567-e89b-42d3-a456-426614174000",
+      connectionId,
+      connectionName: "Dictionary",
+      operation: "prompt-get" as const,
+      promptName: "explain_term",
+      argumentKeys: ["term"],
+      argumentBytes: 23,
+      requestFingerprint: "f".repeat(64),
+      startedAt: "2026-07-17T11:00:00Z",
+    };
+    expect(parseMcpAuditStart(start)).toEqual(start);
+    expect(JSON.stringify(start)).not.toContain("gross margin");
+    expect(parseMcpAuditEvents([{ ...start, status: "interrupted" }])).toHaveLength(1);
+    expect(() => parseMcpAuditStart({ ...start, resourceUri: "bubu://illegal" })).toThrow();
   });
 });

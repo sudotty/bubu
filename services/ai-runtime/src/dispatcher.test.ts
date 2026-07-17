@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRpcRequest, mcpInspectionBudget, mcpResourceReadBudget } from "@bubu/contracts";
+import { createRpcRequest, mcpInspectionBudget, mcpPromptGetBudget, mcpResourceReadBudget } from "@bubu/contracts";
 import { createAiRuntimeDispatcher } from "./dispatcher.js";
 
 const auth = "a".repeat(64);
@@ -88,6 +88,35 @@ describe("AI runtime dispatcher", () => {
       id: "cancel-mcp-resource-1",
       method: "system.cancel",
       params: { requestId: "mcp-resource-1" },
+    }));
+    expect(cancelled).toMatchObject({ ok: true, result: { cancelled: true } });
+    await expect(active).resolves.toMatchObject({ ok: false, error: { code: "CANCELLED" } });
+  });
+
+  it("propagates authenticated cancellation into an active MCP prompt get", async () => {
+    const dispatcher = createAiRuntimeDispatcher(auth, undefined, undefined, undefined, async (_invocation, signal) =>
+      new Promise((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }),
+    );
+    const active = dispatcher.dispatch(createRpcRequest({
+      auth,
+      id: "mcp-prompt-1",
+      method: "mcp.prompt.get",
+      params: {
+        connectionId: "b".repeat(32),
+        command: "/opt/bubu-mcp/bin/server",
+        args: [], environment: {}, workingDirectory: "/tmp/bubu-mcp",
+        promptName: "explain-term",
+        arguments: [{ name: "term", value: "gross margin" }],
+        budget: mcpPromptGetBudget,
+      },
+    }));
+    const cancelled = await dispatcher.dispatch(createRpcRequest({
+      auth,
+      id: "cancel-mcp-prompt-1",
+      method: "system.cancel",
+      params: { requestId: "mcp-prompt-1" },
     }));
     expect(cancelled).toMatchObject({ ok: true, result: { cancelled: true } });
     await expect(active).resolves.toMatchObject({ ok: false, error: { code: "CANCELLED" } });

@@ -593,6 +593,11 @@ for (const invariant of [
   "maxResultBytes: 393_216 as const",
   "MCP text decoded-byte count is invalid",
   "MCP resource exceeds its decoded-content budget",
+  "maxDiscoveredPrompts: 100 as const",
+  "maxMessages: 20 as const",
+  "MCP prompt arguments exceed their combined byte budget",
+  "MCP prompt exceeds its decoded-content budget",
+  'warning: z.literal("untrusted-local-code-argument-disclosure-and-content")',
   "localOnly: z.literal(true)",
   "untrustedContent: z.literal(true)",
 ]) {
@@ -632,6 +637,24 @@ for (const invariant of [
   'warning: "untrusted-local-code-and-content"',
 ]) {
   if (!mcpResourceApprovals.includes(invariant)) failures.push(`MCP resource approval boundary missing: ${invariant}`);
+}
+const mcpPromptApprovals = read("apps/desktop/src/main/mcp-prompt-approval-sessions.ts");
+for (const invariant of [
+  "10 * 60 * 1_000",
+  "maximumMcpPromptApprovalSessions = 20",
+  "session.expiresAt <= options.now()",
+  "launchFingerprint: launchFingerprint(proposal.connection.name, invocation)",
+  "requestFingerprint: requestFingerprint(proposal.connection.name, invocation)",
+  "environmentKeys: Object.keys(invocation.environment)",
+  "const argumentKeys = invocation.arguments.map",
+  "argumentBytes: argumentBytes(invocation)",
+  "Buffer.from(approved.launchFingerprint, \"hex\")",
+  'warning: "untrusted-local-code-argument-disclosure-and-content"',
+]) {
+  if (!mcpPromptApprovals.includes(invariant)) failures.push(`MCP prompt approval boundary missing: ${invariant}`);
+}
+for (const forbidden of ["argumentValues:", "environmentValues:"]) {
+  if (mcpPromptApprovals.includes(forbidden)) failures.push(`MCP prompt approval retains forbidden plaintext field: ${forbidden}`);
 }
 const mcpAuditStore = read("apps/desktop/src/main/mcp-audit-store.ts");
 for (const invariant of [
@@ -677,13 +700,20 @@ for (const invariant of [
   "decodeCanonicalBase64(content.blob)",
   'createHash("sha256").update(decoded).digest("hex")',
   "parseMcpResourceReadResult({",
+  "MCP prompt required argument",
+  "MCP prompt argument",
+  "decodeCanonicalBase64(content.data)",
+  "parseMcpPromptGetResult({",
 ]) {
   if (!mcpClient.includes(invariant)) failures.push(`MCP inspection lifecycle invariant missing: ${invariant}`);
 }
 if ((mcpClient.match(/client\.readResource\(/gu) ?? []).length !== 1) {
   failures.push("MCP client must contain exactly one policy-bound resource read site");
 }
-for (const forbidden of ["client.callTool(", "client.getPrompt(", "client.subscribeResource(", "client.unsubscribeResource("]) {
+if ((mcpClient.match(/client\.getPrompt\(/gu) ?? []).length !== 1) {
+  failures.push("MCP client must contain exactly one policy-bound prompt get site");
+}
+for (const forbidden of ["client.callTool(", "client.subscribeResource(", "client.unsubscribeResource("]) {
   if (mcpClient.includes(forbidden)) failures.push(`MCP client gained an unapproved primitive authority: ${forbidden}`);
 }
 const aiRuntimePackage = JSON.parse(read("services/ai-runtime/package.json"));
@@ -701,7 +731,7 @@ if (
   failures.push("reviewed MCP SDK version, MIT license, and integrity are not locked");
 }
 const aiHandler = read("services/ai-runtime/src/handler.ts");
-for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"', 'request.method === "mcp.resource.read"', '"mcp-resource-read"']) {
+for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"', 'request.method === "mcp.resource.read"', '"mcp-resource-read"', 'request.method === "mcp.prompt.get"', '"mcp-prompt-get"']) {
   if (!aiHandler.includes(invariant)) failures.push(`named MCP utility RPC missing: ${invariant}`);
 }
 for (const invariant of [
@@ -714,6 +744,9 @@ for (const invariant of [
   "prepareMcpResourceRead",
   "approveMcpResourceRead",
   "dismissMcpResourceRead",
+  "prepareMcpPromptGet",
+  "approveMcpPromptGet",
+  "dismissMcpPromptGet",
 ]) {
   if (!preload.includes(invariant)) failures.push(`named MCP preload capability missing: ${invariant}`);
 }
@@ -731,6 +764,11 @@ for (const invariant of [
   "批准启动一次并读取此 URI",
   "二进制正文不进入渲染器",
   "MCP 本地审计",
+  "promptProposal.connection.command",
+  "promptProposal.connection.args.map",
+  "promptProposal.arguments.map",
+  "批准启动一次并获取此提示",
+  "未发送给模型或聊天",
 ]) {
   if (!mcpSettings.includes(invariant)) failures.push(`exact MCP consent UI missing: ${invariant}`);
 }
@@ -749,12 +787,34 @@ for (const invariant of [
 ]) {
   if (!mcpResourceApi.includes(invariant)) failures.push(`approved MCP resource orchestration missing: ${invariant}`);
 }
+const mcpPromptApi = read("apps/desktop/src/main/mcp-prompt-api.ts");
+for (const invariant of [
+  "approvals.consume(approvalToken)",
+  "parseMcpPromptGetRequest(requestValue)",
+  "approvals.matches(approved, resolved.profile.name, invocation)",
+  "dependencies.audits.start({",
+  'operation: "prompt-get"',
+  "argumentKeys: [...approved.argumentKeys]",
+  "argumentBytes: approved.argumentBytes",
+  "result = await dependencies.get(invocation, signal)",
+  'status: "failed"',
+  'status: "succeeded"',
+  "sidecars.getMcpPrompt(invocation, getSignal)",
+]) {
+  if (!mcpPromptApi.includes(invariant)) failures.push(`approved MCP prompt orchestration missing: ${invariant}`);
+}
+for (const forbidden of ["argument.value", "result.messages", "result.description"]) {
+  if (mcpPromptApi.includes(forbidden) && forbidden !== "result.messages") failures.push(`MCP prompt audit boundary persists content: ${forbidden}`);
+}
 const mcpSmoke = read("scripts/smoke-mcp.mjs");
 for (const invariant of [
   'requestRuntime("mcp.inspect"',
   'requestRuntime("mcp.resource.read"',
   'readFileSync(sentinel, "utf8") !== "resource\\n"',
   'JSON.stringify(resource).includes("YmluYXJ5IGZpeHR1cmU=")',
+  'requestRuntime("mcp.prompt.get"',
+  'readFileSync(sentinel, "utf8") !== "prompt\\n"',
+  'JSON.stringify(prompt).includes("YmluYXJ5IGZpeHR1cmU=")',
 ]) {
   if (!mcpSmoke.includes(invariant)) failures.push(`real MCP resource smoke invariant missing: ${invariant}`);
 }
