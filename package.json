@@ -1,0 +1,42 @@
+{
+  "name": "bubu",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first AI data workspace",
+  "type": "module",
+  "packageManager": "npm@10.9.3",
+  "workspaces": [
+    "packages/*",
+    "services/ai-runtime",
+    "apps/*"
+  ],
+  "scripts": {
+    "preinstall": "node scripts/verify-toolchain.mjs",
+    "verify:toolchain": "node scripts/verify-toolchain.mjs",
+    "verify:repository": "node scripts/verify-repository.mjs",
+    "verify:architecture": "node scripts/verify-architecture.mjs",
+    "verify:dependencies": "npm audit --audit-level=low",
+    "dev": "npm run verify:toolchain && npm run build:data-core && npm run build -w @bubu/contracts && npm run build -w @bubu/ai-runtime && npm run start -w @bubu/desktop",
+    "test": "npm run build -w @bubu/contracts && npm run test --workspaces --if-present",
+    "lint": "npm run verify:repository && npm run verify:architecture && npm run build -w @bubu/contracts && npm run lint --workspaces --if-present",
+    "build": "npm run build:data-core && npm run build -w @bubu/contracts && npm run build -w @bubu/ai-runtime && npm run build -w @bubu/desktop",
+    "build:data-core": "cd services/data-core && go build -o bin/bubu-data-core ./cmd/bubu-data-core",
+    "test:data-core": "cd services/data-core && go test ./...",
+    "smoke:desktop": "node scripts/smoke-packaged-desktop.mjs",
+    "verify": "npm run verify:toolchain && npm run verify:repository && npm run verify:architecture && npm run verify:dependencies && npm test && npm run test:data-core && npm run lint && npm run build && npm run smoke:desktop"
+  },
+  "engines": {
+    "node": ">=22.18 <26"
+  },
+  "devDependencies": {
+    "@electron/get": "3.1.0"
+  },
+  "overrides": {
+    "tar": "7.5.20",
+    "tmp": "0.2.7"
+  },
+  "volta": {
+    "node": "22.18.0",
+    "npm": "10.9.3"
+  }
+}

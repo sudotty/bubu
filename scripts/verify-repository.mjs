@@ -1,0 +1,108 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = resolve(import.meta.dirname, "..");
+const failures = [];
+
+const requiredFiles = [
+  "AGENTS.md",
+  "PRODUCT_MANIFEST.yaml",
+  "docs/adr/0001-electron-shell-go-data-core-and-optional-hub.md",
+  "docs/adr/0002-local-sqlite-and-hub-postgresql.md",
+  "docs/adr/0003-provider-neutral-ai-tools-and-mcp.md",
+  "docs/adr/0004-privacy-gateway-and-safe-query-plans.md",
+  "docs/plans/2026-07-17-bubu-product-platform-design.md",
+  "docs/plans/2026-07-17-electron-migration-implementation.md",
+];
+
+for (const path of requiredFiles) {
+  try {
+    statSync(resolve(root, path));
+  } catch {
+    failures.push(`missing required contract: ${path}`);
+  }
+}
+
+const tracked = execFileSync("git", ["ls-files", "-z"], {
+  cwd: root,
+  encoding: "utf8",
+})
+  .split("\0")
+  .filter(Boolean);
+
+const repositoryFiles = execFileSync(
+  "git",
+  ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+  { cwd: root, encoding: "utf8" },
+)
+  .split("\0")
+  .filter(Boolean);
+
+const forbiddenTracked = [
+  /(^|\/)\.DS_Store$/u,
+  /(^|\/)config\.ya?ml$/u,
+  /\.db(?:-shm|-wal)?$/u,
+  /(^|\/)uploads\//u,
+  /^bubu-bi\/bubu-bi$/u,
+  /(^|\/)node_modules\//u,
+  /(^|\/)dist\//u,
+];
+
+for (const path of tracked) {
+  if (forbiddenTracked.some((pattern) => pattern.test(path))) {
+    failures.push(`forbidden tracked runtime artifact: ${path}`);
+  }
+}
+
+const secretPatterns = [
+  /\bsk-[A-Za-z0-9_-]{16,}\b/u,
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/u,
+  /\bghp_[A-Za-z0-9]{30,}\b/u,
+  /\bAIza[0-9A-Za-z_-]{30,}\b/u,
+];
+const textExtensions = /(?:^|\/)(?:[^/]+\.(?:c|css|go|html|js|json|jsx|md|mjs|sql|ts|tsx|txt|yaml|yml)|AGENTS\.md|README)$/u;
+
+for (const path of repositoryFiles) {
+  if (!textExtensions.test(path)) continue;
+  const absolutePath = resolve(root, path);
+  if (statSync(absolutePath).size > 1_000_000) continue;
+  const contents = readFileSync(absolutePath, "utf8");
+  if (secretPatterns.some((pattern) => pattern.test(contents))) {
+    failures.push(`possible credential in tracked text: ${path}`);
+  }
+}
+
+const manifest = readFileSync(resolve(root, "PRODUCT_MANIFEST.yaml"), "utf8");
+for (const required of [
+  "desktop: electron",
+  "renderer: sandboxed-react",
+  "aiRuntime: node-utility-process",
+  "dataCore: go-sidecar",
+  "remoteRawRowsByDefault: false",
+]) {
+  if (!manifest.includes(required)) {
+    failures.push(`manifest invariant missing: ${required}`);
+  }
+}
+
+const acceptedDesign = readFileSync(
+  resolve(root, "docs/plans/2026-07-17-bubu-product-platform-design.md"),
+  "utf8",
+);
+if (!acceptedDesign.includes("### D. Electron shell, Node AI runtime, Go data core, and optional Hub")) {
+  failures.push("accepted architecture alternative is not the Electron/Node/Go design");
+}
+if (acceptedDesign.includes("### C. Modular Wails monolith plus optional Hub\n\nAccepted")) {
+  failures.push("stale accepted Wails architecture remains in the product design");
+}
+
+if (failures.length > 0) {
+  console.error("Repository verification failed:\n");
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log(
+  `Repository verification passed (${tracked.length} tracked paths and ${repositoryFiles.length} workspace files checked).`,
+);

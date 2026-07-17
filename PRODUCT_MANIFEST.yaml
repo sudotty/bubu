@@ -1,0 +1,62 @@
+schemaVersion: 1
+product:
+  id: bubu
+  name: BuBu
+  definition: local-first AI data workspace for conversational spreadsheet analysis and automation
+  defaultMode: local-private
+  releaseStage: migration
+architecture:
+  desktop: electron
+  renderer: sandboxed-react
+  aiRuntime: node-utility-process
+  dataCore: go-sidecar
+  localDatabase: sqlite
+  enterpriseDatabase: postgresql
+  legacyRuntime: wails
+privacy:
+  defaultDisclosure: schema-synthetic
+  allowedDisclosureLevels:
+    - schema-only
+    - schema-synthetic
+    - aggregates
+    - explicit-rows
+  remoteRawRowsByDefault: false
+capabilities:
+  repository-contracts: implemented
+  electron-secure-shell: implemented
+  versioned-local-rpc: implemented
+  csv-import: legacy-broken
+  xlsx-import: legacy-broken
+  dataset-versioning: planned
+  profiling: planned
+  validation: planned
+  multi-table-query: legacy-partial
+  privacy-gateway: planned
+  synthetic-examples: planned
+  safe-query-plan: planned
+  model-provider-registry: planned
+  openai-provider: planned
+  anthropic-provider: planned
+  gemini-provider: planned
+  openai-compatible-provider: legacy-partial
+  ollama-provider: planned
+  dataset-conversations: planned
+  dataset-groups: planned
+  visualizations: legacy-partial
+  workflows: planned
+  bounded-agents: planned
+  mcp-host: planned
+  local-rag: planned
+  reminders: planned
+  hub: planned
+  rbac: planned
+  sync: planned
+  signed-installers: planned
+releaseGates:
+  - no-secrets-or-user-data
+  - architecture-boundaries
+  - unit-and-contract-tests
+  - production-build
+  - desktop-security
+  - privacy-non-disclosure
+  - signed-artifacts

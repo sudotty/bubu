@@ -1,0 +1,47 @@
+app:
+  name: bubu
+  version: 0.1.0
+  debug: false
+  log_level: info
+
+# Legacy Wails migration input only. The Electron product stores credentials
+# through operating-system-backed secure storage instead of this file.
+llm:
+  api_key: ""
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  model_id: ""
+  timeout_seconds: 60
+
+storage:
+  database:
+    path: "bubu.db"
+    max_connections: 10
+    connection_timeout_seconds: 30
+  paths:
+    uploads_dir: "uploads"
+    downloads_dir: "downloads"
+    database_file: "bubu.db"
+
+file_handling:
+  upload:
+    upload_dir: "uploads"
+    max_file_size_mb: 100
+    allowed_extensions:
+      - ".csv"
+      - ".xlsx"
+  processing:
+    supported_extensions:
+      - ".csv"
+      - ".xlsx"
+    confidence_threshold: 0.8
+
+export:
+  default_format: csv
+  max_rows: 100000
+  include_timestamp: true
+  filename_template: "bubu_export_{timestamp}"
+  timestamp_format: "20060102_150405"
+
+system:
+  file_permissions: "0600"
+  config_permissions: "0600"
