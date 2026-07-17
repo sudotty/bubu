@@ -3,6 +3,7 @@ import type {
   DatasetGroup,
   DatasetReplacementMappingInput,
   DatasetSummary,
+  OperationId,
 } from "../shared/product-api.js";
 import { ProviderSettings } from "./ProviderSettings.js";
 import { DataProtectionPanel } from "./DataProtectionPanel.js";
@@ -14,11 +15,12 @@ import {
   type PreviewState,
   type ReadinessState,
 } from "./DatasetWorkspace.js";
+import { createOperationId, operationErrorMessage } from "./operation.js";
 
 const numberFormat = new Intl.NumberFormat("zh-CN");
 
 function messageFrom(error: unknown): string {
-  return error instanceof Error ? error.message : "操作失败，请重试";
+  return operationErrorMessage(error, "操作失败，请重试");
 }
 
 export function App() {
@@ -36,6 +38,23 @@ export function App() {
   const [pendingMapping, setPendingMapping] = useState<MappingRequired>();
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
+  const [activeOperationId, setActiveOperationId] = useState<OperationId>();
+
+  function startOperation(): OperationId {
+    const operationId = createOperationId();
+    setActiveOperationId(operationId);
+    return operationId;
+  }
+
+  function finishOperation(operationId: OperationId): void {
+    setActiveOperationId((current) => current === operationId ? undefined : current);
+  }
+
+  async function cancelActiveOperation(): Promise<void> {
+    if (!activeOperationId) return;
+    const result = await window.bubu.operations.cancel(activeOperationId);
+    setNotice(result.cancelled ? "正在取消当前操作…" : "操作已经结束，无需取消");
+  }
 
   useEffect(() => {
     let active = true;
@@ -105,10 +124,11 @@ export function App() {
   }, [groups, search]);
 
   async function importFiles() {
+    const operationId = startOperation();
     setImporting(true);
     setNotice(undefined);
     try {
-      const result = await window.bubu.datasets.importFiles();
+      const result = await window.bubu.datasets.importFiles(operationId);
       if (result.datasets.length === 0) return;
       const nextDatasets = await window.bubu.datasets.list();
       setDatasets(nextDatasets);
@@ -118,14 +138,16 @@ export function App() {
       setNotice(messageFrom(error));
     } finally {
       setImporting(false);
+      finishOperation(operationId);
     }
   }
 
   async function replaceFile(datasetId: string) {
+    const operationId = startOperation();
     setReplacing(true);
     setNotice(undefined);
     try {
-      const result = await window.bubu.datasets.replace(datasetId);
+      const result = await window.bubu.datasets.replace(datasetId, operationId);
       if (result.status === "cancelled") return;
       if (result.status === "mapping-required") {
         const details = [
@@ -146,6 +168,7 @@ export function App() {
       setNotice(messageFrom(error));
     } finally {
       setReplacing(false);
+      finishOperation(operationId);
     }
   }
 
@@ -164,25 +187,28 @@ export function App() {
   }
 
   async function applyReplacementMapping(input: DatasetReplacementMappingInput) {
+    const operationId = startOperation();
     setReplacing(true);
     setNotice(undefined);
     setPendingMapping(undefined);
     try {
-      const result = await window.bubu.datasets.applyReplacementMapping(input);
+      const result = await window.bubu.datasets.applyReplacementMapping(input, operationId);
       if (result.status !== "replaced") throw new Error("映射没有生成新的数据版本，请重新选择文件");
       await activateReplacement(result.dataset);
     } catch (error) {
       setNotice(`${messageFrom(error)}。映射会话已结束，请重新选择替换文件。`);
     } finally {
       setReplacing(false);
+      finishOperation(operationId);
     }
   }
 
   async function exportDataset(datasetId: string) {
+    const operationId = startOperation();
     setLifecycleAction("export");
     setNotice(undefined);
     try {
-      const result = await window.bubu.datasets.export(datasetId);
+      const result = await window.bubu.datasets.export(datasetId, operationId);
       if (result.status === "exported") {
         setNotice(`已导出 ${result.fileName}（${numberFormat.format(result.rowCount)} 行），文本公式已做 Excel 安全处理。`);
       }
@@ -190,6 +216,7 @@ export function App() {
       setNotice(messageFrom(error));
     } finally {
       setLifecycleAction(undefined);
+      finishOperation(operationId);
     }
   }
 
@@ -359,6 +386,14 @@ export function App() {
             />
           )}
           {view === "datasets" && notice && <div className="notice" role="status">{notice}</div>}
+          {view === "datasets" && activeOperationId && (
+            <div className="notice operation-notice" role="status">
+              <span>当前任务正在运行。取消后，已提交的原子事务不会留下半成品。</span>
+              <button type="button" className="secondary-action" onClick={() => void cancelActiveOperation()}>
+                取消当前操作
+              </button>
+            </div>
+          )}
           {view === "datasets" && !selectedDataset && (
             <EmptyWorkspace readiness={readiness} onImport={() => void importFiles()} importing={importing} />
           )}

@@ -18,12 +18,14 @@ const capabilities = [
   "openai-compatible",
   "ollama",
   "bounded-http",
+  "cancellable-requests",
 ] as const;
 
 export async function handleAiRuntimeRequest(
   value: unknown,
   expectedAuth: string,
   fetchProvider?: ProviderFetch,
+  signal?: AbortSignal,
 ): Promise<RpcResponse> {
   let request;
   try {
@@ -55,9 +57,12 @@ export async function handleAiRuntimeRequest(
     try {
       return createRpcSuccess(
         request.id,
-        await invokeProvider(invocation, fetchProvider),
+        await invokeProvider(invocation, fetchProvider, signal),
       );
     } catch (error) {
+      if (signal?.aborted) {
+        return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      }
       if (error instanceof ProviderInvocationError) {
         return createRpcError(request.id, "PROVIDER_FAILED", error.message, error.retryable);
       }

@@ -19,13 +19,16 @@ export class ProviderInvocationError extends Error {
 export async function invokeProvider(
   invocation: ModelInvocation,
   fetchProvider: ProviderFetch = fetch,
+  signal?: AbortSignal,
 ): Promise<ModelCompletion> {
   const request = buildProviderRequest(invocation);
   let response: Response;
   try {
     response = await fetchProvider(request.url, {
       ...request.init,
-      signal: AbortSignal.timeout(120_000),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(120_000)])
+        : AbortSignal.timeout(120_000),
     });
   } catch (error) {
     throw new ProviderInvocationError(`${invocation.provider.kind} request could not reach the provider`, true, {

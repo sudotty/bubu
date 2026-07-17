@@ -24,6 +24,7 @@ describe("AI runtime request handler", () => {
         "openai-compatible",
         "ollama",
         "bounded-http",
+        "cancellable-requests",
       ],
     });
   });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ColumnDistribution } from "../shared/product-api.js";
+import { createOperationId } from "./operation.js";
 
 type DistributionState =
   | { readonly kind: "loading" }
@@ -27,8 +28,9 @@ export function ColumnDistributionPanel({
   useEffect(() => {
     if (!column) return;
     let active = true;
+    const operationId = createOperationId();
     setState({ kind: "loading" });
-    void window.bubu.datasets.distribution({ datasetId, column })
+    void window.bubu.datasets.distribution({ datasetId, column }, operationId)
       .then((value) => {
         if (active) setState({ kind: "loaded", value });
       })
@@ -38,7 +40,10 @@ export function ColumnDistributionPanel({
           message: error instanceof Error ? error.message : "读取本地列分布失败",
         });
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      void window.bubu.operations.cancel(operationId);
+    };
   }, [column, datasetId, versionId]);
 
   const maximumCount = useMemo(() => {

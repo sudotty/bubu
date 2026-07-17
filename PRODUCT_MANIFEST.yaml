@@ -38,6 +38,10 @@ capabilities:
   column-profiling-baseline: implemented
   profiling: implemented
   local-column-distributions: implemented
+  named-operation-cancellation: implemented
+  cancellable-data-core-operations: implemented
+  cancellable-model-requests: implemented
+  bounded-operation-deadlines: implemented
   numeric-histograms: implemented
   categorical-top-values: implemented
   local-quality-report: implemented

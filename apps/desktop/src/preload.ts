@@ -36,6 +36,8 @@ import {
   type GroupQueryPlanProposal,
   type GroupRelationshipOverview,
   type GroupQueryRequest,
+  type OperationCancellationResult,
+  type OperationId,
   type SafeGroupQueryPlan,
   type SafeGroupQueryResult,
 } from "./shared/product-api.js";
@@ -46,23 +48,23 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.getReadiness) as Promise<ProductReadiness>,
   },
   datasets: {
-    importFiles: () =>
-      ipcRenderer.invoke(desktopChannels.importDatasets) as Promise<DatasetImportResult>,
-    export: (datasetId: string) =>
-      ipcRenderer.invoke(desktopChannels.exportDataset, datasetId) as Promise<DatasetExportSelectionResult>,
+    importFiles: (operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.importDatasets, { operationId }) as Promise<DatasetImportResult>,
+    export: (datasetId: string, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.exportDataset, { operationId, value: datasetId }) as Promise<DatasetExportSelectionResult>,
     delete: (datasetId: string) =>
       ipcRenderer.invoke(desktopChannels.deleteDataset, datasetId) as Promise<DatasetDeletionSelectionResult>,
     list: () => ipcRenderer.invoke(desktopChannels.listDatasets) as Promise<readonly DatasetSummary[]>,
     preview: (request: DatasetPreviewRequest) =>
       ipcRenderer.invoke(desktopChannels.previewDataset, request) as Promise<DatasetPreview>,
-    replace: (datasetId: string) =>
-      ipcRenderer.invoke(desktopChannels.replaceDataset, datasetId) as Promise<DatasetReplacementSelectionResult>,
-    applyReplacementMapping: (value: DatasetReplacementMappingInput) =>
-      ipcRenderer.invoke(desktopChannels.applyReplacementMapping, value) as Promise<DatasetReplacementResult>,
+    replace: (datasetId: string, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.replaceDataset, { operationId, value: datasetId }) as Promise<DatasetReplacementSelectionResult>,
+    applyReplacementMapping: (value: DatasetReplacementMappingInput, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.applyReplacementMapping, { operationId, value }) as Promise<DatasetReplacementResult>,
     quality: (datasetId: string) =>
       ipcRenderer.invoke(desktopChannels.getDatasetQuality, datasetId) as Promise<DatasetQualityReport>,
-    distribution: (value: ColumnDistributionRequest) =>
-      ipcRenderer.invoke(desktopChannels.getColumnDistribution, value) as Promise<ColumnDistribution>,
+    distribution: (value: ColumnDistributionRequest, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.getColumnDistribution, { operationId, value }) as Promise<ColumnDistribution>,
     saveValidation: (value: DatasetValidationSaveInput) =>
       ipcRenderer.invoke(desktopChannels.saveDatasetValidation, value) as Promise<DatasetQualityReport>,
   },
@@ -79,20 +81,24 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.testProvider, providerId) as Promise<ProviderConnectionResult>,
   },
   dataProtection: {
-    createBackup: () =>
-      ipcRenderer.invoke(desktopChannels.createBackup) as Promise<DataBackupSelectionResult>,
-    restoreBackup: () =>
-      ipcRenderer.invoke(desktopChannels.restoreBackup) as Promise<DataRestoreSelectionResult>,
+    createBackup: (operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.createBackup, { operationId }) as Promise<DataBackupSelectionResult>,
+    restoreBackup: (operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.restoreBackup, { operationId }) as Promise<DataRestoreSelectionResult>,
+  },
+  operations: {
+    cancel: (operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.cancelOperation, operationId) as Promise<OperationCancellationResult>,
   },
   analysis: {
-    propose: (value: QueryPlanRequest) =>
-      ipcRenderer.invoke(desktopChannels.proposeQueryPlan, value) as Promise<QueryPlanProposal>,
-    execute: (plan: SafeQueryPlan) =>
-      ipcRenderer.invoke(desktopChannels.executeQueryPlan, plan) as Promise<SafeQueryResult>,
-    proposeGroup: (value: GroupQueryRequest) =>
-      ipcRenderer.invoke(desktopChannels.proposeGroupQueryPlan, value) as Promise<GroupQueryPlanProposal>,
-    executeGroup: (plan: SafeGroupQueryPlan) =>
-      ipcRenderer.invoke(desktopChannels.executeGroupQueryPlan, plan) as Promise<SafeGroupQueryResult>,
+    propose: (value: QueryPlanRequest, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.proposeQueryPlan, { operationId, value }) as Promise<QueryPlanProposal>,
+    execute: (plan: SafeQueryPlan, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.executeQueryPlan, { operationId, value: plan }) as Promise<SafeQueryResult>,
+    proposeGroup: (value: GroupQueryRequest, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.proposeGroupQueryPlan, { operationId, value }) as Promise<GroupQueryPlanProposal>,
+    executeGroup: (plan: SafeGroupQueryPlan, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.executeGroupQueryPlan, { operationId, value: plan }) as Promise<SafeGroupQueryResult>,
   },
   datasetGroups: {
     list: () =>

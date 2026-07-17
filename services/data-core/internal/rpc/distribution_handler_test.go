@@ -8,12 +8,16 @@ import (
 )
 
 func (fake *fakeDatasets) GetColumnDistribution(
-	_ context.Context,
+	ctx context.Context,
 	datasetID string,
 	columnName string,
 ) (data.ColumnDistribution, error) {
 	fake.distributionID = datasetID
 	fake.distributionColumn = columnName
+	if fake.waitForCancellation {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 	return data.EmptyColumnDistribution{
 		Kind: "empty",
 		ColumnDistributionBase: data.ColumnDistributionBase{

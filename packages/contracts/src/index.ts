@@ -6,6 +6,7 @@ export * from "./distribution.js";
 export * from "./health.js";
 export * from "./group-query-plan.js";
 export * from "./lifecycle.js";
+export * from "./operation.js";
 export * from "./privacy.js";
 export * from "./provider.js";
 export * from "./quality.js";
