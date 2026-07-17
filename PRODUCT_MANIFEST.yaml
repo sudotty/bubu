@@ -60,7 +60,11 @@ capabilities:
   openai-compatible-provider: implemented
   ollama-provider: implemented
   dataset-conversations: in-progress
-  visualizations: legacy-partial
+  visualizations: in-progress
+  local-result-visualizations: implemented
+  bar-chart: implemented
+  time-series-chart: implemented
+  reports: planned
   workflows: planned
   bounded-agents: planned
   mcp-host: planned

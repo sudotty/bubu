@@ -6,3 +6,4 @@ export * from "./privacy.js";
 export * from "./provider.js";
 export * from "./query-plan.js";
 export * from "./rpc.js";
+export * from "./visualization.js";

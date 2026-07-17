@@ -3,6 +3,7 @@ import type {
   QueryPlanProposal,
   SafeQueryResult,
 } from "../shared/product-api.js";
+import { ResultVisualization } from "./ResultVisualization.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -144,6 +145,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
       )}
 
       {result && (
+        <>
         <article className="query-result">
           <header className="preview-header">
             <div><p className="hero-kicker">LOCAL QUERY RESULT</p><h3>结果</h3></div>
@@ -159,6 +161,8 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
           </div>
           {result.rows.length === 0 && <p className="empty-copy">这个计划没有找到匹配的数据。</p>}
         </article>
+        <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "查询结果"} />
+        </>
       )}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
