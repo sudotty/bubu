@@ -141,6 +141,25 @@ CREATE TABLE dataset_validation_rules (
 );
 `,
 	},
+	{
+		version: 6,
+		sql: `
+CREATE TABLE dataset_relationships (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind = 'lookup'),
+    left_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    left_column TEXT NOT NULL,
+    right_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    right_column TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK (left_dataset_id <> right_dataset_id),
+    UNIQUE (left_dataset_id, left_column, right_dataset_id, right_column)
+);
+
+CREATE INDEX dataset_relationships_left_dataset_idx ON dataset_relationships(left_dataset_id);
+CREATE INDEX dataset_relationships_right_dataset_idx ON dataset_relationships(right_dataset_id);
+`,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

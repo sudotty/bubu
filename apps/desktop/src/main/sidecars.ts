@@ -12,6 +12,9 @@ import {
   parseDatasetPreview,
   parseDatasetReplacementResult,
   parseDatasetQualityReport,
+  parseGroupRelationshipOverview,
+  parseDatasetRelationship,
+  parseRelationshipDeletionResult,
   parseConversationThread,
   parseOptionalConversationThread,
   parseModelCompletion,
@@ -28,6 +31,8 @@ import {
   type DatasetReplacementResult,
   type DatasetQualityReport,
   type DatasetValidationSaveInput,
+  type DatasetRelationship,
+  type DatasetRelationshipSaveInput,
   type DatasetSummary,
   type ConversationAppendInput,
   type ConversationTarget,
@@ -35,6 +40,7 @@ import {
   type ModelCompletion,
   type ModelContext,
   type DisclosureLevel,
+  type GroupRelationshipOverview,
   type ModelInvocation,
   type SafeGroupQueryPlan,
   type SafeGroupQueryResult,
@@ -125,6 +131,24 @@ class DataCoreClient implements RuntimeClient {
   async saveValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport> {
     return parseDatasetQualityReport(
       await this.#broker.request("dataset.validation.save", { input }),
+    );
+  }
+
+  async groupRelationships(groupID: string): Promise<GroupRelationshipOverview> {
+    return parseGroupRelationshipOverview(
+      await this.#broker.request("dataset.group.relationships", { groupId: groupID }),
+    );
+  }
+
+  async saveRelationship(input: DatasetRelationshipSaveInput): Promise<DatasetRelationship> {
+    return parseDatasetRelationship(
+      await this.#broker.request("dataset.relationship.save", { input }),
+    );
+  }
+
+  async deleteRelationship(relationshipID: string): Promise<void> {
+    parseRelationshipDeletionResult(
+      await this.#broker.request("dataset.relationship.delete", { id: relationshipID }),
     );
   }
 
@@ -254,6 +278,9 @@ export interface SidecarSupervisor {
   ): Promise<DatasetReplacementResult>;
   getDatasetQuality(datasetID: string): Promise<DatasetQualityReport>;
   saveDatasetValidation(input: DatasetValidationSaveInput): Promise<DatasetQualityReport>;
+  getGroupRelationships(groupID: string): Promise<GroupRelationshipOverview>;
+  saveDatasetRelationship(input: DatasetRelationshipSaveInput): Promise<DatasetRelationship>;
+  deleteDatasetRelationship(relationshipID: string): Promise<void>;
   modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
@@ -298,6 +325,9 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
       dataCore.replaceFileWithMapping(datasetID, sourcePath, mappings),
     getDatasetQuality: (datasetID) => dataCore.quality(datasetID),
     saveDatasetValidation: (input) => dataCore.saveValidation(input),
+    getGroupRelationships: (groupID) => dataCore.groupRelationships(groupID),
+    saveDatasetRelationship: (input) => dataCore.saveRelationship(input),
+    deleteDatasetRelationship: (relationshipID) => dataCore.deleteRelationship(relationshipID),
     modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
     generateModel: (invocation) => aiRuntime.generate(invocation),
     executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),

@@ -19,6 +19,7 @@ const requiredFiles = [
   "docs/plans/2026-07-17-electron-migration-implementation.md",
   "docs/product/importing-data.md",
   "docs/product/data-quality-and-validation.md",
+  "docs/product/dataset-groups-and-relationships.md",
   "docs/product/querying-and-visualizations.md",
 ];
 
@@ -109,6 +110,8 @@ for (const required of [
   "dataset-groups: implemented",
   "multi-table-query: implemented",
   "bounded-lookup-joins: implemented",
+  "reusable-dataset-relationships: implemented",
+  "deterministic-relationship-discovery: implemented",
   "group-natural-language-query-planning: implemented",
   "group-query-approval: implemented",
   "local-result-visualizations: implemented",

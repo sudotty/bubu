@@ -5,6 +5,7 @@ import {
   buildQueryPlanInvocation,
   createGroupQueryPlanProposal,
   createQueryPlanProposal,
+  relationshipHintsForGroup,
 } from "./analysis-orchestrator.js";
 
 const provider = {
@@ -83,11 +84,13 @@ describe("group analysis orchestration", () => {
       { profile: provider, credential: "write-only-secret" },
       "f".repeat(32),
       [context, secondContext],
+      [{ leftSourceIndex: 0, leftColumn: "Amount", rightSourceIndex: 1, rightColumn: "Target" }],
       "关联后对比",
     );
     expect(JSON.parse(invocation.user)).toMatchObject({
       groupId: "f".repeat(32),
       sources: [{ sourceIndex: 0, context }, { sourceIndex: 1, context: secondContext }],
+      relationships: [{ leftSourceIndex: 0, leftColumn: "Amount", rightSourceIndex: 1, rightColumn: "Target" }],
     });
     expect(invocation.user).not.toContain("sourceName");
     expect(invocation.system).toContain("Never create a cross join");
@@ -108,7 +111,24 @@ describe("group analysis orchestration", () => {
       providerId: provider.id, providerKind: provider.kind, model: provider.model,
       text: JSON.stringify(plan), usage: {},
     } as const;
-    expect(createGroupQueryPlanProposal("关联", [context, secondContext], completion)).toMatchObject({ plan });
-    expect(() => createGroupQueryPlanProposal("关联", [secondContext, context], completion)).toThrow("exactly match");
+    const hints = [{ leftSourceIndex: 0, leftColumn: "Amount", rightSourceIndex: 1, rightColumn: "Target" }] as const;
+    expect(createGroupQueryPlanProposal("关联", [context, secondContext], hints, completion)).toMatchObject({ plan });
+    expect(() => createGroupQueryPlanProposal("关联", [secondContext, context], hints, completion)).toThrow();
+  });
+
+  it("converts only currently ready saved relationships to ordered model hints", () => {
+    const ready = {
+      id: "1".repeat(32), kind: "lookup", status: "ready", issue: null,
+      left: { datasetId: context.datasetId, column: "Amount" },
+      right: { datasetId: secondContext.datasetId, column: "Target" },
+      createdAt: "2026-07-17T10:00:00Z",
+    } as const;
+    expect(relationshipHintsForGroup([context.datasetId, secondContext.datasetId], [ready])).toEqual([{
+      leftSourceIndex: 0, leftColumn: "Amount", rightSourceIndex: 1, rightColumn: "Target",
+    }]);
+    expect(relationshipHintsForGroup([context.datasetId, secondContext.datasetId], [{
+      ...ready, status: "invalid", issue: "right-not-unique",
+    }])).toEqual([]);
+    expect(relationshipHintsForGroup([secondContext.datasetId, context.datasetId], [ready])).toEqual([]);
   });
 });

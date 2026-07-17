@@ -9,12 +9,13 @@ import (
 )
 
 type fakeDatasets struct {
-	importedPath     string
-	importedPaths    []string
-	replacedID       string
-	replacedPath     string
-	replacedMappings []data.ColumnMapping
-	savedRules       []data.ValidationRule
+	importedPath      string
+	importedPaths     []string
+	replacedID        string
+	replacedPath      string
+	replacedMappings  []data.ColumnMapping
+	savedRules        []data.ValidationRule
+	savedRelationship data.DatasetRelationshipSaveInput
 }
 
 func (fake *fakeDatasets) SaveGroup(

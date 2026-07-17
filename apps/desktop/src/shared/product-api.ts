@@ -13,7 +13,10 @@ import type {
   DatasetReplacementSelectionResult,
   DatasetSummary,
   DatasetValidationSaveInput,
+  DatasetRelationship,
+  DatasetRelationshipSaveInput,
   GroupQueryPlanProposal,
+  GroupRelationshipOverview,
   GroupQueryRequest,
   ProviderConfigurationInput,
   ProviderConnectionResult,
@@ -49,6 +52,9 @@ export const desktopChannels = {
   proposeGroupQueryPlan: "bubu:analysis:propose-group-query-plan",
   executeGroupQueryPlan: "bubu:analysis:execute-group-query-plan",
   getConversation: "bubu:conversations:get",
+  getGroupRelationships: "bubu:relationships:group-overview",
+  saveDatasetRelationship: "bubu:relationships:save",
+  removeDatasetRelationship: "bubu:relationships:remove",
 } as const;
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
@@ -101,6 +107,11 @@ export interface BuBuDesktopApi {
   readonly conversations: {
     get(target: ConversationTarget): Promise<ConversationThread | null>;
   };
+  readonly datasetRelationships: {
+    overview(groupId: DatasetGroupId): Promise<GroupRelationshipOverview>;
+    save(value: DatasetRelationshipSaveInput): Promise<DatasetRelationship>;
+    remove(relationshipId: string): Promise<void>;
+  };
 }
 
 export type {
@@ -120,7 +131,10 @@ export type {
   DatasetReplacementSelectionResult,
   DatasetSummary,
   DatasetValidationSaveInput,
+  DatasetRelationship,
+  DatasetRelationshipSaveInput,
   GroupQueryPlanProposal,
+  GroupRelationshipOverview,
   GroupQueryRequest,
   ProviderConfigurationInput,
   ProviderConnectionResult,
@@ -137,4 +151,7 @@ export type {
   SafeQueryResult,
   SchemaDrift,
   ValidationRule,
+  RelationshipCandidate,
+  RelationshipEndpoint,
+  RelationshipHint,
 } from "@bubu/contracts";

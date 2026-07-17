@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DatasetGroup, DatasetSummary } from "../shared/product-api.js";
 import { DatasetGroupAnalysis } from "./DatasetGroupAnalysis.js";
+import { DatasetRelationshipPanel } from "./DatasetRelationshipPanel.js";
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "数据群组操作失败";
@@ -107,6 +108,7 @@ export function DatasetGroupWorkspace({
           {group && <button type="button" className="secondary-action" onClick={() => void remove()} disabled={busy}>删除群组</button>}
         </div>
       </div>
+      {group && <DatasetRelationshipPanel group={group} />}
       {group && <DatasetGroupAnalysis group={group} />}
     </section>
   );

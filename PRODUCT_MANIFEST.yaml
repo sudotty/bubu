@@ -43,6 +43,8 @@ capabilities:
   multi-table-query: implemented
   dataset-groups: implemented
   bounded-lookup-joins: implemented
+  reusable-dataset-relationships: implemented
+  deterministic-relationship-discovery: implemented
   group-natural-language-query-planning: implemented
   group-query-approval: implemented
   privacy-gateway: in-progress

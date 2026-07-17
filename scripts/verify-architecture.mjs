@@ -136,6 +136,25 @@ if (qualityContract.includes("failingValues")) {
   failures.push("quality contract exposes raw failing values");
 }
 
+const relationshipDiscovery = read("services/data-core/internal/data/relationship_discovery.go");
+for (const invariant of [
+  "maximumRelationshipCandidates",
+  "rightColumn.NullCount != 0",
+  "rightColumn.DistinctCount != right.rowCount",
+  'relationshipIssueValue("right-not-unique")',
+]) {
+  if (!relationshipDiscovery.includes(invariant)) failures.push(`relationship invariant missing: ${invariant}`);
+}
+const analysisOrchestrator = read("apps/desktop/src/main/analysis-orchestrator.ts");
+for (const invariant of [
+  'relationship.status !== "ready"',
+  "leftSourceIndex >= rightSourceIndex",
+  "relationships: readonly RelationshipHint[]",
+  "disclosedRelationships: relationships",
+]) {
+  if (!analysisOrchestrator.includes(invariant)) failures.push(`relationship disclosure invariant missing: ${invariant}`);
+}
+
 const providerStore = read("apps/desktop/src/main/provider-store.ts");
 for (const invariant of [
   'join(options.directory, "credentials")',

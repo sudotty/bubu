@@ -192,7 +192,10 @@ export function DatasetQualityPanel({
         </div>
         <div className="rule-list">
           {rules.map((rule, index) => {
-            const result = report.validation[index];
+            const savedRule = report.rules[index];
+            const result = savedRule && JSON.stringify(savedRule) === JSON.stringify(rule)
+              ? report.validation[index]
+              : undefined;
             return (
               <div className="rule-row" key={`${rule.kind}-${rule.column}-${index}`}>
                 <span><strong>{ruleKindLabels[rule.kind]}</strong><small>{ruleLabel(rule)}</small></span>

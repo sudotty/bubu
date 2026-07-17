@@ -2,6 +2,7 @@ import { z } from "zod";
 import { datasetGroupIdSchema } from "./dataset-group.js";
 import { columnTypeSchema, datasetIdSchema } from "./dataset.js";
 import { modelContextSchema } from "./privacy.js";
+import { relationshipHintSchema } from "./relationship.js";
 
 const columnNameSchema = z.string().trim().min(1).max(500);
 const sourceIndexSchema = z.number().int().min(0).max(7);
@@ -122,6 +123,7 @@ export const groupQueryPlanProposalSchema = z
   .object({
     question: z.string().trim().min(1).max(20_000),
     disclosedContexts: z.array(modelContextSchema).min(2).max(8),
+    disclosedRelationships: z.array(relationshipHintSchema).max(56).default([]),
     plan: safeGroupQueryPlanSchema,
   })
   .strict()
@@ -133,6 +135,18 @@ export const groupQueryPlanProposalSchema = z
       });
     if (!sourcesMatch) {
       context.addIssue({ code: "custom", path: ["plan", "sources"], message: "Group plan sources must exactly match disclosed contexts" });
+    }
+    for (const [index, relationship] of proposal.disclosedRelationships.entries()) {
+      const left = proposal.disclosedContexts[relationship.leftSourceIndex];
+      const right = proposal.disclosedContexts[relationship.rightSourceIndex];
+      if (!left?.columns.some(({ name }) => name === relationship.leftColumn)
+        || !right?.columns.some(({ name, unique }) => name === relationship.rightColumn && unique)) {
+        context.addIssue({
+          code: "custom",
+          path: ["disclosedRelationships", index],
+          message: "Relationship hints must reference disclosed columns and a unique right key",
+        });
+      }
     }
   });
 
