@@ -58,6 +58,8 @@ type DatasetService interface {
 	ReplaceFileWithMapping(ctx context.Context, datasetID string, sourcePath string, mappings []data.ColumnMapping) (data.ReplacementResult, error)
 	GetQualityReport(ctx context.Context, datasetID string) (data.DatasetQualityReport, error)
 	SaveValidationRules(ctx context.Context, datasetID string, rules []data.ValidationRule) (data.DatasetQualityReport, error)
+	ExportDatasetCSV(ctx context.Context, datasetID string, targetPath string) (data.DatasetExportResult, error)
+	DeleteDataset(ctx context.Context, datasetID string) (data.DatasetDeletionResult, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
@@ -90,6 +92,8 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"csv-import",
 				"xlsx-import",
 				"dataset-catalog",
+				"excel-safe-csv-export",
+				"permanent-dataset-deletion",
 				"preview",
 				"version-replacement",
 				"schema-drift",
@@ -111,6 +115,9 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 	}
 	if datasets == nil {
 		return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
+	}
+	if response, handled := handleDatasetLifecycle(ctx, request, datasets); handled {
+		return response
 	}
 
 	switch request.Method {

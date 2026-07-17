@@ -18,7 +18,8 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: append-only local dataset/group conversation history for typed questions, disclosure-bound plans, bounded results, and errors, restored after restart.
 - Implemented: local quality scoring and profiles plus persistent required/unique/range/pattern/allowed-value rules, with only bounded failure row numbers shown.
 - Implemented: deterministic same-name relationship discovery, manually defined directional lookup relations, current-version validity checks, and schema-only model hints.
-- In progress: richer distributions, deletion, and export.
+- Implemented: native-path-private streaming CSV export with UTF-8/Excel formula hardening, plus confirmed permanent deletion of all versions and dependent local state with automatic group repair.
+- In progress: richer distributions, backup/recovery, cancellation, and reference-device performance evidence.
 - Not complete yet: richer charts and reports, full privacy usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
@@ -39,7 +40,7 @@ flowchart LR
 
 The renderer has no Node access. Electron main owns lifecycle, OS permissions, credentials, updates, and process supervision but not data policy. The Go data core is the final authority for raw-data disclosure and SQL execution. The optional Hub is never required for local mode and never shares a SQLite file between users.
 
-See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), [the privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), [the local conversation contract](docs/architecture/local-conversations.md), [the import guide](docs/product/importing-data.md), and [the query/visualization guide](docs/product/querying-and-visualizations.md).
+See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), [the privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), [the local conversation contract](docs/architecture/local-conversations.md), [the import guide](docs/product/importing-data.md), [the export/deletion guide](docs/product/exporting-and-deleting.md), and [the query/visualization guide](docs/product/querying-and-visualizations.md).
 
 ## Development
 

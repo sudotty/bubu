@@ -31,7 +31,7 @@ capabilities:
   csv-import: implemented
   xlsx-import: implemented
   atomic-batch-import: implemented
-  dataset-versioning: in-progress
+  dataset-versioning: implemented
   same-schema-replacement: implemented
   schema-drift-detection: implemented
   schema-drift-mapping: implemented
@@ -45,6 +45,10 @@ capabilities:
   bounded-lookup-joins: implemented
   reusable-dataset-relationships: implemented
   deterministic-relationship-discovery: implemented
+  dataset-export: implemented
+  excel-safe-csv-export: implemented
+  permanent-dataset-deletion: implemented
+  group-repair-on-dataset-delete: implemented
   group-natural-language-query-planning: implemented
   group-query-approval: implemented
   privacy-gateway: in-progress

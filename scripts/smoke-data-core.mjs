@@ -7,6 +7,8 @@ import { createInterface } from "node:readline";
 import {
   PROTOCOL_VERSION,
   parseDatasetImportResult,
+  parseDatasetExportResult,
+  parseDatasetDeletionResult,
   parseDatasetGroup,
   parseDatasetGroupList,
   parseConversationThread,
@@ -28,6 +30,7 @@ const sourcePath = resolve(root, "synthetic-sales.csv");
 const replacementPath = resolve(root, "synthetic-sales-week-2.csv");
 const driftedPath = resolve(root, "synthetic-sales-drifted.csv");
 const targetsPath = resolve(root, "synthetic-targets.csv");
+const exportPath = resolve(root, "safe-export.csv");
 const executable = resolve("services", "data-core", "bin", "bubu-data-core");
 const auth = randomBytes(32).toString("hex");
 let stderr = "";
@@ -331,6 +334,31 @@ try {
     throw new Error("Local validation rules did not persist and run on the current version");
   }
 
+  const exportedRaw = await request("dataset.export", {
+    datasetId: dataset.id,
+    targetPath: exportPath,
+  });
+  const exported = parseDatasetExportResult(exportedRaw);
+  if (JSON.stringify(exportedRaw).includes(exportPath) || exported.fileName !== "safe-export.csv") {
+    throw new Error("Dataset export disclosed its private destination path");
+  }
+  const exportedContents = await readFile(exportPath, "utf8");
+  if (!exportedContents.includes("Order ID,Region,Amount,Date") || !exportedContents.includes("006,East,12.00")) {
+    throw new Error("Dataset export did not stream the mapped current version");
+  }
+
+  const deletion = parseDatasetDeletionResult(
+    await request("dataset.delete", { datasetId: targetImport.datasets[0].id }),
+  );
+  if (deletion.removedGroupIds[0] !== group.id || deletion.updatedGroupIds.length !== 0) {
+    throw new Error(`Dataset deletion did not repair the affected group: ${JSON.stringify(deletion)}`);
+  }
+  const remainingDatasets = parseDatasetList(await request("dataset.list", {}));
+  const remainingGroups = parseDatasetGroupList(await request("dataset.group.list", {}));
+  if (remainingDatasets.length !== 1 || remainingDatasets[0]?.id !== dataset.id || remainingGroups.length !== 0) {
+    throw new Error("Dataset deletion left stale catalog or group state");
+  }
+
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
     child.once("error", rejectExit);
@@ -350,7 +378,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, reusable relationships, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

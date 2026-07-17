@@ -51,6 +51,8 @@ Every imported dataset starts at version 1. Replacing a dataset with the same no
 
 `dataset_relationships` stores directional many-to-one lookup semantics between stable dataset contacts and logical column names. Discovery is deterministic and bounded to 500 same-name candidates with compatible types and a non-empty, non-null, unique current right key. Saved relationships are reassessed against current versions on every group read. Invalid relationships remain visible but do not enter the model disclosure. Go query execution independently repeats its right-key and connected-tree validation.
 
+CSV export resolves the current ready version and streams it to a same-directory restricted temporary file. A UTF-8 BOM supports Excel interoperability, while text-shaped formula prefixes are neutralized without changing numeric negatives. The final response contains a base name rather than an absolute path. Permanent deletion first collects internally generated physical table names, then deletes dependent conversations/undersized groups, deletes the stable dataset identity, repairs surviving groups, drops every version table, and commits as one SQLite transaction. Membership is bounded to 100 groups per dataset so its deletion artifact is bounded as well.
+
 ## Safe analytical queries
 
 The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
@@ -82,7 +84,9 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Architecture fitness rule that rejects whole-file CSV delimiter sampling.
 - Type-aware numeric profile bounds, deterministic quality findings, transactional validation-rule persistence, strict rule operands, and bounded failure samples.
 - Deterministic relationship discovery, directional persistence, current-version invalidation, strict RPC decoding, and schema-only ready-relationship model hints.
+- Streaming current-version CSV export, UTF-8/Excel formula hardening, restricted file permissions, path-private typed results, and built-sidecar smoke.
+- Transactional permanent deletion of all version tables and dependent private state, bounded group repair, native destructive confirmation, and integration tests.
 
 ## Not implemented yet
 
-Richer distributions, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Richer distributions, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

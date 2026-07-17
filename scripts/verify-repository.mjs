@@ -20,6 +20,7 @@ const requiredFiles = [
   "docs/product/importing-data.md",
   "docs/product/data-quality-and-validation.md",
   "docs/product/dataset-groups-and-relationships.md",
+  "docs/product/exporting-and-deleting.md",
   "docs/product/querying-and-visualizations.md",
 ];
 
@@ -112,6 +113,10 @@ for (const required of [
   "bounded-lookup-joins: implemented",
   "reusable-dataset-relationships: implemented",
   "deterministic-relationship-discovery: implemented",
+  "dataset-export: implemented",
+  "excel-safe-csv-export: implemented",
+  "permanent-dataset-deletion: implemented",
+  "group-repair-on-dataset-delete: implemented",
   "group-natural-language-query-planning: implemented",
   "group-query-approval: implemented",
   "local-result-visualizations: implemented",

@@ -105,6 +105,7 @@ h2 { margin-bottom: 0; font-size: 22px; }
 .dataset-metrics span { display: grid; gap: 3px; min-width: 82px; padding: 12px; border-radius: 12px; font-size: 11px; color: #817a70; background: #f0ece4; }
 .dataset-metrics strong { font-size: 16px; color: #332f29; }
 .dataset-actions { display: grid; justify-items: end; gap: 10px; }
+.dataset-action-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .mapping-panel { max-width: 1100px; margin-top: 20px; padding: 20px; border: 1px solid #caa56e; border-radius: 18px; background: #fffdf9; }
 .mapping-panel > p { color: #716a60; }
 .mapping-list { display: grid; gap: 10px; margin: 16px 0; }
@@ -133,6 +134,8 @@ h2 { margin-bottom: 0; font-size: 22px; }
 .rule-row button { border: 0; color: #914c39; background: transparent; cursor: pointer; }
 .secondary-action { padding: 9px 12px; border: 1px solid #d8d1c5; border-radius: 10px; color: #4d473f; background: #f7f3eb; cursor: pointer; }
 .secondary-action:disabled { cursor: wait; opacity: .55; }
+.danger-action { padding: 9px 12px; border: 1px solid #d8aaa0; border-radius: 10px; color: #914c39; background: #fff5f1; cursor: pointer; }
+.danger-action:disabled { cursor: wait; opacity: .55; }
 .preview-state { max-width: 1100px; margin-top: 20px; padding: 30px; border: 1px solid #dfdad0; border-radius: 18px; background: #f1eee7; }
 .preview-panel { max-width: 1100px; margin-top: 20px; overflow: hidden; border: 1px solid #ded8cc; border-radius: 18px; background: #fffdf9; }
 .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 19px 22px; border-bottom: 1px solid #e5e0d6; }
@@ -267,5 +270,7 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
   .dataset-summary { align-items: flex-start; flex-direction: column; }
   .dataset-metrics { width: 100%; grid-template-columns: repeat(3, 1fr); }
   .dataset-actions { width: 100%; justify-items: stretch; }
+  .dataset-action-row { justify-content: stretch; }
+  .dataset-action-row button { flex: 1 1 140px; }
   .settings-layout { grid-template-columns: 1fr; }
 }

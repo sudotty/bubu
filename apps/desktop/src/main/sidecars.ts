@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 import { app, utilityProcess, type UtilityProcess } from "electron";
 import {
   parseDatasetImportResult,
+  parseDatasetExportResult,
+  parseDatasetDeletionResult,
   parseDatasetGroup,
   parseDatasetGroupDeletionResult,
   parseDatasetGroupList,
@@ -23,6 +25,8 @@ import {
   parseSafeQueryResult,
   parseServiceHealth,
   type DatasetImportResult,
+  type DatasetExportResult,
+  type DatasetDeletionResult,
   type ColumnMapping,
   type DatasetGroup,
   type DatasetGroupSaveInput,
@@ -100,6 +104,18 @@ class DataCoreClient implements RuntimeClient {
 
   async listDatasets(): Promise<readonly DatasetSummary[]> {
     return parseDatasetList(await this.#broker.request("dataset.list", {}));
+  }
+
+  async exportDataset(datasetID: string, targetPath: string): Promise<DatasetExportResult> {
+    return parseDatasetExportResult(
+      await this.#broker.request("dataset.export", { datasetId: datasetID, targetPath }),
+    );
+  }
+
+  async deleteDataset(datasetID: string): Promise<DatasetDeletionResult> {
+    return parseDatasetDeletionResult(
+      await this.#broker.request("dataset.delete", { datasetId: datasetID }),
+    );
   }
 
   async preview(request: DatasetPreviewRequest): Promise<DatasetPreview> {
@@ -268,6 +284,8 @@ function unavailable(name: DesktopServiceHealth["name"], error: unknown): Deskto
 export interface SidecarSupervisor {
   readiness(): Promise<ProductReadiness>;
   importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult>;
+  exportDataset(datasetID: string, targetPath: string): Promise<DatasetExportResult>;
+  deleteDataset(datasetID: string): Promise<DatasetDeletionResult>;
   listDatasets(): Promise<readonly DatasetSummary[]>;
   previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
   replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
@@ -318,6 +336,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     async importFiles(sourcePaths) {
       return dataCore.importFiles(sourcePaths);
     },
+    exportDataset: (datasetID, targetPath) => dataCore.exportDataset(datasetID, targetPath),
+    deleteDataset: (datasetID) => dataCore.deleteDataset(datasetID),
     listDatasets: () => dataCore.listDatasets(),
     previewDataset: (request) => dataCore.preview(request),
     replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),

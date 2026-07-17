@@ -16,6 +16,9 @@ type fakeDatasets struct {
 	replacedMappings  []data.ColumnMapping
 	savedRules        []data.ValidationRule
 	savedRelationship data.DatasetRelationshipSaveInput
+	exportedID        string
+	exportedPath      string
+	deletedID         string
 }
 
 func (fake *fakeDatasets) SaveGroup(

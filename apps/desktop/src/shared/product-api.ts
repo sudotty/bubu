@@ -5,6 +5,8 @@ import type {
   DatasetGroupId,
   DatasetGroupSaveInput,
   DatasetImportResult,
+  DatasetExportSelectionResult,
+  DatasetDeletionSelectionResult,
   DatasetQualityReport,
   DatasetPreview,
   DatasetPreviewRequest,
@@ -33,6 +35,8 @@ import type {
 export const desktopChannels = {
   getReadiness: "bubu:system:get-readiness",
   importDatasets: "bubu:datasets:import",
+  exportDataset: "bubu:datasets:export",
+  deleteDataset: "bubu:datasets:delete",
   listDatasets: "bubu:datasets:list",
   previewDataset: "bubu:datasets:preview",
   replaceDataset: "bubu:datasets:replace",
@@ -79,6 +83,8 @@ export interface BuBuDesktopApi {
   };
   readonly datasets: {
     importFiles(): Promise<DatasetImportResult>;
+    export(datasetId: string): Promise<DatasetExportSelectionResult>;
+    delete(datasetId: string): Promise<DatasetDeletionSelectionResult>;
     list(): Promise<readonly DatasetSummary[]>;
     preview(request: DatasetPreviewRequest): Promise<DatasetPreview>;
     replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
@@ -123,6 +129,8 @@ export type {
   DatasetGroupId,
   DatasetGroupSaveInput,
   DatasetImportResult,
+  DatasetExportSelectionResult,
+  DatasetDeletionSelectionResult,
   DatasetQualityReport,
   DatasetPreview,
   DatasetPreviewRequest,

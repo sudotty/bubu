@@ -15,7 +15,7 @@ Each dataset or group has at most one primary local conversation thread. The tar
 | `result` | assistant | bounded single/group local query result |
 | `error` | system | bounded failure message |
 
-There is no HTML entry, arbitrary blob entry, tool-script entry, or renderer-controlled role. Entries are inserted only; no API updates or deletes an individual entry. A group deletion transaction removes its whole thread before deleting the group, while dataset deletion will need the same contract when that product operation is implemented.
+There is no HTML entry, arbitrary blob entry, tool-script entry, or renderer-controlled role. Entries are inserted only; no API updates or deletes an individual entry. Group deletion removes its whole thread before deleting the group. Permanent dataset deletion removes the dataset thread and every affected undersized group's thread in the same data-core transaction.
 
 ## Authority boundary
 

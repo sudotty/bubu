@@ -10,6 +10,8 @@ import {
   type DatasetReplacementMappingInput,
   type DatasetReplacementResult,
   type DatasetImportResult,
+  type DatasetExportSelectionResult,
+  type DatasetDeletionSelectionResult,
   type DatasetQualityReport,
   type DatasetGroup,
   type DatasetGroupId,
@@ -42,6 +44,10 @@ const desktopApi: BuBuDesktopApi = {
   datasets: {
     importFiles: () =>
       ipcRenderer.invoke(desktopChannels.importDatasets) as Promise<DatasetImportResult>,
+    export: (datasetId: string) =>
+      ipcRenderer.invoke(desktopChannels.exportDataset, datasetId) as Promise<DatasetExportSelectionResult>,
+    delete: (datasetId: string) =>
+      ipcRenderer.invoke(desktopChannels.deleteDataset, datasetId) as Promise<DatasetDeletionSelectionResult>,
     list: () => ipcRenderer.invoke(desktopChannels.listDatasets) as Promise<readonly DatasetSummary[]>,
     preview: (request: DatasetPreviewRequest) =>
       ipcRenderer.invoke(desktopChannels.previewDataset, request) as Promise<DatasetPreview>,
