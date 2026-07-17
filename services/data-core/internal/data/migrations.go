@@ -292,6 +292,10 @@ ON workflow_trigger_events(status, due_at, id);
 		version: 10,
 		sql:     modelAuditAggregateMigrationSQL,
 	},
+	{
+		version: 11,
+		sql:     conversationInsightMigrationSQL,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {
