@@ -7,6 +7,7 @@ Status: Model context, provider configuration, encrypted credentials, transports
 The Go data core owns model context construction. `dataset.context` accepts an opaque dataset ID and an explicit disclosure level. It never queries the raw row table.
 
 - `schema-only` returns the current version ID plus column names, inferred types, and nullability.
+- Column structure includes a local `unique` boolean so a group planner can choose a bounded lookup key without receiving distinct counts or values.
 - `schema-synthetic` adds exactly three locally generated rows. Values come only from column type, row ordinal, and column ordinal.
 - Dataset display name, source file name, source path, profiles, minima, maxima, and preview rows are absent.
 - A strict TypeScript boundary rejects unknown fields, source metadata, schema-only examples, rows wider than the schema, and more than five synthetic rows.
@@ -44,6 +45,8 @@ Connection testing performs one bounded minimal generation request through the s
 For one-dataset analysis, Electron main obtains the schema plus three generated examples from Go and sends exactly that envelope together with the user's question. The model must return one strict JSON query plan and cannot return SQL. The proposal is cryptographically untrusted: its dataset/version identity must equal the disclosed immutable context, and Go validates it again before execution.
 
 The renderer shows the plan's purpose, dimensions, measures, filters, limit, and the complete context disclosure. No local query runs until the user selects **批准并在本地执行**. Execution returns at most 200 rows and does not make a second model request, so query results remain local. Persisted approvals, aggregate/row disclosure to a model, and the append-only usage ledger are still pending.
+
+Group analysis applies the same rule to 2–8 ordered contexts. Member display names remain local; the model sees numbered sources. Its plan must build a connected equality-join tree and place only a non-null unique lookup key on every right side. The renderer shows the entire join tree and every disclosed context before approval. Go independently checks group membership/version order, columns, uniqueness, operations, filters, and result limits.
 
 ## Deliberately unavailable
 

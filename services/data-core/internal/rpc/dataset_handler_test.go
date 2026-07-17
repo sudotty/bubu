@@ -40,6 +40,13 @@ func (fake *fakeDatasets) ExecuteQueryPlan(
 	return data.SafeQueryResult{DatasetID: plan.DatasetID, VersionID: plan.VersionID}, nil
 }
 
+func (fake *fakeDatasets) ExecuteGroupQueryPlan(
+	_ context.Context,
+	plan data.SafeGroupQueryPlan,
+) (data.SafeGroupQueryResult, error) {
+	return data.SafeGroupQueryResult{GroupID: plan.GroupID, SourceVersions: plan.Sources}, nil
+}
+
 func (fake *fakeDatasets) ReplaceFile(
 	_ context.Context,
 	datasetID string,
@@ -235,5 +242,31 @@ func TestDatasetGroupSaveRequiresBoundedMembership(t *testing.T) {
 	}, testToken, fake)
 	if response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
 		t.Fatalf("empty group escaped RPC bounds: %#v", response)
+	}
+}
+
+func TestDatasetGroupQueryRejectsRawSQLAtTheRPCBoundary(t *testing.T) {
+	plan := map[string]any{
+		"schemaVersion": float64(1),
+		"groupId":       "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+		"purpose":       "Join datasets",
+		"sources": []any{
+			map[string]any{"datasetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "versionId": "cccccccccccccccccccccccccccccccc"},
+			map[string]any{"datasetId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "versionId": "dddddddddddddddddddddddddddddddd"},
+		},
+		"joins": []any{map[string]any{
+			"leftSourceIndex": float64(0), "leftColumn": "ID",
+			"rightSourceIndex": float64(1), "rightColumn": "ID", "type": "inner",
+		}},
+		"dimensions": []any{map[string]any{"sourceIndex": float64(0), "column": "ID"}},
+		"measures":   []any{}, "filters": []any{}, "sort": []any{}, "limit": float64(50),
+	}
+	request := Request{ProtocolVersion: ProtocolVersion, Auth: testToken, ID: "group-query-1", Method: "dataset.group.query.execute", Params: map[string]any{"plan": plan}}
+	if response := HandleWithData(context.Background(), request, testToken, &fakeDatasets{}); !response.OK {
+		t.Fatalf("strict group query was rejected: %#v", response)
+	}
+	plan["sql"] = "DROP TABLE datasets"
+	if response := HandleWithData(context.Background(), request, testToken, &fakeDatasets{}); response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("raw SQL escaped group plan decoding: %#v", response)
 	}
 }

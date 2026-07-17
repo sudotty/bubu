@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DatasetGroup, DatasetSummary } from "../shared/product-api.js";
+import { DatasetGroupAnalysis } from "./DatasetGroupAnalysis.js";
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "数据群组操作失败";
@@ -106,13 +107,7 @@ export function DatasetGroupWorkspace({
           {group && <button type="button" className="secondary-action" onClick={() => void remove()} disabled={busy}>删除群组</button>}
         </div>
       </div>
-      {group && (
-        <section className="group-next-step">
-          <p className="hero-kicker">GROUP QUERY FOUNDATION</p>
-          <h4>群组目录已就绪</h4>
-          <p>下一纵切会在这里提供受限等值关联计划、lookup、跨表核对和群组对话；当前版本不会把多个表的原始行发送给模型。</p>
-        </section>
-      )}
+      {group && <DatasetGroupAnalysis group={group} />}
     </section>
   );
 }

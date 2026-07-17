@@ -19,6 +19,10 @@ import {
   type SafeQueryPlan,
   type SafeQueryResult,
   type ProductReadiness,
+  type GroupQueryPlanProposal,
+  type GroupQueryRequest,
+  type SafeGroupQueryPlan,
+  type SafeGroupQueryResult,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -52,6 +56,10 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.proposeQueryPlan, value) as Promise<QueryPlanProposal>,
     execute: (plan: SafeQueryPlan) =>
       ipcRenderer.invoke(desktopChannels.executeQueryPlan, plan) as Promise<SafeQueryResult>,
+    proposeGroup: (value: GroupQueryRequest) =>
+      ipcRenderer.invoke(desktopChannels.proposeGroupQueryPlan, value) as Promise<GroupQueryPlanProposal>,
+    executeGroup: (plan: SafeGroupQueryPlan) =>
+      ipcRenderer.invoke(desktopChannels.executeGroupQueryPlan, plan) as Promise<SafeGroupQueryResult>,
   },
   datasetGroups: {
     list: () =>

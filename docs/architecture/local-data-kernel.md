@@ -49,6 +49,8 @@ Every imported dataset starts at version 1. Replacing a dataset with the same no
 
 The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
 
+A group plan contains 2–8 sources in stored member order and exactly one fewer join. Joins form a deterministic connected tree: each join adds the next source to an already connected source, so cross joins, cycles, skipped sources, and reordered sources are invalid. Only inner and left equality joins are supported. Every right-side join key must be non-null and unique according to the local profile, which keeps lookup cardinality bounded by the left side and prevents an accidental many-to-many explosion. The model context exposes only the safe `unique` boolean, not distinct counts or values.
+
 Only validated internal table/physical-column names enter generated SQL. Filter values are always bound parameters; substring filters use `instr` rather than wildcard-bearing SQL fragments. Numeric operations are permitted only for inferred numeric columns. The compiler emits one `SELECT`, requests one extra row to prove truncation, and returns a strict typed result. A stale version, unknown column, unsupported operation, invalid numeric filter, or oversized plan fails before execution.
 
 ## Security and privacy invariants
@@ -70,8 +72,9 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Catalog and preview integration through temporary SQLite databases.
 - Built-sidecar smoke for import, list, inference, preview, file permissions, and absolute-path non-persistence.
 - Typed aggregation, hostile bound-filter, stale-version, unknown-column, numeric-operation, limit, and truncation tests plus built-sidecar query smoke.
+- Multi-table left lookup, post-join aggregation, hostile filters, stale/reordered membership, disconnected trees, and non-unique right-key rejection.
 - Architecture fitness rule that rejects whole-file CSV delimiter sampling.
 
 ## Not implemented yet
 
-Interactive schema-drift mapping, richer distributions and anomaly findings, validation rules, multi-dataset relationships/joins, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Interactive schema-drift mapping, richer distributions and anomaly findings, validation rules, reusable discovered relationships, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

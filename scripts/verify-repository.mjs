@@ -100,6 +100,10 @@ for (const required of [
   "visible-query-approval: implemented",
   "local-bounded-query-execution: implemented",
   "dataset-groups: implemented",
+  "multi-table-query: implemented",
+  "bounded-lookup-joins: implemented",
+  "group-natural-language-query-planning: implemented",
+  "group-query-approval: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

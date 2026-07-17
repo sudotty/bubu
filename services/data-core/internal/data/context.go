@@ -23,11 +23,12 @@ func (service *Service) ModelContext(
 		return ModelContextResult{}, errors.New("unsupported disclosure level")
 	}
 	var versionID string
+	var rowCount int64
 	err := service.database.QueryRowContext(ctx, `
-SELECT v.id
+SELECT v.id, v.row_count
 FROM datasets d
 JOIN dataset_versions v ON v.id = d.current_version_id
-WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&versionID)
+WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&versionID, &rowCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ModelContextResult{}, errors.New("dataset not found")
 	}
@@ -47,6 +48,7 @@ WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&versionID)
 			Name:     profile.Name,
 			Type:     profile.InferredType,
 			Nullable: profile.Nullable,
+			Unique:   rowCount > 0 && profile.NullCount == 0 && profile.DistinctCount == rowCount,
 		}
 	}
 	result := ModelContextResult{

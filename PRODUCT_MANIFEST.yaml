@@ -38,8 +38,11 @@ capabilities:
   column-profiling-baseline: implemented
   profiling: in-progress
   validation: planned
-  multi-table-query: in-progress
+  multi-table-query: implemented
   dataset-groups: implemented
+  bounded-lookup-joins: implemented
+  group-natural-language-query-planning: implemented
+  group-query-approval: implemented
   privacy-gateway: in-progress
   model-context-boundary: implemented
   synthetic-examples: implemented

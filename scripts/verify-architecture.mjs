@@ -109,6 +109,17 @@ for (const invariant of [
 ]) {
   if (!safeQuery.includes(invariant)) failures.push(`safe query compiler invariant missing: ${invariant}`);
 }
+
+const safeGroupQuery = read("services/data-core/internal/data/group_query.go");
+for (const invariant of [
+  "len(plan.Joins) != len(plan.Sources)-1",
+  "join.RightSourceIndex != index+1",
+  "rightColumn.profile.DistinctCount != sources[join.RightSourceIndex].rowCount",
+  'keyword = "LEFT JOIN"',
+  "args = append(args, plan.Limit+1)",
+]) {
+  if (!safeGroupQuery.includes(invariant)) failures.push(`safe group query invariant missing: ${invariant}`);
+}
 if (!tabularSource.includes("io.LimitReader(file, 64*1024)")) {
   failures.push("delimiter detection is missing its bounded streaming sample");
 }

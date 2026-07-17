@@ -8,6 +8,7 @@ const modelContextColumnSchema = z
     name: z.string().min(1).max(500),
     type: columnTypeSchema,
     nullable: z.boolean(),
+    unique: z.boolean(),
   })
   .strict();
 

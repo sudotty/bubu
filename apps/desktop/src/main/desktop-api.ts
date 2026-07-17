@@ -4,14 +4,21 @@ import {
   parseDatasetGroupSaveInput,
   parseDatasetId,
   parseDatasetPreviewRequest,
+  parseGroupQueryRequest,
   parseProviderConfigurationInput,
   parseProviderConnectionResult,
   parseProviderId,
   parseQueryPlanRequest,
+  parseSafeGroupQueryPlan,
   parseSafeQueryPlan,
 } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
-import { buildQueryPlanInvocation, createQueryPlanProposal } from "./analysis-orchestrator.js";
+import {
+  buildGroupQueryPlanInvocation,
+  buildQueryPlanInvocation,
+  createGroupQueryPlanProposal,
+  createQueryPlanProposal,
+} from "./analysis-orchestrator.js";
 import type { ProviderStore } from "./provider-store.js";
 import { isTrustedFrameUrl } from "./security.js";
 import type { SidecarSupervisor } from "./sidecars.js";
@@ -142,5 +149,30 @@ export function registerDesktopApi({
     assertTrustedSender(event.senderFrame?.url ?? "");
     await sidecars.deleteGroup(parseDatasetGroupId(value));
     return sidecars.listGroups();
+  });
+  ipcMain.handle(desktopChannels.proposeGroupQueryPlan, async (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    const request = parseGroupQueryRequest(value);
+    const groups = await sidecars.listGroups();
+    const group = groups.find(({ id }) => id === request.groupId);
+    if (!group) throw new Error("数据群组不存在");
+    const activeProviderId = providerStore.state().activeProviderId;
+    if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
+    const contexts = await Promise.all(
+      group.members.map(({ id }) => sidecars.modelContext(id, "schema-synthetic")),
+    );
+    const completion = await sidecars.generateModel(
+      buildGroupQueryPlanInvocation(
+        providerStore.resolve(activeProviderId),
+        group.id,
+        contexts,
+        request.question,
+      ),
+    );
+    return createGroupQueryPlanProposal(request.question, contexts, completion);
+  });
+  ipcMain.handle(desktopChannels.executeGroupQueryPlan, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.executeGroupQueryPlan(parseSafeGroupQueryPlan(value));
   });
 }

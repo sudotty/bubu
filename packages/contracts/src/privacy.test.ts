@@ -4,7 +4,7 @@ import { parseModelContext } from "./privacy.js";
 const base = {
   datasetId: "a".repeat(32),
   versionId: "b".repeat(32),
-  columns: [{ name: "Revenue", type: "real", nullable: false }],
+  columns: [{ name: "Revenue", type: "real", nullable: false, unique: false }],
 };
 
 describe("model disclosure boundary", () => {

@@ -15,6 +15,7 @@ import {
   parseModelContext,
   parseRpcResponse,
   parseSafeQueryResult,
+  parseSafeGroupQueryResult,
 } from "../packages/contracts/dist/index.js";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
@@ -194,6 +195,38 @@ try {
   if (groups.length !== 1 || group.members.length !== 2 || groups[0]?.id !== group.id) {
     throw new Error("Dataset group was not persisted with two current members");
   }
+  const groupQueryResult = parseSafeGroupQueryResult(
+    await request("dataset.group.query.execute", {
+      plan: {
+        schemaVersion: 1,
+        groupId: group.id,
+        purpose: "Look up regional targets",
+        sources: group.members.map(({ id, versionId }) => ({ datasetId: id, versionId })),
+        joins: [{
+          leftSourceIndex: 0,
+          leftColumn: "Region",
+          rightSourceIndex: 1,
+          rightColumn: "Region",
+          type: "left",
+        }],
+        dimensions: [
+          { sourceIndex: 0, column: "Region" },
+          { sourceIndex: 1, column: "Target" },
+        ],
+        measures: [{ operation: "sum", sourceIndex: 0, column: "Amount" }],
+        filters: [],
+        sort: [{ outputIndex: 2, direction: "descending" }],
+        limit: 10,
+      },
+    }),
+  );
+  if (
+    groupQueryResult.rows[0]?.[0] !== "West" ||
+    groupQueryResult.rows[0]?.[1] !== "600" ||
+    groupQueryResult.rows[0]?.[2] !== 512
+  ) {
+    throw new Error(`Safe group query returned an unexpected result: ${JSON.stringify(groupQueryResult.rows)}`);
+  }
 
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
@@ -214,7 +247,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, replacement, drift, groups, synthetic disclosure, safe query, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, replacement, drift, groups, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

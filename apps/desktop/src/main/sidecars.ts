@@ -13,6 +13,7 @@ import {
   parseDatasetReplacementResult,
   parseModelCompletion,
   parseModelContext,
+  parseSafeGroupQueryResult,
   parseSafeQueryResult,
   parseServiceHealth,
   type DatasetImportResult,
@@ -26,6 +27,8 @@ import {
   type ModelContext,
   type DisclosureLevel,
   type ModelInvocation,
+  type SafeGroupQueryPlan,
+  type SafeGroupQueryResult,
   type SafeQueryPlan,
   type SafeQueryResult,
 } from "@bubu/contracts";
@@ -120,6 +123,12 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
+  async executeGroupQueryPlan(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult> {
+    return parseSafeGroupQueryResult(
+      await this.#broker.request("dataset.group.query.execute", { plan }),
+    );
+  }
+
   stop(): void {
     this.#broker.close(new Error("data-core stopped by desktop"));
     this.#process.kill("SIGTERM");
@@ -198,6 +207,7 @@ export interface SidecarSupervisor {
   modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
+  executeGroupQueryPlan(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult>;
   listGroups(): Promise<readonly DatasetGroup[]>;
   saveGroup(input: DatasetGroupSaveInput): Promise<DatasetGroup>;
   deleteGroup(groupID: string): Promise<void>;
@@ -235,6 +245,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
     generateModel: (invocation) => aiRuntime.generate(invocation),
     executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),
+    executeGroupQueryPlan: (plan) => dataCore.executeGroupQueryPlan(plan),
     listGroups: () => dataCore.listGroups(),
     saveGroup: (input) => dataCore.saveGroup(input),
     deleteGroup: (groupID) => dataCore.deleteGroup(groupID),
