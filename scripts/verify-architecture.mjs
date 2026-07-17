@@ -66,8 +66,24 @@ for (const invariant of [
   'setWindowOpenHandler(() => ({ action: "deny" }))',
   'protocol.registerSchemesAsPrivileged',
   'isTrustedFrameUrl(frameUrl',
+  "safeStorage.isEncryptionAvailable()",
+  "safeStorage.encryptString(value)",
 ]) {
   if (!main.includes(invariant)) failures.push(`main-process security gate missing: ${invariant}`);
+}
+
+const providerStore = read("apps/desktop/src/main/provider-store.ts");
+for (const invariant of [
+  'join(options.directory, "credentials")',
+  "mode: 0o700",
+  "mode: 0o600",
+  "renameSync(temporaryPath, path)",
+  "Credential encryption is unavailable",
+]) {
+  if (!providerStore.includes(invariant)) failures.push(`provider credential boundary missing: ${invariant}`);
+}
+if (providerStore.includes("credential:" + " input.credential")) {
+  failures.push("provider credential is copied into registry metadata");
 }
 
 const sidecars = read("apps/desktop/src/main/sidecars.ts");

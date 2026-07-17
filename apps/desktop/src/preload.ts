@@ -7,6 +7,10 @@ import {
   type DatasetReplacementSelectionResult,
   type DatasetImportResult,
   type DatasetSummary,
+  type ProviderConfigurationInput,
+  type ProviderConnectionResult,
+  type ProviderId,
+  type ProviderRegistryState,
   type ProductReadiness,
 } from "./shared/product-api.js";
 
@@ -23,6 +27,18 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.previewDataset, request) as Promise<DatasetPreview>,
     replace: (datasetId: string) =>
       ipcRenderer.invoke(desktopChannels.replaceDataset, datasetId) as Promise<DatasetReplacementSelectionResult>,
+  },
+  providers: {
+    list: () =>
+      ipcRenderer.invoke(desktopChannels.listProviders) as Promise<ProviderRegistryState>,
+    save: (value: ProviderConfigurationInput) =>
+      ipcRenderer.invoke(desktopChannels.saveProvider, value) as Promise<ProviderRegistryState>,
+    select: (providerId: ProviderId) =>
+      ipcRenderer.invoke(desktopChannels.selectProvider, providerId) as Promise<ProviderRegistryState>,
+    remove: (providerId: ProviderId) =>
+      ipcRenderer.invoke(desktopChannels.removeProvider, providerId) as Promise<ProviderRegistryState>,
+    test: (providerId: ProviderId) =>
+      ipcRenderer.invoke(desktopChannels.testProvider, providerId) as Promise<ProviderConnectionResult>,
   },
 };
 

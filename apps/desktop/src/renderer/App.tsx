@@ -4,6 +4,7 @@ import type {
   DatasetSummary,
   ProductReadiness,
 } from "../shared/product-api.js";
+import { ProviderSettings } from "./ProviderSettings.js";
 
 type ReadinessState =
   | { readonly kind: "loading" }
@@ -31,6 +32,7 @@ function messageFrom(error: unknown): string {
 }
 
 export function App() {
+  const [view, setView] = useState<"datasets" | "settings">("datasets");
   const [readiness, setReadiness] = useState<ReadinessState>({ kind: "loading" });
   const [datasets, setDatasets] = useState<readonly DatasetSummary[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>();
@@ -147,10 +149,20 @@ export function App() {
     <main className="shell">
       <aside className="rail" aria-label="主导航">
         <div className="brand-mark" aria-hidden="true">B</div>
-        <div className="rail-item rail-item-active" title="数据联系人">▦</div>
+        <button
+          type="button"
+          className={`rail-item ${view === "datasets" ? "rail-item-active" : ""}`}
+          title="数据联系人"
+          onClick={() => setView("datasets")}
+        >▦</button>
         <div className="rail-item" title="工作流">⌘</div>
         <div className="rail-spacer" />
-        <div className="rail-item" title="设置">⚙</div>
+        <button
+          type="button"
+          className={`rail-item ${view === "settings" ? "rail-item-active" : ""}`}
+          title="模型设置"
+          onClick={() => setView("settings")}
+        >⚙</button>
       </aside>
 
       <section className="contacts">
@@ -209,8 +221,8 @@ export function App() {
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <p className="eyebrow">PRIVATE BY DEFAULT</p>
-            <h2>{selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
+            <p className="eyebrow">{view === "settings" ? "SECURE LOCAL CONFIG" : "PRIVATE BY DEFAULT"}</p>
+            <h2>{view === "settings" ? "模型设置" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
           </div>
           <span className="mode-pill">
             {readiness.kind === "loaded" && readiness.value.status === "ready" ? "本地服务就绪" : "本地模式"}
@@ -218,11 +230,12 @@ export function App() {
         </header>
 
         <div className="conversation">
-          {notice && <div className="notice" role="status">{notice}</div>}
-          {!selectedDataset && (
+          {view === "settings" && <ProviderSettings />}
+          {view === "datasets" && notice && <div className="notice" role="status">{notice}</div>}
+          {view === "datasets" && !selectedDataset && (
             <EmptyWorkspace readiness={readiness} onImport={() => void importFiles()} importing={importing} />
           )}
-          {selectedDataset && (
+          {view === "datasets" && selectedDataset && (
             <DatasetWorkspace
               dataset={selectedDataset}
               preview={preview}
@@ -232,14 +245,14 @@ export function App() {
           )}
         </div>
 
-        <footer className="composer" aria-label="数据对话将在 AI 查询纵切完成后启用">
+        {view === "datasets" && <footer className="composer" aria-label="数据对话将在 AI 查询纵切完成后启用">
           <span>
             {selectedDataset
               ? `下一阶段：和「${selectedDataset.displayName}」对话、查询与生成图表`
               : "导入第一个 CSV 或 Excel 后，在这里和数据聊天"}
           </span>
           <button type="button" disabled>发送</button>
-        </footer>
+        </footer>}
       </section>
     </main>
   );

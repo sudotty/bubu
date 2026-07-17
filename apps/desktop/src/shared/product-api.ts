@@ -4,6 +4,10 @@ import type {
   DatasetPreviewRequest,
   DatasetReplacementResult,
   DatasetSummary,
+  ProviderConfigurationInput,
+  ProviderConnectionResult,
+  ProviderId,
+  ProviderRegistryState,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -12,6 +16,11 @@ export const desktopChannels = {
   listDatasets: "bubu:datasets:list",
   previewDataset: "bubu:datasets:preview",
   replaceDataset: "bubu:datasets:replace",
+  listProviders: "bubu:providers:list",
+  saveProvider: "bubu:providers:save",
+  selectProvider: "bubu:providers:select",
+  removeProvider: "bubu:providers:remove",
+  testProvider: "bubu:providers:test",
 } as const;
 
 export type DatasetReplacementSelectionResult =
@@ -44,6 +53,13 @@ export interface BuBuDesktopApi {
     preview(request: DatasetPreviewRequest): Promise<DatasetPreview>;
     replace(datasetId: string): Promise<DatasetReplacementSelectionResult>;
   };
+  readonly providers: {
+    list(): Promise<ProviderRegistryState>;
+    save(value: ProviderConfigurationInput): Promise<ProviderRegistryState>;
+    select(providerId: ProviderId): Promise<ProviderRegistryState>;
+    remove(providerId: ProviderId): Promise<ProviderRegistryState>;
+    test(providerId: ProviderId): Promise<ProviderConnectionResult>;
+  };
 }
 
 export type {
@@ -53,5 +69,12 @@ export type {
   DatasetPreviewRequest,
   DatasetReplacementResult,
   DatasetSummary,
+  ProviderConfigurationInput,
+  ProviderConnectionResult,
+  ProviderId,
+  ProviderKind,
+  ProviderProfile,
+  ProviderRegistryState,
+  ProviderSummary,
   SchemaDrift,
 } from "@bubu/contracts";

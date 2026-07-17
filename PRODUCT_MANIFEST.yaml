@@ -43,13 +43,15 @@ capabilities:
   model-context-boundary: implemented
   synthetic-examples: implemented
   safe-query-plan: planned
-  model-provider-registry: in-progress
+  model-provider-registry: implemented
+  os-encrypted-provider-credentials: implemented
+  provider-connection-test: implemented
   provider-request-adapters: implemented
-  openai-provider: in-progress
-  anthropic-provider: in-progress
-  gemini-provider: in-progress
-  openai-compatible-provider: in-progress
-  ollama-provider: in-progress
+  openai-provider: implemented
+  anthropic-provider: implemented
+  gemini-provider: implemented
+  openai-compatible-provider: implemented
+  ollama-provider: implemented
   dataset-conversations: planned
   dataset-groups: planned
   visualizations: legacy-partial
