@@ -145,6 +145,34 @@ for (const invariant of [
 ]) {
   if (!relationshipDiscovery.includes(invariant)) failures.push(`relationship invariant missing: ${invariant}`);
 }
+
+const datasetExport = read("services/data-core/internal/data/export.go");
+for (const invariant of [
+  "os.CreateTemp(filepath.Dir(absolutePath)",
+  "temporary.Write([]byte{0xef, 0xbb, 0xbf})",
+  "excelSafeCSVCell(value.String",
+  "temporary.Chmod(0o600)",
+  "FileName: filepath.Base(absolutePath)",
+]) {
+  if (!datasetExport.includes(invariant)) failures.push(`safe export invariant missing: ${invariant}`);
+}
+const lifecycleContract = read("packages/contracts/src/lifecycle.ts");
+if (!lifecycleContract.includes("Only a file name may cross into the renderer")) {
+  failures.push("dataset lifecycle contract does not keep export paths private");
+}
+const datasetDeletion = read("services/data-core/internal/data/deletion.go");
+for (const invariant of [
+  "DELETE FROM conversation_threads WHERE target_kind = 'dataset'",
+  "DELETE FROM dataset_groups WHERE id = ?",
+  'transaction.ExecContext(ctx, "DROP TABLE "+tableName)',
+  "transaction.Commit()",
+]) {
+  if (!datasetDeletion.includes(invariant)) failures.push(`dataset deletion invariant missing: ${invariant}`);
+}
+const lifecycleApi = read("apps/desktop/src/main/dataset-lifecycle-api.ts");
+for (const invariant of ["dialog.showSaveDialog", "dialog.showMessageBox", "showOverwriteConfirmation", "此操作无法撤销"]) {
+  if (!lifecycleApi.includes(invariant)) failures.push(`desktop lifecycle boundary missing: ${invariant}`);
+}
 const analysisOrchestrator = read("apps/desktop/src/main/analysis-orchestrator.ts");
 for (const invariant of [
   'relationship.status !== "ready"',

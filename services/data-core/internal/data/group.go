@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	minimumGroupMembers = 2
-	maximumGroupMembers = 8
+	minimumGroupMembers     = 2
+	maximumGroupMembers     = 8
+	maximumGroupsPerDataset = 100
 )
 
 func (service *Service) SaveGroup(
@@ -62,6 +63,14 @@ WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&exists)
 		}
 		if err != nil {
 			return DatasetGroup{}, fmt.Errorf("validate group dataset: %w", err)
+		}
+		var membershipCount int
+		if err := transaction.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM dataset_group_members WHERE dataset_id = ? AND group_id <> ?`, datasetID, groupID).Scan(&membershipCount); err != nil {
+			return DatasetGroup{}, fmt.Errorf("count dataset group memberships: %w", err)
+		}
+		if membershipCount >= maximumGroupsPerDataset {
+			return DatasetGroup{}, fmt.Errorf("a dataset cannot belong to more than %d groups", maximumGroupsPerDataset)
 		}
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)

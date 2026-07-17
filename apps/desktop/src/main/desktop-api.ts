@@ -31,6 +31,7 @@ import type { ProviderStore } from "./provider-store.js";
 import { isTrustedFrameUrl } from "./security.js";
 import type { SidecarSupervisor } from "./sidecars.js";
 import { createReplacementSessionStore } from "./replacement-sessions.js";
+import { registerDatasetLifecycleApi } from "./dataset-lifecycle-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -69,6 +70,8 @@ export function registerDesktopApi({
       entry.kind === "plan" && JSON.stringify(entry.payload.proposal.plan) === encoded,
     ) ?? false;
   };
+
+  registerDatasetLifecycleApi({ sidecars, assertTrustedSender });
 
   ipcMain.handle(desktopChannels.getReadiness, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

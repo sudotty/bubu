@@ -1,40 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   DatasetGroup,
-  DatasetPreview,
   DatasetReplacementMappingInput,
-  DatasetReplacementSelectionResult,
   DatasetSummary,
-  ProductReadiness,
 } from "../shared/product-api.js";
 import { ProviderSettings } from "./ProviderSettings.js";
-import { DatasetAnalysis } from "./DatasetAnalysis.js";
 import { DatasetGroupWorkspace } from "./DatasetGroupWorkspace.js";
-import { SchemaMappingPanel } from "./SchemaMappingPanel.js";
-import { DatasetQualityPanel } from "./DatasetQualityPanel.js";
-
-type MappingRequired = Extract<DatasetReplacementSelectionResult, { readonly status: "mapping-required" }>;
-
-type ReadinessState =
-  | { readonly kind: "loading" }
-  | { readonly kind: "loaded"; readonly value: ProductReadiness }
-  | { readonly kind: "failed"; readonly message: string };
-
-type PreviewState =
-  | { readonly kind: "empty" }
-  | { readonly kind: "loading" }
-  | { readonly kind: "loaded"; readonly value: DatasetPreview }
-  | { readonly kind: "failed"; readonly message: string };
+import {
+  DatasetWorkspace,
+  EmptyWorkspace,
+  type MappingRequired,
+  type PreviewState,
+  type ReadinessState,
+} from "./DatasetWorkspace.js";
 
 const numberFormat = new Intl.NumberFormat("zh-CN");
-const typeLabels = {
-  null: "空值",
-  boolean: "布尔",
-  integer: "整数",
-  real: "数值",
-  datetime: "日期时间",
-  text: "文本",
-} as const;
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "操作失败，请重试";
@@ -51,6 +31,7 @@ export function App() {
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<"export" | "delete">();
   const [pendingMapping, setPendingMapping] = useState<MappingRequired>();
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
@@ -196,6 +177,46 @@ export function App() {
     }
   }
 
+  async function exportDataset(datasetId: string) {
+    setLifecycleAction("export");
+    setNotice(undefined);
+    try {
+      const result = await window.bubu.datasets.export(datasetId);
+      if (result.status === "exported") {
+        setNotice(`已导出 ${result.fileName}（${numberFormat.format(result.rowCount)} 行），文本公式已做 Excel 安全处理。`);
+      }
+    } catch (error) {
+      setNotice(messageFrom(error));
+    } finally {
+      setLifecycleAction(undefined);
+    }
+  }
+
+  async function deleteDataset(datasetId: string) {
+    setLifecycleAction("delete");
+    setNotice(undefined);
+    try {
+      const result = await window.bubu.datasets.delete(datasetId);
+      if (result.status === "cancelled") return;
+      const [nextDatasets, nextGroups] = await Promise.all([
+        window.bubu.datasets.list(),
+        window.bubu.datasetGroups.list(),
+      ]);
+      setDatasets(nextDatasets);
+      setGroups(nextGroups);
+      setSelectedDatasetId(nextDatasets[0]?.id);
+      setSelectedGroupId((current) =>
+        nextGroups.some(({ id }) => id === current) ? current : nextGroups[0]?.id,
+      );
+      const groupImpact = result.removedGroupIds.length + result.updatedGroupIds.length;
+      setNotice(`本地数据及全部版本已永久删除${groupImpact > 0 ? `，并修复了 ${groupImpact} 个相关群组` : ""}。`);
+    } catch (error) {
+      setNotice(messageFrom(error));
+    } finally {
+      setLifecycleAction(undefined);
+    }
+  }
+
   return (
     <main className="shell">
       <aside className="rail" aria-label="主导航">
@@ -328,8 +349,11 @@ export function App() {
               dataset={selectedDataset}
               preview={preview}
               replacing={replacing}
+              lifecycleAction={lifecycleAction}
               pendingMapping={pendingMapping}
               onReplace={() => void replaceFile(selectedDataset.id)}
+              onExport={() => void exportDataset(selectedDataset.id)}
+              onDelete={() => void deleteDataset(selectedDataset.id)}
               onApplyMapping={(input) => void applyReplacementMapping(input)}
               onCancelMapping={() => setPendingMapping(undefined)}
             />
@@ -338,138 +362,5 @@ export function App() {
 
       </section>
     </main>
-  );
-}
-
-function EmptyWorkspace({
-  readiness,
-  onImport,
-  importing,
-}: {
-  readonly readiness: ReadinessState;
-  readonly onImport: () => void;
-  readonly importing: boolean;
-}) {
-  return (
-    <>
-      <div className="hero-card">
-        <p className="hero-kicker">LOCAL-FIRST WORKSPACE</p>
-        <h3>导入表格，把数据变成可以聊天的联系人。</h3>
-        <p>CSV 与 Excel 会在 Go 数据内核中事务化转换为本地表。这里只显示文件名、结构和本地画像，不会自动发送原始行。</p>
-        <button type="button" className="primary-action" onClick={onImport} disabled={importing}>
-          {importing ? "正在导入…" : "选择 Excel 或 CSV"}
-        </button>
-      </div>
-      <section className="status-panel" aria-live="polite">
-        <div className="status-heading">
-          <h3>本地运行状态</h3>
-          <span className={`status-dot status-${readiness.kind}`} />
-        </div>
-        {readiness.kind === "loading" && <p>正在启动本地服务…</p>}
-        {readiness.kind === "failed" && <p className="error-text">{readiness.message}</p>}
-        {readiness.kind === "loaded" && (
-          <div className="service-grid">
-            {readiness.value.services.map((service) => (
-              <article className="service-card" key={service.name}>
-                <div>
-                  <strong>{service.name === "data-core" ? "Go 数据内核" : "Node AI 运行时"}</strong>
-                  <span className={`service-state service-${service.status}`}>{service.status}</span>
-                </div>
-                <small>{service.capabilities.join(" · ") || service.message || "等待服务能力"}</small>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-    </>
-  );
-}
-
-function DatasetWorkspace({
-  dataset,
-  preview,
-  replacing,
-  pendingMapping,
-  onReplace,
-  onApplyMapping,
-  onCancelMapping,
-}: {
-  readonly dataset: DatasetSummary;
-  readonly preview: PreviewState;
-  readonly replacing: boolean;
-  readonly pendingMapping: MappingRequired | undefined;
-  readonly onReplace: () => void;
-  readonly onApplyMapping: (input: DatasetReplacementMappingInput) => void;
-  readonly onCancelMapping: () => void;
-}) {
-  return (
-    <>
-      <section className="dataset-summary">
-        <div>
-          <p className="hero-kicker">DATASET CONTACT · VERSION {dataset.version}</p>
-          <h3>{dataset.displayName}</h3>
-          <p>{dataset.sourceName} · 数据已经物化到本地 SQLite，源文件路径不会写入目录。</p>
-        </div>
-        <div className="dataset-actions">
-          <div className="dataset-metrics">
-            <span><strong>{numberFormat.format(dataset.rowCount)}</strong> 行</span>
-            <span><strong>{dataset.columnCount}</strong> 列</span>
-            <span><strong>{dataset.sourceKind.toUpperCase()}</strong> 来源</span>
-          </div>
-          <button type="button" className="secondary-action" onClick={onReplace} disabled={replacing}>
-            {replacing ? "正在检查…" : "替换数据版本"}
-          </button>
-        </div>
-      </section>
-
-      {pendingMapping && (
-        <SchemaMappingPanel
-          key={pendingMapping.replacementToken}
-          request={pendingMapping}
-          busy={replacing}
-          onApply={onApplyMapping}
-          onCancel={onCancelMapping}
-        />
-      )}
-
-      {preview.kind === "loading" && <div className="preview-state">正在读取本地预览与列画像…</div>}
-      {preview.kind === "failed" && <div className="preview-state error-text">{preview.message}</div>}
-      {preview.kind === "loaded" && (
-        <section className="preview-panel">
-          <header className="preview-header">
-            <div>
-              <p className="hero-kicker">LOCAL PREVIEW</p>
-              <h3>前 {preview.value.rows.length} 行</h3>
-            </div>
-            <span>共 {numberFormat.format(preview.value.totalRows)} 行</span>
-          </header>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {preview.value.columns.map((column) => (
-                    <th key={column.ordinal}>
-                      <span>{column.name}</span>
-                      <small>{typeLabels[column.inferredType]}</small>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {preview.value.rows.map((row, rowIndex) => (
-                  <tr key={`${preview.value.offset + rowIndex}`}>
-                    {preview.value.columns.map((column, columnIndex) => (
-                      <td key={column.ordinal}>{row[columnIndex] == null ? <span className="null-value">—</span> : String(row[columnIndex])}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-      <DatasetQualityPanel datasetId={dataset.id} versionId={dataset.versionId} />
-      <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} />
-    </>
   );
 }
