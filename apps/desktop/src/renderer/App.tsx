@@ -11,6 +11,7 @@ import { ProviderSettings } from "./ProviderSettings.js";
 import { DatasetAnalysis } from "./DatasetAnalysis.js";
 import { DatasetGroupWorkspace } from "./DatasetGroupWorkspace.js";
 import { SchemaMappingPanel } from "./SchemaMappingPanel.js";
+import { DatasetQualityPanel } from "./DatasetQualityPanel.js";
 
 type MappingRequired = Extract<DatasetReplacementSelectionResult, { readonly status: "mapping-required" }>;
 
@@ -467,6 +468,7 @@ function DatasetWorkspace({
           </div>
         </section>
       )}
+      <DatasetQualityPanel datasetId={dataset.id} versionId={dataset.versionId} />
       <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} />
     </>
   );

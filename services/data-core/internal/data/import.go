@@ -12,6 +12,7 @@ import (
 )
 
 const maxImportFiles = 100
+const maximumDatasetColumns = 500
 
 func (service *Service) ImportFile(ctx context.Context, sourcePath string) (ImportResult, error) {
 	return service.ImportFiles(ctx, []string{sourcePath})
@@ -137,6 +138,9 @@ func materializeVersion(
 	if len(table.header) == 0 {
 		return DatasetSummary{}, errors.New("table header is empty")
 	}
+	if len(table.header) > maximumDatasetColumns {
+		return DatasetSummary{}, fmt.Errorf("table has %d columns; maximum is %d", len(table.header), maximumDatasetColumns)
+	}
 	tableName := "data_" + target.versionID
 	if !internalTableName.MatchString(tableName) {
 		return DatasetSummary{}, errors.New("generated table name is invalid")
@@ -226,7 +230,8 @@ INSERT INTO dataset_versions(
 	}
 
 	for index, physicalName := range physicalNames {
-		profile, err := profileColumn(ctx, transaction, tableName, physicalName, rowCount)
+		inferredType := inferences[index].Type()
+		profile, err := profileColumn(ctx, transaction, tableName, physicalName, inferredType, rowCount)
 		if err != nil {
 			return DatasetSummary{}, err
 		}
@@ -240,7 +245,7 @@ INSERT INTO dataset_columns(
 			table.header[index],
 			names[index],
 			physicalName,
-			inferences[index].Type(),
+			inferredType,
 			profile.nullable,
 			profile.nullCount,
 			profile.distinctCount,

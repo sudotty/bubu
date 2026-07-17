@@ -47,6 +47,8 @@ flowchart LR
 
 Every imported dataset starts at version 1. Replacing a dataset with the same normalized columns creates an immutable next version under the same contact identity and atomically switches the current version. Missing, added, or reordered columns return a structured drift result and leave the current version unchanged. Interactive mapping requires a total one-to-one mapping from every stable current column to a distinct incoming normalized column. Extra incoming columns are explicitly ignored. The renderer receives only a random one-use token; Electron main keeps the source path for at most ten minutes, and the Go data core revalidates the mapping before it creates and activates a new immutable version.
 
+`dataset_validation_rules` stores at most 100 ordered deterministic rules against stable logical column names. Reports always resolve the current ready version, derive bounded local findings from stored profiles, and execute required, uniqueness, numeric-range, RE2 pattern, and allow-list checks in the Go data core. Failure artifacts contain counts and at most 20 row numbers, never raw failing values. Rules survive compatible replacements and are deleted with their dataset contact.
+
 ## Safe analytical queries
 
 The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
@@ -76,7 +78,8 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Typed aggregation, hostile bound-filter, stale-version, unknown-column, numeric-operation, limit, and truncation tests plus built-sidecar query smoke.
 - Multi-table left lookup, post-join aggregation, hostile filters, stale/reordered membership, disconnected trees, and non-unique right-key rejection.
 - Architecture fitness rule that rejects whole-file CSV delimiter sampling.
+- Type-aware numeric profile bounds, deterministic quality findings, transactional validation-rule persistence, strict rule operands, and bounded failure samples.
 
 ## Not implemented yet
 
-Richer distributions and anomaly findings, validation rules, reusable discovered relationships, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Richer distributions, reusable discovered relationships, export, deletion, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

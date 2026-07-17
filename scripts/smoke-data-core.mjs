@@ -13,6 +13,7 @@ import {
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
+  parseDatasetQualityReport,
   parseModelContext,
   parseRpcResponse,
   parseSafeQueryResult,
@@ -288,6 +289,25 @@ try {
   if (mappedPreview.columns[1]?.name !== "Region" || mappedPreview.rows[0]?.[1] !== "East") {
     throw new Error("Mapped replacement did not preserve the stable logical schema");
   }
+  const qualityReport = parseDatasetQualityReport(
+    await request("dataset.validation.save", {
+      input: {
+        datasetId: dataset.id,
+        rules: [
+          { kind: "required", column: "Region" },
+          { kind: "allowed-values", column: "Region", values: ["West", "North"] },
+        ],
+      },
+    }),
+  );
+  if (
+    qualityReport.versionId !== mappedReplacement.dataset.versionId ||
+    qualityReport.validation[0]?.failedRows !== 0 ||
+    qualityReport.validation[1]?.failedRows !== 1 ||
+    qualityReport.validation[1]?.sampleRowNumbers[0] !== 1
+  ) {
+    throw new Error("Local validation rules did not persist and run on the current version");
+  }
 
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
@@ -308,7 +328,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

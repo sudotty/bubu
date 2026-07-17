@@ -113,6 +113,29 @@ for (const invariant of [
   if (!replacementMapping.includes(invariant)) failures.push(`replacement mapping invariant missing: ${invariant}`);
 }
 
+const qualityRules = read("services/data-core/internal/data/quality_rules.go");
+for (const invariant of [
+  "maximumValidationRules = 100",
+  "regexp.Compile(rule.Pattern)",
+  "number-range rule requires a numeric column",
+  "allowed values must be unique",
+]) {
+  if (!qualityRules.includes(invariant)) failures.push(`validation rule invariant missing: ${invariant}`);
+}
+const qualityValidation = read("services/data-core/internal/data/quality_validation.go");
+for (const invariant of [
+  "maximumValidationSamples = 20",
+  'predicates = append(predicates, "CAST("+physical+" AS REAL) < ?")',
+  "expression.MatchString(value.String)",
+  "args[index] = value",
+]) {
+  if (!qualityValidation.includes(invariant)) failures.push(`local validation invariant missing: ${invariant}`);
+}
+const qualityContract = read("packages/contracts/src/quality.ts");
+if (qualityContract.includes("failingValues")) {
+  failures.push("quality contract exposes raw failing values");
+}
+
 const providerStore = read("apps/desktop/src/main/provider-store.ts");
 for (const invariant of [
   'join(options.directory, "credentials")',

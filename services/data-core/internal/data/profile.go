@@ -20,14 +20,21 @@ func profileColumn(
 	transaction *sql.Tx,
 	tableName string,
 	physicalName string,
+	inferredType ColumnType,
 	rowCount int64,
 ) (storedProfile, error) {
+	minimumExpression := physicalName
+	maximumExpression := physicalName
+	if inferredType == ColumnTypeInteger || inferredType == ColumnTypeReal {
+		minimumExpression = "CAST(" + physicalName + " AS REAL)"
+		maximumExpression = minimumExpression
+	}
 	query := fmt.Sprintf(
 		"SELECT COUNT(%s), COUNT(DISTINCT %s), MIN(%s), MAX(%s) FROM %s",
 		physicalName,
 		physicalName,
-		physicalName,
-		physicalName,
+		minimumExpression,
+		maximumExpression,
 		tableName,
 	)
 	var nonNullCount int64

@@ -14,6 +14,7 @@ type fakeDatasets struct {
 	replacedID       string
 	replacedPath     string
 	replacedMappings []data.ColumnMapping
+	savedRules       []data.ValidationRule
 }
 
 func (fake *fakeDatasets) SaveGroup(
@@ -90,6 +91,22 @@ func (fake *fakeDatasets) ModelContext(
 	disclosure data.DisclosureLevel,
 ) (data.ModelContextResult, error) {
 	return data.ModelContextResult{DatasetID: datasetID, Disclosure: disclosure}, nil
+}
+
+func (fake *fakeDatasets) GetQualityReport(
+	_ context.Context,
+	datasetID string,
+) (data.DatasetQualityReport, error) {
+	return data.DatasetQualityReport{DatasetID: datasetID, Columns: []data.ColumnQuality{}}, nil
+}
+
+func (fake *fakeDatasets) SaveValidationRules(
+	_ context.Context,
+	datasetID string,
+	rules []data.ValidationRule,
+) (data.DatasetQualityReport, error) {
+	fake.savedRules = rules
+	return data.DatasetQualityReport{DatasetID: datasetID, Rules: rules, Columns: []data.ColumnQuality{}}, nil
 }
 
 func (fake *fakeDatasets) ImportFiles(_ context.Context, sourcePaths []string) (data.ImportResult, error) {

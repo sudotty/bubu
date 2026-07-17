@@ -102,6 +102,8 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         "数值",
         "日期时间",
         "替换数据版本",
+        "LOCAL DATA QUALITY",
+        "质量与格式校验",
         "先生成计划",
         "LOCAL CONVERSATION HISTORY",
         "历史结果"
