@@ -538,6 +538,94 @@ try {
   if (finishedAggregateAudit.aggregateRowCount !== 1 || finishedAggregateAudit.disclosure !== "aggregates") {
     throw new Error("Aggregate disclosure audit did not persist its bounded row count");
   }
+  const aggregateAgentAudit = parseModelAuditEvent(await request("privacy.disclosure.start", {
+    input: {
+      purpose: "aggregate-agent",
+      target: { kind: "dataset", id: dataset.id },
+      disclosure: "aggregates",
+      providerId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      providerKind: "openai",
+      providerName: "Synthetic provider",
+      model: "synthetic-model",
+      endpointOrigin: "https://api.example.com",
+      datasetCount: 1,
+      columnCount: queryResult.columns.length,
+      syntheticRowCount: 0,
+      aggregateRowCount: queryResult.rows.length,
+      relationshipCount: 0,
+      payloadBytes: 768,
+      estimatedInputTokens: 256,
+      maxOutputTokens: 2_048,
+      payloadSha256: "d".repeat(64),
+      containsRawRows: false,
+    },
+  }));
+  const finishedAgentAudit = parseModelAuditEvent(await request("privacy.disclosure.finish", {
+    input: {
+      id: aggregateAgentAudit.id,
+      status: "succeeded",
+      inputTokens: 60,
+      outputTokens: 18,
+      totalTokens: 78,
+      outputBytes: 180,
+      error: null,
+    },
+  }));
+  const aggregateAgentDisclosure = {
+    schemaVersion: 1,
+    target: conversationTarget,
+    question: "Verify the most important regional difference",
+    purpose: singlePlan.purpose,
+    sourceCount: 1,
+    columns: queryResult.columns,
+    rows: queryResult.rows,
+    truncated: false,
+    minimumGroupSize: 5,
+  };
+  const conversationWithAgent = parseConversationThread(await request("conversation.append", {
+    input: {
+      target: conversationTarget,
+      entry: {
+        kind: "insight",
+        role: "assistant",
+        payload: {
+          agentRun: {
+            schemaVersion: 1,
+            id: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            disclosure: aggregateAgentDisclosure,
+            budget: {
+              maxTurns: 4,
+              maxToolCalls: 3,
+              maxDurationMs: 60_000,
+              maxOutputTokensPerTurn: 2_048,
+              maxTotalOutputTokens: 8_192,
+            },
+            startedAt: aggregateAgentAudit.startedAt,
+            finishedAt: finishedAgentAudit.finishedAt,
+            turns: [{ turn: 1, auditId: aggregateAgentAudit.id, action: "finish" }],
+            report: {
+              schemaVersion: 1,
+              summary: "West is the largest approved regional total.",
+              findings: [{
+                title: "West leads",
+                detail: "The cited aggregate cell contains the largest disclosed total.",
+                evidence: [{ rowIndex: 0, columnIndex: 1 }],
+              }],
+              caveats: ["Only approved aggregate cells were analyzed."],
+              nextQuestions: [],
+            },
+          },
+        },
+      },
+    },
+  }));
+  if (
+    finishedAgentAudit.purpose !== "aggregate-agent" ||
+    conversationWithAgent.entries.length !== 6 ||
+    !("agentRun" in conversationWithAgent.entries[5].payload)
+  ) {
+    throw new Error("Bounded aggregate agent audit and typed local trace did not persist");
+  }
 
   const exportedRaw = await request("dataset.export", {
     datasetId: dataset.id,
@@ -592,12 +680,13 @@ try {
     JSON.stringify(restoreRaw).includes(backupPath) ||
     restore.backupCreatedAt !== backup.backupCreatedAt ||
     restoredDatasets[0]?.id !== dataset.id ||
-    restoredConversation.entries.length !== 5 ||
+    restoredConversation.entries.length !== 6 ||
     restoredWorkflows[0]?.id !== workflow.id ||
     !restoredWorkflowRuns.some(({ id }) => id === workflowRun.id) ||
     !restoredWorkflowRuns.some(({ id }) => id === triggeredRun.id) ||
     !restoredModelAudits.some(({ id }) => id === modelAudit.id) ||
-    !restoredModelAudits.some(({ id }) => id === aggregateModelAudit.id)
+    !restoredModelAudits.some(({ id }) => id === aggregateModelAudit.id) ||
+    !restoredModelAudits.some(({ id }) => id === aggregateAgentAudit.id)
   ) {
     throw new Error("Verified backup restore did not recover the private local workspace");
   }
@@ -621,7 +710,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-row disclosure/usage audit, persisted aggregate insights, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-agent disclosure/usage audit, persisted explanation and agent insights, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

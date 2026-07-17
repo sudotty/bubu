@@ -146,3 +146,29 @@ func TestBackupValidationRejectsForgedModelAudit(t *testing.T) {
 		t.Fatal("backup containing a forged model audit was accepted")
 	}
 }
+
+func TestBackupValidationRejectsIncompleteModelAuditPurposeRegistry(t *testing.T) {
+	service := openTestService(t, filepath.Join(t.TempDir(), "data"))
+	snapshotPath := filepath.Join(t.TempDir(), "incomplete-model-audit-purposes.db")
+	if _, err := service.database.ExecContext(context.Background(), "VACUUM main INTO ?", snapshotPath); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec("DELETE FROM model_disclosure_purposes WHERE purpose = 'aggregate-agent'"); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := buildBackupManifest(context.Background(), snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBackupDatabase(context.Background(), snapshotPath, manifest); err == nil {
+		t.Fatal("backup with an incomplete model audit purpose registry was accepted")
+	}
+}

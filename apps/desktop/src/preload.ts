@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   desktopChannels,
   type BuBuDesktopApi,
+  type AggregateAgentApproval,
+  type AggregateAgentPreparation,
+  type AggregateAgentProposal,
+  type AggregateAgentRun,
   type AggregateExplanation,
   type AggregateExplanationApproval,
   type AggregateExplanationPreparation,
@@ -114,6 +118,12 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.approveAggregateExplanation, { operationId, value }) as Promise<AggregateExplanation>,
     dismissAggregateExplanation: (value: AggregateExplanationApproval) =>
       ipcRenderer.invoke(desktopChannels.dismissAggregateExplanation, value) as Promise<void>,
+    prepareAggregateAgent: (value: AggregateAgentPreparation) =>
+      ipcRenderer.invoke(desktopChannels.prepareAggregateAgent, value) as Promise<AggregateAgentProposal>,
+    approveAggregateAgent: (value: AggregateAgentApproval, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.approveAggregateAgent, { operationId, value }) as Promise<AggregateAgentRun>,
+    dismissAggregateAgent: (value: AggregateAgentApproval) =>
+      ipcRenderer.invoke(desktopChannels.dismissAggregateAgent, value) as Promise<void>,
   },
   datasetGroups: {
     list: () =>

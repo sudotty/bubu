@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -76,7 +77,7 @@ func TestModelAuditFailsClosedAndRecoversInterruptedRequests(t *testing.T) {
 	}
 }
 
-func TestModelAuditAcceptsOnlyBoundedAggregateExplanations(t *testing.T) {
+func TestModelAuditAcceptsOnlyBoundedAggregateAnalysis(t *testing.T) {
 	service, dataset := importQueryFixture(t)
 	input := datasetModelAuditInput(dataset)
 	input.Purpose = "aggregate-explanation"
@@ -90,10 +91,75 @@ func TestModelAuditAcceptsOnlyBoundedAggregateExplanations(t *testing.T) {
 	if event.AggregateRowCount != 2 || event.Disclosure != "aggregates" {
 		t.Fatalf("aggregate audit scope was not persisted: %#v", event)
 	}
+	agent := input
+	agent.Purpose = "aggregate-agent"
+	if event, err := service.StartModelAudit(context.Background(), agent); err != nil || event.Purpose != "aggregate-agent" {
+		t.Fatalf("bounded aggregate agent audit was rejected: %#v, %v", event, err)
+	}
 	invalid := input
 	invalid.AggregateRowCount = 0
 	if _, err := service.StartModelAudit(context.Background(), invalid); err == nil {
 		t.Fatal("empty aggregate disclosure was accepted")
+	}
+}
+
+func TestModelAuditPurposeMigrationPreservesVersionElevenLedger(t *testing.T) {
+	dataDirectory := filepath.Join(t.TempDir(), "data")
+	if err := os.MkdirAll(dataDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", filepath.Join(dataDirectory, "bubu.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`); err != nil {
+		t.Fatal(err)
+	}
+	for _, migration := range migrations[:11] {
+		if _, err := database.Exec(migration.sql); err != nil {
+			t.Fatalf("apply setup migration %d: %v", migration.version, err)
+		}
+		if _, err := database.Exec("INSERT INTO schema_migrations(version) VALUES (?)", migration.version); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := database.Exec(`
+INSERT INTO model_disclosure_events(
+  id, purpose, target_kind, target_id, disclosure, provider_id, provider_kind,
+  provider_name, model, endpoint_origin, dataset_count, column_count,
+  synthetic_row_count, aggregate_row_count, relationship_count, payload_bytes,
+  estimated_input_tokens, max_output_tokens, payload_sha256, contains_raw_rows, started_at
+) VALUES (?, 'aggregate-explanation', 'dataset', ?, 'aggregates', ?, 'openai',
+          'Provider', 'model', 'https://api.example.com', 1, 3, 0, 2, 0, 100, 34, 2048, ?, 0, ?)`,
+		"d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1", "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+		"f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1", strings.Repeat("a", 64), "2026-07-17T00:00:00Z",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO model_disclosure_outcomes(
+  disclosure_id, status, input_tokens, output_tokens, total_tokens,
+  output_bytes, error, finished_at
+) VALUES (?, 'succeeded', 50, 20, 70, 180, NULL, ?)`,
+		"d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1", "2026-07-17T00:00:01Z",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBackupModelAudits(context.Background(), database, 11); err != nil {
+		t.Fatalf("version-eleven ledger is no longer backup-compatible: %v", err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	service := openTestService(t, dataDirectory)
+	audits, err := service.ListModelAudits(context.Background())
+	if err != nil || len(audits) != 1 || audits[0].Purpose != "aggregate-explanation" ||
+		audits[0].Status != "succeeded" || audits[0].TotalTokens == nil || *audits[0].TotalTokens != 70 {
+		t.Fatalf("version-eleven model ledger did not migrate: %#v, %v", audits, err)
 	}
 }
 

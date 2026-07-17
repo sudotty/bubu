@@ -1,5 +1,6 @@
 export * from "./backup.js";
 export * from "./aggregate-explanation.js";
+export * from "./aggregate-agent.js";
 export * from "./conversation.js";
 export * from "./dataset.js";
 export * from "./data-target.js";

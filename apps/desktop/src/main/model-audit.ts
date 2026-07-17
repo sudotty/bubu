@@ -12,7 +12,7 @@ import {
 } from "@bubu/contracts";
 
 export interface ModelAuditScope {
-  readonly purpose: "provider-connection-test" | "query-plan" | "group-query-plan" | "aggregate-explanation";
+  readonly purpose: "provider-connection-test" | "query-plan" | "group-query-plan" | "aggregate-explanation" | "aggregate-agent";
   readonly target: ModelAuditTarget;
   readonly contexts: readonly ModelContext[];
   readonly relationshipCount: number;
@@ -66,6 +66,15 @@ export async function generateAuditedModel(
   scope: ModelAuditScope,
   signal?: AbortSignal,
 ): Promise<ModelCompletion> {
+  return (await generateAuditedModelWithAudit(runtime, invocation, scope, signal)).completion;
+}
+
+export async function generateAuditedModelWithAudit(
+  runtime: AuditedModelRuntime,
+  invocation: ModelInvocation,
+  scope: ModelAuditScope,
+  signal?: AbortSignal,
+): Promise<{ readonly completion: ModelCompletion; readonly audit: ModelAuditEvent }> {
   const audit = await runtime.startModelAudit(buildModelAuditStart(invocation, scope));
   let completion: ModelCompletion;
   try {
@@ -87,7 +96,7 @@ export async function generateAuditedModel(
     }
     throw error;
   }
-  await runtime.finishModelAudit(parseModelAuditFinishInput({
+  const completedAudit = await runtime.finishModelAudit(parseModelAuditFinishInput({
     id: audit.id,
     status: "succeeded",
     inputTokens: completion.usage.inputTokens ?? null,
@@ -96,7 +105,7 @@ export async function generateAuditedModel(
     outputBytes: Buffer.byteLength(completion.text, "utf8"),
     error: null,
   }));
-  return completion;
+  return { completion, audit: completedAudit };
 }
 
 function boundedAuditError(error: unknown): string {

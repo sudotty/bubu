@@ -13,7 +13,7 @@ export const modelAuditTargetSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const modelAuditStartInputSchema = z.object({
-  purpose: z.enum(["provider-connection-test", "query-plan", "group-query-plan", "aggregate-explanation"]),
+  purpose: z.enum(["provider-connection-test", "query-plan", "group-query-plan", "aggregate-explanation", "aggregate-agent"]),
   target: modelAuditTargetSchema,
   disclosure: z.union([z.literal("none"), modelDisclosureLevelSchema]),
   providerId: providerIdSchema,
@@ -45,7 +45,7 @@ export const modelAuditStartInputSchema = z.object({
   const validDatasetCount = input.target.kind === "dataset"
     ? input.datasetCount === 1
     : input.datasetCount >= 2;
-  if (input.purpose === "aggregate-explanation") {
+  if (input.purpose === "aggregate-explanation" || input.purpose === "aggregate-agent") {
     if (
       input.disclosure !== "aggregates" || !validDatasetCount || input.columnCount < 2 ||
       input.syntheticRowCount !== 0 || input.aggregateRowCount < 1 || input.relationshipCount !== 0

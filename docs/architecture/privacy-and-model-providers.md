@@ -1,6 +1,6 @@
 # Privacy and model-provider boundary
 
-Status: Schema/synthetic model context, provider configuration, encrypted credentials, transports, connection tests, visible query approvals, bounded local execution, privacy-safe aggregate explanations, and the disclosure/usage ledger are implemented. General agent/workflow aggregate use and explicit-row disclosure remain in progress.
+Status: Schema/synthetic model context, provider configuration, encrypted credentials, transports, connection tests, visible query approvals, bounded local execution, privacy-safe aggregate explanations, bounded approved-aggregate Agent runs, and the disclosure/usage ledger are implemented. Reusable/workflow Agent definitions and explicit-row disclosure remain in progress.
 
 ## Non-disclosure path
 
@@ -42,7 +42,7 @@ Connection testing performs one bounded minimal generation request through the s
 
 ## Fail-closed disclosure and usage ledger
 
-Every provider connection test, single-dataset plan, group plan, and approved aggregate explanation passes through one audited model gateway in Electron main. Before provider I/O, that gateway hashes the exact system-plus-user payload and asks the Go data core to create a `started` event. If validation or persistence fails, the model request is not sent.
+Every provider connection test, single-dataset plan, group plan, approved aggregate explanation, and bounded aggregate Agent turn passes through one audited model gateway in Electron main. Before provider I/O, that gateway hashes the exact system-plus-user payload and asks the Go data core to create a `started` event. If validation or persistence fails, the model request is not sent.
 
 The append-only local event records purpose, dataset/group/system target, disclosure level, provider ID/kind/name/model, endpoint origin, dataset/column/synthetic-row/aggregate-row/relationship counts, request bytes, a conservative input-token estimate, output-token budget, SHA-256 request fingerprint, and the constant assertion `containsRawRows: false`. That assertion covers BuBu's automatic dataset disclosure; the user's question is necessarily sent verbatim, so both analysis composers warn against pasting sensitive rows or values into it. The event itself does not contain the question, system prompt, complete request, credential, provider response, model text, filenames, source paths, preview rows, aggregate values, or local query results. Base URL user information, path, query, and fragment are absent because only its HTTP(S) origin is retained.
 
@@ -64,9 +64,17 @@ The review shows the complete outbound question/purpose, every column and aggreg
 
 Aggregate strings are labeled untrusted data and never instructions. This request has no tools. The model must return strict JSON with bounded summary/findings/caveats/questions and cell coordinates; coordinates outside the approved disclosure are rejected. The typed insight is rendered as text, appended locally, and each finding shows its exact `R# / column / value` evidence. The disclosure ledger records `aggregates` and the row count without storing values.
 
+## Bounded aggregate Agent approval
+
+The deeper Agent path starts from the same exact persisted plan/result pair and the same count, k>=5, extrema, identity, 50-row, and 64 KiB policy. The user supplies a bounded analysis goal, then reviews the exact goal, purpose, cells, destination, expiry, tool catalog, and immutable budget before a separate one-use approval. An explanation token is not present in the Agent approval store and cannot authorize this higher-cost loop.
+
+The runtime has at most four model turns, three local tool calls, 60 seconds wall time, 2,048 output tokens per turn, and 8,192 by construction. Before every action, strict parsing filters the request to `rank`, `compare`, or `column-summary`. These pure functions can read only coordinates inside the already approved disclosure and return cell references plus deterministic arithmetic; there is no SQL, new local query, file, network, MCP, code, export, write, or renderer-defined tool. Tool output remains untrusted data on the next model turn and cannot grant authority.
+
+Every model turn creates and finishes its own `aggregate-agent` ledger event. A successful run stores only the fixed budget, structured tool/observation trace, final cited report, and the corresponding audit IDs as a typed local `insight`; it never stores hidden chain-of-thought or provider request/response bodies. Cancellation and the global deadline propagate to the provider process. Malformed decisions, a fourth tool request, exhausted turns, invalid arithmetic coordinates, invented evidence, destination drift, or audit failure terminate visibly.
+
 ## Deliberately unavailable
 
-Streaming events, generalized aggregate authorization for agents/workflows, explicit-row approvals, richer policy classification, cost tables, and fallback routing remain required for the full conversation product. Cancellation, single/group planning, local execution approval, one-use aggregate explanations, and data-free usage audit are enabled; the end-to-end privacy gateway remains `in-progress` until all higher disclosure paths are enforced.
+Streaming events, reusable Agent definitions, Agent steps in scheduled workflows, explicit-row approvals, richer policy classification, provider price/cost tables, and fallback routing remain required for the full conversation product. Cancellation, single/group planning, local execution approval, one-use aggregate explanations, bounded approved-aggregate Agent runs, and data-free usage audit are enabled; the end-to-end privacy gateway remains `in-progress` until all higher disclosure paths are enforced.
 
 ## Official protocol inputs
 

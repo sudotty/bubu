@@ -75,6 +75,10 @@ capabilities:
   exact-aggregate-disclosure-preview: implemented
   one-time-aggregate-approval: implemented
   cited-aggregate-explanations: implemented
+  bounded-aggregate-agent-runs: implemented
+  fixed-agent-turn-tool-time-budgets: implemented
+  approved-cell-only-agent-tools: implemented
+  audited-agent-turn-correlation: implemented
   safe-query-plan: implemented
   natural-language-query-planning: implemented
   visible-query-approval: implemented
@@ -112,7 +116,7 @@ capabilities:
   restart-recovered-workflow-triggers: implemented
   atomic-trigger-conversation-delivery: implemented
   in-app-automation-reminders: implemented
-  bounded-agents: planned
+  bounded-agents: in-progress
   mcp-host: planned
   local-rag: planned
   reminders: in-progress

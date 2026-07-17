@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { aggregateExplanationSchema } from "./aggregate-explanation.js";
+import { aggregateAgentRunSchema } from "./aggregate-agent.js";
 import { dataTargetSchema } from "./data-target.js";
 import { groupQueryPlanProposalSchema, safeGroupQueryPlanSchema, safeGroupQueryResultSchema } from "./group-query-plan.js";
 import { queryPlanProposalSchema, safeQueryPlanSchema, safeQueryResultSchema } from "./query-plan.js";
@@ -55,7 +56,10 @@ const resultEntryInputSchema = z.object({
 const insightEntryInputSchema = z.object({
   kind: z.literal("insight"),
   role: z.literal("assistant"),
-  payload: z.object({ explanation: aggregateExplanationSchema }).strict(),
+  payload: z.union([
+    z.object({ explanation: aggregateExplanationSchema }).strict(),
+    z.object({ agentRun: aggregateAgentRunSchema }).strict(),
+  ]),
 }).strict();
 
 const errorEntryInputSchema = z.object({

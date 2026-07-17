@@ -13,20 +13,20 @@ Each dataset or group has at most one primary local conversation thread. The tar
 | `question` | user | bounded question text |
 | `plan` | assistant | single/group proposal including the exact disclosed contexts |
 | `result` | assistant | bounded single/group local query result plus its reviewed source plan for new entries |
-| `insight` | assistant | strict cell-cited explanation of one explicitly approved aggregate disclosure |
+| `insight` | assistant | strict cell-cited explanation, or bounded Agent report with fixed budget, local tool observations, and disclosure-ledger IDs |
 | `error` | system | bounded failure message |
 
 There is no HTML entry, arbitrary blob entry, tool-script entry, or renderer-controlled role. Entries are inserted only; no API updates or deletes an individual entry. Group deletion removes its whole thread before deleting the group. Permanent dataset deletion removes the dataset thread and every affected undersized group's thread in the same data-core transaction.
 
 ## Authority boundary
 
-The preload API exposes only `conversations.get(target)`. It has no append method. Electron main appends a question before model planning, a validated proposal after strict model parsing, a source-linked result after local Go execution, a validated aggregate insight after one-use disclosure approval, or a bounded error after failure. Direct renderer access still cannot reach authenticated sidecar RPC.
+The preload API exposes only `conversations.get(target)`. It has no append method. Electron main appends a question before model planning, a validated proposal after strict model parsing, a source-linked result after local Go execution, a validated aggregate explanation or bounded Agent insight after one-use disclosure approval, or a bounded error after failure. Direct renderer access still cannot reach authenticated sidecar RPC.
 
 Go independently validates target existence, target/kind/role combinations, JSON object shape, a 1 MiB entry budget, a 500-entry thread limit, and monotonic insertion inside a transaction. Stored JSON is parsed again through strict TypeScript schemas before the renderer receives it.
 
 ## Local-only behavior
 
-Conversation rows live in the same private SQLite database and are never synchronized in default local mode. Query results may contain user data, so the conversation database inherits mode `0600` and must remain outside version control. Reloading a contact/group restores questions, plan summaries, tables, cell-cited aggregate insights, errors, and deterministic local charts.
+Conversation rows live in the same private SQLite database and are never synchronized in default local mode. Query results may contain user data, so the conversation database inherits mode `0600` and must remain outside version control. Reloading a contact/group restores questions, plan summaries, tables, cell-cited aggregate explanations and Agent reports, bounded tool/audit traces, errors, and deterministic local charts.
 
 Query responses reject any individual string cell above 10,000 bytes and any complete result above 768 KiB before it can cross RPC or be persisted. The row limit remains 200. This is an execution/persistence budget, not silent truncation; an oversized result fails visibly.
 

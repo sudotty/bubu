@@ -1,5 +1,7 @@
 # Bounded Aggregate Agent Implementation Plan
 
+**Status:** Complete on 2026-07-17. The bounded aggregate-only Agent slice is implemented and verified; reusable/scheduled Agent definitions, MCP, RAG, and side-effect tools remain explicitly outside this slice.
+
 > **Execution:** Test-drive every boundary on `main`, keep the Go data core authoritative, and do not stage the user-owned legacy Wails workspace.
 
 **Goal:** Let a user run a useful plan-act-observe analysis over one already executed aggregate result, while proving that the model and its local tools cannot widen the exact disclosure or exceed fixed turn, tool, time, and output-token budgets.
@@ -121,3 +123,12 @@
 2. Extend data-core smoke/backup evidence for the new typed insight/audit purpose without making a live paid provider request.
 3. Mark only `bounded-aggregate-agent-runs` implemented. Keep reusable agent definitions, workflow agent steps, MCP, RAG, side effects, cost pricing, and broad `bounded-agents` in progress/planned.
 4. Run `volta run npm run verify`, inspect the full result, stage only this slice, run `git diff --cached --check`, commit to `main`, and attempt push without touching legacy user work.
+
+## Completion evidence
+
+- `volta run npm run verify` passed on Node 22.18.0 with zero dependency vulnerabilities.
+- Contract tests: 19 files and 55 tests passed; AI runtime: 5 files and 16 tests passed; desktop: 17 files and 55 tests passed; Go data-core suites passed.
+- Repository and architecture fitness gates passed over 405 tracked paths, 429 workspace files, and 24 renderer files.
+- The packaged arm64 Electron application launched successfully through the packaged-desktop smoke test.
+- The data-core smoke proved schema/synthetic and aggregate-Agent disclosure audit, persisted explanation and Agent insights, verified backup/restore, workflows, conversations, queries, and path privacy.
+- The 100 MiB fixture contained 183,246 rows. Import and profiling completed in 4,174.95 ms, query P95 was 172.91 ms, and peak resident memory was 37.39 MiB, all inside their enforced budgets.

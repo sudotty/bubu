@@ -6,7 +6,7 @@ import { safeQueryPlanSchema } from "./query-plan.js";
 import { safeGroupQueryPlanSchema } from "./group-query-plan.js";
 
 const maximumAggregatePayloadBytes = 64 * 1024;
-const approvalTokenSchema = z.string().regex(/^[0-9a-f]{64}$/u);
+export const approvalTokenSchema = z.string().regex(/^[0-9a-f]{64}$/u);
 const endpointOriginSchema = z.url().max(2_000).refine((value) => {
   const parsed = new URL(value);
   return parsed.origin === value && parsed.username === "" && parsed.password === "";
@@ -21,6 +21,14 @@ const aggregateCellSchema = z.union([
 const aggregateColumnSchema = z.object({
   label: z.string().trim().min(1).max(500),
   type: columnTypeSchema,
+}).strict();
+
+export const modelDestinationSchema = z.object({
+  providerId: providerIdSchema,
+  providerKind: providerKindSchema,
+  providerName: z.string().trim().min(1).max(100),
+  model: z.string().trim().min(1).max(200),
+  endpointOrigin: endpointOriginSchema,
 }).strict();
 
 export const aggregateDisclosureSchema = z.object({
@@ -51,13 +59,7 @@ export const aggregateDisclosureSchema = z.object({
 export const aggregateExplanationProposalSchema = z.object({
   approvalToken: approvalTokenSchema,
   expiresAt: z.string().datetime({ offset: true }),
-  destination: z.object({
-    providerId: providerIdSchema,
-    providerKind: providerKindSchema,
-    providerName: z.string().trim().min(1).max(100),
-    model: z.string().trim().min(1).max(200),
-    endpointOrigin: endpointOriginSchema,
-  }).strict(),
+  destination: modelDestinationSchema,
   disclosure: aggregateDisclosureSchema,
 }).strict();
 
@@ -69,7 +71,7 @@ export const aggregateExplanationPreparationSchema = z.object({
   plan: z.union([safeQueryPlanSchema, safeGroupQueryPlanSchema]),
 }).strict();
 
-const evidenceReferenceSchema = z.object({
+export const aggregateCellReferenceSchema = z.object({
   rowIndex: z.number().int().min(0).max(49),
   columnIndex: z.number().int().min(0).max(15),
 }).strict();
@@ -80,7 +82,7 @@ export const aggregateExplanationContentSchema = z.object({
   findings: z.array(z.object({
     title: z.string().trim().min(1).max(200),
     detail: z.string().trim().min(1).max(2_000),
-    evidence: z.array(evidenceReferenceSchema).min(1).max(8),
+    evidence: z.array(aggregateCellReferenceSchema).min(1).max(8),
   }).strict()).min(1).max(8),
   caveats: z.array(z.string().trim().min(1).max(500)).max(8),
   nextQuestions: z.array(z.string().trim().min(1).max(500)).max(6),
