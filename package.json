@@ -23,8 +23,10 @@
     "build:data-core": "cd services/data-core && go build -o bin/bubu-data-core ./cmd/bubu-data-core",
     "test:data-core": "cd services/data-core && go test ./...",
     "smoke:data-core": "npm run build:data-core && npm run build -w @bubu/contracts && node scripts/smoke-data-core.mjs",
+    "benchmark:data-core": "node scripts/benchmark-data-core.mjs --size-mib=100 --minimum-rows=100000 --max-import-ms=120000 --max-query-p95-ms=3000 --max-rss-mib=256",
+    "verify:performance": "npm run build:data-core && npm run build -w @bubu/contracts && npm run benchmark:data-core",
     "smoke:desktop": "node scripts/smoke-packaged-desktop.mjs",
-    "verify": "npm run verify:toolchain && npm run verify:repository && npm run verify:architecture && npm run verify:dependencies && npm test && npm run test:data-core && npm run lint && npm run build && npm run smoke:data-core && npm run smoke:desktop"
+    "verify": "npm run verify:toolchain && npm run verify:repository && npm run verify:architecture && npm run verify:dependencies && npm test && npm run test:data-core && npm run lint && npm run build && npm run smoke:data-core && npm run smoke:desktop && npm run verify:performance"
   },
   "engines": {
     "node": ">=22.18 <23 || >=24 <25"

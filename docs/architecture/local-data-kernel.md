@@ -93,7 +93,8 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Consistent local snapshot archive, strict hash/schema/privacy restore validation, destructive native confirmation, database rollback, interrupted-swap recovery, and round-trip integration/binary smoke.
 - On-demand numeric/categorical distributions, deterministic ordering, bounded/sanitized value previews, explicit local-only contracts, UI exploration, and binary smoke.
 - Named renderer operations, main-process abort ownership, authenticated RPC cancellation, serialized cancellable Go execution, cancellable provider fetches, and deadline tests.
+- A generated 100 MiB/183,246-row CSV reference gate covering streaming import, all column profiles, peak data-core RSS, and repeated safe aggregation queries.
 
-## Not implemented yet
+## Stage 2 completion
 
-Reference-device 100 MB performance measurement remains Stage 2 work. The product manifest must keep the performance capability planned or in progress until the benchmark, captured evidence, thresholds, and documentation agree.
+The local data-kernel scope is complete: runtime paths, deterministic tests, product documentation, reference-device evidence, and executable repository gates agree. Later stages may extend the kernel through derived datasets, workflow persistence, privacy audit, or additional formats, but those extensions must not weaken these import, versioning, query, cancellation, recovery, or performance contracts.
