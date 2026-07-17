@@ -3,11 +3,13 @@ import { pathToFileURL } from "node:url";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   net,
   protocol,
   session,
 } from "electron";
+import { parseDatasetPreviewRequest } from "@bubu/contracts";
 import started from "electron-squirrel-startup";
 import { desktopChannels } from "./shared/product-api.js";
 import {
@@ -16,6 +18,7 @@ import {
   resolveRendererAsset,
   secureWebPreferences,
 } from "./main/security.js";
+import { parseLaunchMode } from "./main/launch-mode.js";
 import { startSidecars, type SidecarSupervisor } from "./main/sidecars.js";
 
 protocol.registerSchemesAsPrivileged([
@@ -68,13 +71,43 @@ function installSecurityPolicy(): void {
 }
 
 function registerDesktopApi(): void {
-  ipcMain.handle(desktopChannels.getReadiness, (event) => {
-    const frameUrl = event.senderFrame?.url ?? "";
+  const assertTrustedSender = (frameUrl: string) => {
     if (!isTrustedFrameUrl(frameUrl, MAIN_WINDOW_VITE_DEV_SERVER_URL)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
     }
+  };
+
+  ipcMain.handle(desktopChannels.getReadiness, (event) => {
+    const frameUrl = event.senderFrame?.url ?? "";
+    assertTrustedSender(frameUrl);
     if (!sidecars) throw new Error("Desktop services have not started");
     return sidecars.readiness();
+  });
+  ipcMain.handle(desktopChannels.listDatasets, (event) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    if (!sidecars) throw new Error("Desktop services have not started");
+    return sidecars.listDatasets();
+  });
+  ipcMain.handle(desktopChannels.importDatasets, async (event) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    if (!sidecars) throw new Error("Desktop services have not started");
+    const selection = await dialog.showOpenDialog({
+      title: "导入 Excel 或 CSV",
+      buttonLabel: "导入到 BuBu",
+      properties: ["openFile", "multiSelections"],
+      filters: [
+        { name: "表格文件", extensions: ["csv", "tsv", "xlsx"] },
+        { name: "CSV", extensions: ["csv", "tsv"] },
+        { name: "Excel", extensions: ["xlsx"] },
+      ],
+    });
+    if (selection.canceled || selection.filePaths.length === 0) return { datasets: [] };
+    return sidecars.importFiles(selection.filePaths);
+  });
+  ipcMain.handle(desktopChannels.previewDataset, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    if (!sidecars) throw new Error("Desktop services have not started");
+    return sidecars.previewDataset(parseDatasetPreviewRequest(value));
   });
 }
 
@@ -99,21 +132,53 @@ async function createMainWindow(showWhenReady = true): Promise<BrowserWindow> {
   return window;
 }
 
+async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
+  const result = await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const expected = [
+        "synthetic-sales",
+        "3 行 · 4 列",
+        "Order ID",
+        "001",
+        "128.50",
+        "文本",
+        "数值",
+        "日期时间"
+      ];
+      const deadline = Date.now() + 5000;
+      const inspect = () => {
+        const contents = document.body.innerText;
+        const missing = expected.filter((value) => !contents.includes(value));
+        if (missing.length === 0) return resolve({ ok: true, missing: [] });
+        if (Date.now() >= deadline) return resolve({ ok: false, missing });
+        setTimeout(inspect, 50);
+      };
+      inspect();
+    })
+  `) as { readonly ok: boolean; readonly missing: readonly string[] };
+  if (!result.ok) {
+    throw new Error(`Packaged renderer is missing imported data: ${result.missing.join(", ")}`);
+  }
+}
+
 void app
   .whenReady()
   .then(async () => {
     installSecurityPolicy();
     if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) registerApplicationProtocol();
-    sidecars = startSidecars();
+    const launchMode = parseLaunchMode(process.argv, process.env, app.getPath("userData"));
+    sidecars = startSidecars(launchMode.dataDirectory);
     registerDesktopApi();
-    const smokeTest = process.argv.includes("--bubu-smoke-test");
-    const window = await createMainWindow(!smokeTest);
+    if (launchMode.kind === "smoke") await sidecars.importFiles([launchMode.sourcePath]);
+    const window = await createMainWindow(launchMode.kind !== "smoke");
 
-    if (smokeTest) {
+    if (launchMode.kind === "smoke") {
       const readiness = await sidecars.readiness();
       if (readiness.status !== "ready" || window.webContents.getURL() !== "bubu://app/index.html") {
         throw new Error(`Packaged smoke check failed: ${JSON.stringify(readiness)}`);
       }
+      await verifySmokeRenderer(window);
+      console.log("BUBU_PACKAGED_IMPORT_UI_OK");
       console.log("BUBU_PACKAGED_SMOKE_OK");
       app.quit();
       return;

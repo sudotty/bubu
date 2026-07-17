@@ -9,7 +9,8 @@ The product interaction treats a dataset as a contact and a dataset group as a g
 The repository is migrating from the historical Wails prototype to a hardened Electron product:
 
 - Implemented: Electron 43 secure shell, sandboxed React renderer, typed preload API, supervised Node AI utility process, Go data-core sidecar, authenticated versioned RPC, packaging, and packaged smoke verification.
-- In progress: transactional CSV/XLSX import and authoritative local dataset model.
+- Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, first immutable dataset versions, bounded previews, type inference, and baseline column profiles.
+- In progress: replacement versions, schema drift, richer quality profiles, validation, relationships, deletion, and export.
 - Not complete yet: privacy gateway, safe query planning, production model adapters, dataset conversations, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
@@ -30,15 +31,15 @@ flowchart LR
 
 The renderer has no Node access. Electron main owns lifecycle, OS permissions, credentials, updates, and process supervision but not data policy. The Go data core is the final authority for raw-data disclosure and SQL execution. The optional Hub is never required for local mode and never shares a SQLite file between users.
 
-See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), and [ADR-0001](docs/adr/0001-electron-shell-go-data-core-and-optional-hub.md).
+See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), and [the import guide](docs/product/importing-data.md).
 
 ## Development
 
 Prerequisites:
 
-- Node 22.18+ or Node 24 LTS. Node 26 is rejected because it prematurely exits Electron Packager 18.4.4 during asynchronous extraction.
+- Node 22.18+ or Node 24 LTS. Non-LTS releases are outside the reproducible build contract; Node 26 is also rejected because it prematurely exits Electron Packager 18.4.4 during asynchronous extraction.
 - npm 10.9.3.
-- Go 1.24+.
+- Go 1.25+.
 
 Use `.nvmrc` or the checked-in Volta configuration, then run:
 
@@ -55,6 +56,7 @@ npm test                    # TypeScript unit and contract tests
 npm run test:data-core      # Go tests
 npm run lint                # repository, architecture, and type gates
 npm run build               # package the host platform application
+npm run smoke:data-core     # import/list/preview against the built Go sidecar
 npm run smoke:desktop       # launch the packaged app and verify both sidecars
 ```
 

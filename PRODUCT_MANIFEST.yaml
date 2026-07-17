@@ -25,10 +25,15 @@ capabilities:
   repository-contracts: implemented
   electron-secure-shell: implemented
   versioned-local-rpc: implemented
-  csv-import: legacy-broken
-  xlsx-import: legacy-broken
-  dataset-versioning: planned
-  profiling: planned
+  local-sqlite: implemented
+  dataset-catalog: implemented
+  dataset-preview: implemented
+  csv-import: implemented
+  xlsx-import: implemented
+  atomic-batch-import: implemented
+  dataset-versioning: in-progress
+  column-profiling-baseline: implemented
+  profiling: in-progress
   validation: planned
   multi-table-query: legacy-partial
   privacy-gateway: planned

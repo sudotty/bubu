@@ -1,0 +1,50 @@
+package data
+
+type ColumnType string
+
+const (
+	ColumnTypeNull     ColumnType = "null"
+	ColumnTypeBoolean  ColumnType = "boolean"
+	ColumnTypeInteger  ColumnType = "integer"
+	ColumnTypeReal     ColumnType = "real"
+	ColumnTypeDateTime ColumnType = "datetime"
+	ColumnTypeText     ColumnType = "text"
+)
+
+type DatasetSummary struct {
+	ID          string `json:"id"`
+	VersionID   string `json:"versionId"`
+	DisplayName string `json:"displayName"`
+	SourceKind  string `json:"sourceKind"`
+	SourceName  string `json:"sourceName"`
+	RowCount    int64  `json:"rowCount"`
+	ColumnCount int    `json:"columnCount"`
+	ImportedAt  string `json:"importedAt"`
+	Version     int    `json:"version"`
+}
+
+type ColumnProfile struct {
+	Ordinal       int        `json:"ordinal"`
+	SourceName    string     `json:"sourceName"`
+	Name          string     `json:"name"`
+	InferredType  ColumnType `json:"inferredType"`
+	Nullable      bool       `json:"nullable"`
+	NullCount     int64      `json:"nullCount"`
+	DistinctCount int64      `json:"distinctCount"`
+	MinValue      *string    `json:"minValue"`
+	MaxValue      *string    `json:"maxValue"`
+}
+
+type ImportResult struct {
+	Datasets []DatasetSummary `json:"datasets"`
+}
+
+type PreviewResult struct {
+	DatasetID string          `json:"datasetId"`
+	VersionID string          `json:"versionId"`
+	Columns   []ColumnProfile `json:"columns"`
+	Rows      [][]any         `json:"rows"`
+	Offset    int             `json:"offset"`
+	Limit     int             `json:"limit"`
+	TotalRows int64           `json:"totalRows"`
+}

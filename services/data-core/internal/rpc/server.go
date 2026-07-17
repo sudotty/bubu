@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,7 @@ import (
 
 const maxMessageBytes = 1 << 20
 
-func Serve(input io.Reader, output io.Writer, expectedAuth string) error {
+func Serve(input io.Reader, output io.Writer, expectedAuth string, datasets DatasetService) error {
 	scanner := bufio.NewScanner(input)
 	scanner.Buffer(make([]byte, 64*1024), maxMessageBytes)
 	encoder := json.NewEncoder(output)
@@ -22,7 +23,7 @@ func Serve(input io.Reader, output io.Writer, expectedAuth string) error {
 			}
 			continue
 		}
-		if err := encoder.Encode(Handle(request, expectedAuth)); err != nil {
+		if err := encoder.Encode(HandleWithData(context.Background(), request, expectedAuth, datasets)); err != nil {
 			return fmt.Errorf("encode response: %w", err)
 		}
 	}

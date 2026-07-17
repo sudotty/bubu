@@ -7,9 +7,10 @@ if (!Number.isInteger(major) || !Number.isInteger(minor)) {
   process.exit(1);
 }
 
-if (major < 22 || (major === 22 && minor < 18) || major >= 26) {
+const supportedLts = (major === 22 && minor >= 18) || major === 24;
+if (!supportedLts) {
   console.error(
-    `Unsupported Node ${process.versions.node}. Use Node 22.18+ or Node 24 LTS; Node 26 prematurely exits Electron Packager 18.4.4 during async extraction.`,
+    `Unsupported Node ${process.versions.node}. Use Node 22.18+ or Node 24 LTS; non-LTS releases are outside the build contract, and Node 26 prematurely exits Electron Packager 18.4.4 during async extraction.`,
   );
   process.exit(1);
 }

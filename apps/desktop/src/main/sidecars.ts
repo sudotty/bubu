@@ -3,7 +3,16 @@ import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 import { join, resolve } from "node:path";
 import { app, utilityProcess, type UtilityProcess } from "electron";
-import { parseServiceHealth } from "@bubu/contracts";
+import {
+  parseDatasetImportResult,
+  parseDatasetList,
+  parseDatasetPreview,
+  parseServiceHealth,
+  type DatasetImportResult,
+  type DatasetPreview,
+  type DatasetPreviewRequest,
+  type DatasetSummary,
+} from "@bubu/contracts";
 import type {
   DesktopServiceHealth,
   ProductReadiness,
@@ -19,9 +28,9 @@ class DataCoreClient implements RuntimeClient {
   readonly #process: ChildProcessWithoutNullStreams;
   readonly #broker: RpcRequestBroker;
 
-  constructor(command: string, auth: string) {
+  constructor(command: string, auth: string, dataDirectory: string) {
     this.#process = spawn(command, [], {
-      env: { ...process.env, BUBU_RPC_TOKEN: auth },
+      env: { ...process.env, BUBU_RPC_TOKEN: auth, BUBU_DATA_DIR: dataDirectory },
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.#broker = new RpcRequestBroker(auth, (message) => {
@@ -47,6 +56,20 @@ class DataCoreClient implements RuntimeClient {
   async health(): Promise<DesktopServiceHealth> {
     const health = parseServiceHealth(await this.#broker.request("system.health", {}));
     return { name: "data-core", status: health.status, capabilities: health.capabilities };
+  }
+
+  async importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult> {
+    return parseDatasetImportResult(
+      await this.#broker.request("dataset.import.batch", { sourcePaths }),
+    );
+  }
+
+  async listDatasets(): Promise<readonly DatasetSummary[]> {
+    return parseDatasetList(await this.#broker.request("dataset.list", {}));
+  }
+
+  async preview(request: DatasetPreviewRequest): Promise<DatasetPreview> {
+    return parseDatasetPreview(await this.#broker.request("dataset.preview", request));
   }
 
   stop(): void {
@@ -116,12 +139,19 @@ function unavailable(name: DesktopServiceHealth["name"], error: unknown): Deskto
 
 export interface SidecarSupervisor {
   readiness(): Promise<ProductReadiness>;
+  importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult>;
+  listDatasets(): Promise<readonly DatasetSummary[]>;
+  previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
   stop(): void;
 }
 
-export function startSidecars(): SidecarSupervisor {
+export function startSidecars(dataDirectory: string): SidecarSupervisor {
   const paths = runtimePaths();
-  const dataCore = new DataCoreClient(paths.dataCore, randomBytes(32).toString("hex"));
+  const dataCore = new DataCoreClient(
+    paths.dataCore,
+    randomBytes(32).toString("hex"),
+    dataDirectory,
+  );
   const aiRuntime = new AiRuntimeClient(paths.aiRuntime, randomBytes(32).toString("hex"));
 
   return {
@@ -137,6 +167,11 @@ export function startSidecars(): SidecarSupervisor {
         services,
       };
     },
+    async importFiles(sourcePaths) {
+      return dataCore.importFiles(sourcePaths);
+    },
+    listDatasets: () => dataCore.listDatasets(),
+    previewDataset: (request) => dataCore.preview(request),
     stop() {
       aiRuntime.stop();
       dataCore.stop();
