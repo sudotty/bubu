@@ -8,7 +8,9 @@
     "start": "electron-forge start",
     "build": "node ../../scripts/prepare-electron-runtime.mjs && electron-forge package",
     "make": "electron-forge make",
+    "pretest": "npm run build -w @bubu/contracts",
     "test": "vitest run",
+    "prelint": "npm run build -w @bubu/contracts",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

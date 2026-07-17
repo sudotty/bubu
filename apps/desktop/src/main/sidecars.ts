@@ -8,12 +8,18 @@ import {
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
+  parseModelCompletion,
+  parseModelContext,
   parseServiceHealth,
   type DatasetImportResult,
   type DatasetPreview,
   type DatasetPreviewRequest,
   type DatasetReplacementResult,
   type DatasetSummary,
+  type ModelCompletion,
+  type ModelContext,
+  type DisclosureLevel,
+  type ModelInvocation,
 } from "@bubu/contracts";
 import type {
   DesktopServiceHealth,
@@ -80,6 +86,12 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
+  async modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext> {
+    return parseModelContext(
+      await this.#broker.request("dataset.context", { datasetId: datasetID, disclosure }),
+    );
+  }
+
   stop(): void {
     this.#broker.close(new Error("data-core stopped by desktop"));
     this.#process.kill("SIGTERM");
@@ -114,6 +126,10 @@ class AiRuntimeClient implements RuntimeClient {
   async health(): Promise<DesktopServiceHealth> {
     const health = parseServiceHealth(await this.#broker.request("system.health", {}));
     return { name: "ai-runtime", status: health.status, capabilities: health.capabilities };
+  }
+
+  async generate(invocation: ModelInvocation): Promise<ModelCompletion> {
+    return parseModelCompletion(await this.#broker.request("model.generate", invocation));
   }
 
   stop(): void {
@@ -151,6 +167,8 @@ export interface SidecarSupervisor {
   listDatasets(): Promise<readonly DatasetSummary[]>;
   previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
   replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
+  modelContext(datasetID: string, disclosure: DisclosureLevel): Promise<ModelContext>;
+  generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   stop(): void;
 }
 
@@ -182,6 +200,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     listDatasets: () => dataCore.listDatasets(),
     previewDataset: (request) => dataCore.preview(request),
     replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),
+    modelContext: (datasetID, disclosure) => dataCore.modelContext(datasetID, disclosure),
+    generateModel: (invocation) => aiRuntime.generate(invocation),
     stop() {
       aiRuntime.stop();
       dataCore.stop();

@@ -91,6 +91,9 @@ for (const required of [
   "schema-drift-detection: implemented",
   "model-context-boundary: implemented",
   "synthetic-examples: implemented",
+  "model-provider-registry: implemented",
+  "os-encrypted-provider-credentials: implemented",
+  "provider-connection-test: implemented",
   "provider-request-adapters: implemented",
 ]) {
   if (!manifest.includes(required)) {

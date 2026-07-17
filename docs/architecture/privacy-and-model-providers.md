@@ -1,6 +1,6 @@
 # Privacy and model-provider boundary
 
-Status: Implemented foundation; end-user provider configuration, approvals, audit, and safe query execution are still in progress.
+Status: Model context, provider configuration, encrypted credentials, transports, and connection tests are implemented. Approvals, audit, and safe query execution are still in progress.
 
 ## Non-disclosure path
 
@@ -31,9 +31,17 @@ Requests have explicit output-token limits and a 120-second deadline. Responses 
 
 Remote endpoints must use HTTPS. Plain HTTP is accepted only for `localhost`, `127.0.0.1`, or `::1`; base URLs containing credentials, query strings, or fragments are rejected. This prevents a configured cloud key from silently traveling over plaintext or being embedded in logs and state.
 
+## Credential ownership
+
+Electron main owns the provider registry and credentials. Provider metadata is stored separately from credential ciphertext. Credential files are encrypted with Electron `safeStorage`, directories use mode `0700`, files use mode `0600`, and replacement writes use a temporary file plus atomic rename. If operating-system encryption is unavailable, BuBu fails closed and refuses to persist a credential; credential-free loopback providers remain usable.
+
+The renderer can submit a new credential but the preload API has no credential-read operation. Registry responses contain only a provider profile and `hasCredential` boolean. Editing metadata without entering a new credential retains the existing encrypted value. Deletion removes both metadata and the encrypted credential. The selected provider is resolved only inside Electron main and sent directly across authenticated RPC to the Node utility process.
+
+Connection testing performs one bounded minimal generation request through the same adapter used by later conversations. Only provider identity, model, and latency return to the renderer. Neither stored credentials nor provider response bodies are included in renderer-facing errors.
+
 ## Deliberately unavailable
 
-No provider can yet be configured from the UI. OS-backed credential persistence, active-provider selection, connection tests, streaming events, cancellation, usage ledger, privacy preview/approval, prompt assembly, query planning, and fallback routing remain required before the chat composer is enabled. The manifest therefore marks individual providers and the privacy gateway `in-progress`, not implemented.
+Streaming events, cancellation, usage ledger, privacy preview/approval, prompt assembly, query planning, and fallback routing remain required before the data-chat composer is enabled. Individual provider transports are implemented; the end-to-end privacy gateway remains `in-progress` until a safe query plan and visible disclosure approval exist.
 
 ## Official protocol inputs
 

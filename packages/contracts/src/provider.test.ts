@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseModelInvocation } from "./provider.js";
+import {
+  parseModelInvocation,
+  parseProviderConfigurationInput,
+  parseProviderRegistryState,
+} from "./provider.js";
 
 const provider = {
   id: "a".repeat(32),
@@ -40,5 +44,35 @@ describe("provider boundary", () => {
         maxOutputTokens: 100_000,
       }),
     ).toThrow();
+  });
+
+  it("keeps write-only credentials out of registry responses", () => {
+    expect(
+      parseProviderConfigurationInput({
+        name: "OpenAI",
+        kind: "openai",
+        baseUrl: "https://api.openai.com/v1/",
+        model: "configured-model",
+        credential: "write-only-secret",
+      }),
+    ).toMatchObject({ credential: "write-only-secret" });
+
+    expect(() =>
+      parseProviderRegistryState({
+        providers: [{ profile: provider, hasCredential: true, credential: "must-not-return" }],
+        activeProviderId: provider.id,
+        encryptionAvailable: true,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects active provider references that are not in the registry", () => {
+    expect(() =>
+      parseProviderRegistryState({
+        providers: [],
+        activeProviderId: provider.id,
+        encryptionAvailable: true,
+      }),
+    ).toThrow("Active provider");
   });
 });
