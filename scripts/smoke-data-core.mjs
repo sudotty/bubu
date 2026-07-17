@@ -255,6 +255,44 @@ try {
   if (conversation.entries.length !== 3 || reloadedConversation.entries[2]?.kind !== "result") {
     throw new Error("Local conversation did not preserve question, plan, and result in order");
   }
+  const conversationWithInsight = parseConversationThread(
+    await request("conversation.append", {
+      input: {
+        target: conversationTarget,
+        entry: {
+          kind: "insight",
+          role: "assistant",
+          payload: {
+            explanation: {
+              schemaVersion: 1,
+              disclosure: {
+                schemaVersion: 1,
+                target: conversationTarget,
+                question: "Sum amount by region",
+                purpose: singlePlan.purpose,
+                sourceCount: 1,
+                columns: queryResult.columns,
+                rows: queryResult.rows,
+                truncated: false,
+                minimumGroupSize: 5,
+              },
+              summary: "West is the largest disclosed regional total.",
+              findings: [{
+                title: "West leads",
+                detail: "The cited aggregate cell contains the largest disclosed total.",
+                evidence: [{ rowIndex: 0, columnIndex: 1 }],
+              }],
+              caveats: ["Only the approved aggregate cells were analyzed."],
+              nextQuestions: [],
+            },
+          },
+        },
+      },
+    }),
+  );
+  if (conversationWithInsight.entries.length !== 4 || conversationWithInsight.entries[3]?.kind !== "insight") {
+    throw new Error("Local conversation did not persist a typed aggregate insight");
+  }
   const targetImport = parseDatasetImportResult(
     await request("dataset.import.batch", { sourcePaths: [targetsPath] }),
   );
@@ -554,7 +592,7 @@ try {
     JSON.stringify(restoreRaw).includes(backupPath) ||
     restore.backupCreatedAt !== backup.backupCreatedAt ||
     restoredDatasets[0]?.id !== dataset.id ||
-    restoredConversation.entries.length !== 4 ||
+    restoredConversation.entries.length !== 5 ||
     restoredWorkflows[0]?.id !== workflow.id ||
     !restoredWorkflowRuns.some(({ id }) => id === workflowRun.id) ||
     !restoredWorkflowRuns.some(({ id }) => id === triggeredRun.id) ||
@@ -583,7 +621,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-row disclosure/usage audit, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-row disclosure/usage audit, persisted aggregate insights, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

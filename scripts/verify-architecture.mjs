@@ -392,6 +392,14 @@ const conversationContract = read("packages/contracts/src/conversation.ts");
 for (const invariant of ["sourcePlan", "same immutable source", "insightEntryInputSchema"]) {
   if (!conversationContract.includes(invariant)) failures.push(`source-linked aggregate conversation invariant missing: ${invariant}`);
 }
+const conversationMigration = read("services/data-core/internal/data/conversation_migration.go");
+for (const invariant of [
+  "conversationInsightMigrationSQL",
+  "'question', 'plan', 'result', 'insight', 'error'",
+  "FROM conversation_entries_v10",
+]) {
+  if (!conversationMigration.includes(invariant)) failures.push(`aggregate insight persistence migration missing: ${invariant}`);
+}
 
 const workflowValidation = read("services/data-core/internal/data/workflow_validation.go");
 for (const invariant of [
