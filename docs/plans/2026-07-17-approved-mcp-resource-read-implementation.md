@@ -2,7 +2,7 @@
 
 > **Execution:** Test-drive every boundary on `main`, keep MCP output local and untrusted, and never include the user-owned legacy Wails workspace in a commit.
 
-**Status:** Active.
+**Status:** Complete (2026-07-17).
 
 **Goal:** Let a user choose one resource discovered during an approved local stdio MCP inspection, review the exact server launch and URI disclosure, approve one bounded read, and inspect normalized local-only content without giving the renderer or a model generic MCP authority.
 
@@ -111,3 +111,12 @@
 2. Add fitness functions for append-only no-content audit, no pending plaintext secret, exact URI approval/drift, fixed budgets, one `readResource` site, forbidden MCP methods, named preload/RPC, escaped UI, and manifest/docs agreement.
 3. Mark only `mcp-resource-read` implemented. Keep prompt use, tool execution, model/Agent/workflow registration, remote HTTP/OAuth, subscriptions, and templates planned.
 4. Run `volta run npm run verify`, record exact evidence, stage only this slice, run `git diff --cached --check`, commit directly to `main`, push, and confirm local/remote alignment without touching legacy user work.
+
+## Completion evidence
+
+- `volta run npm run verify` passed on Node 22.18.0 with zero dependency vulnerabilities.
+- TypeScript verification passed across 49 test files and 157 tests: contracts 20/63, AI runtime 6/24, and desktop 23/70. All Go data-core and RPC tests passed.
+- The production Electron application packaged successfully; data-core, real stdio MCP, and packaged-desktop smoke tests all passed.
+- The real MCP fixture proved that inspection invoked no primitive, while a separate exact resource approval invoked only `resources/read` once. It returned 37 bytes of escaped text plus 14 bytes of binary metadata, exposed no base64/blob bytes, inherited no host RPC secret, and closed both child trees.
+- The final 100 MiB / 183,246-row reference gate passed at 4,390.93 ms import-and-profile time, 167.19 ms query p95, and 37.22 MiB peak data-core RSS against budgets of 120,000 ms, 3,000 ms, and 256 MiB.
+- Repository and architecture fitness functions now require exact resource-read budgets, one policy-bound SDK read site, no tool/prompt/subscription authority, secret-free append-only audit, separate secret-bound in-memory drift fingerprint, named RPC/IPC/preload methods, escaped local-only UI, real resource smoke, packaged audit visibility, and manifest/document agreement.

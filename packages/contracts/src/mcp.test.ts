@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   mcpInspectionBudget,
+  mcpResourceReadBudget,
+  parseMcpAuditEvents,
+  parseMcpAuditOutcome,
+  parseMcpAuditStart,
   parseMcpConnectionConfigurationInput,
   parseMcpConnectionRegistryState,
   parseMcpInspectionApproval,
   parseMcpInspectionInvocation,
   parseMcpInspectionProposal,
   parseMcpInspectionSnapshot,
+  parseMcpResourceReadInvocation,
+  parseMcpResourceReadProposal,
+  parseMcpResourceReadRequest,
+  parseMcpResourceReadResult,
 } from "./mcp.js";
 
 const connectionId = "a".repeat(32);
@@ -148,5 +156,116 @@ describe("local MCP connection contracts", () => {
         inputSchemaJson: JSON.stringify({ description: "汉".repeat(6_000) }),
       }],
     })).toThrow("byte budget");
+  });
+
+  it("binds one resource URI and fixed local-only read budgets to explicit approval", () => {
+    const request = { connectionId, resourceUri: "bubu-dictionary://definitions" };
+    expect(parseMcpResourceReadRequest(request)).toEqual(request);
+    const proposal = {
+      approvalToken: "c".repeat(64),
+      expiresAt: "2026-07-17T10:10:00Z",
+      connection: {
+        id: connectionId,
+        name: configuration.name,
+        command: "/private/opt/bubu-mcp/bin/dictionary-server",
+        args: configuration.args,
+        environmentKeys: ["DICTIONARY_TOKEN"],
+      },
+      resourceUri: request.resourceUri,
+      budget: mcpResourceReadBudget,
+      warning: "untrusted-local-code-and-content" as const,
+    };
+    expect(parseMcpResourceReadProposal(proposal)).toEqual(proposal);
+    expect(JSON.stringify(proposal)).not.toContain("secret");
+    expect(() => parseMcpResourceReadProposal({
+      ...proposal,
+      budget: { ...mcpResourceReadBudget, maxDecodedBytes: 512 * 1_024 },
+    })).toThrow();
+
+    const invocation = {
+      connectionId,
+      command: configuration.command,
+      args: configuration.args,
+      environment: { DICTIONARY_TOKEN: "secret" },
+      workingDirectory: "/tmp/bubu-mcp/runtime-a",
+      resourceUri: request.resourceUri,
+      budget: mcpResourceReadBudget,
+    };
+    expect(parseMcpResourceReadInvocation(invocation)).toEqual(invocation);
+  });
+
+  it("returns escaped text and blob metadata under one decoded-content budget", () => {
+    const result = {
+      schemaVersion: 1,
+      connectionId,
+      requestedUri: "bubu-dictionary://definitions",
+      contents: [
+        {
+          kind: "text" as const,
+          uri: "bubu-dictionary://definitions",
+          mimeType: "application/json",
+          text: "{\"gross_margin\":\"Revenue minus cost\"}",
+          decodedBytes: 37,
+        },
+        {
+          kind: "blob" as const,
+          uri: "bubu-dictionary://icon",
+          mimeType: "image/png",
+          decodedBytes: 68,
+          sha256: "d".repeat(64),
+        },
+      ],
+      decodedBytes: 105,
+      localOnly: true,
+      untrustedContent: true,
+    };
+    expect(parseMcpResourceReadResult(result)).toEqual(result);
+    expect(JSON.stringify(result)).not.toContain("base64");
+    expect(() => parseMcpResourceReadResult({
+      ...result,
+      contents: [{
+        kind: "text",
+        uri: result.requestedUri,
+        text: "汉".repeat(100_000),
+        decodedBytes: 300_000,
+      }],
+      decodedBytes: 300_000,
+    })).toThrow("decoded-content budget");
+    expect(() => parseMcpResourceReadResult({
+      ...result,
+      contents: [{ ...result.contents[1], blob: "unsafe-binary" }],
+    })).toThrow();
+  });
+
+  it("models append-only MCP audit starts, terminal outcomes, and interrupted recovery", () => {
+    const start = {
+      auditId: "123e4567-e89b-42d3-a456-426614174000",
+      connectionId,
+      connectionName: "Dictionary",
+      operation: "resource-read" as const,
+      resourceUri: "bubu-dictionary://definitions",
+      requestFingerprint: "e".repeat(64),
+      startedAt: "2026-07-17T10:00:00Z",
+    };
+    const succeeded = {
+      auditId: start.auditId,
+      status: "succeeded" as const,
+      completedAt: "2026-07-17T10:00:01Z",
+      contentParts: 2,
+      decodedBytes: 105,
+    };
+    expect(parseMcpAuditStart(start)).toEqual(start);
+    expect(parseMcpAuditOutcome(succeeded)).toEqual(succeeded);
+    expect(parseMcpAuditOutcome({
+      auditId: start.auditId,
+      status: "failed",
+      completedAt: "2026-07-17T10:00:01Z",
+      errorCode: "MCP_RESOURCE_READ_FAILED",
+    })).toMatchObject({ status: "failed" });
+    expect(parseMcpAuditEvents([
+      { ...start, ...succeeded },
+      { ...start, auditId: "223e4567-e89b-42d3-a456-426614174000", status: "interrupted" },
+    ])).toHaveLength(2);
+    expect(() => parseMcpAuditOutcome({ ...succeeded, resourceContent: "must-not-persist" })).toThrow();
   });
 });

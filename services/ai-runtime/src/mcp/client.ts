@@ -1,12 +1,18 @@
+import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import {
   mcpInspectionBudget,
+  mcpResourceReadBudget,
   parseMcpInspectionInvocation,
   parseMcpInspectionSnapshot,
+  parseMcpResourceReadInvocation,
+  parseMcpResourceReadResult,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
+  type McpResourceReadInvocation,
+  type McpResourceReadResult,
 } from "@bubu/contracts";
 
 interface LimitState {
@@ -18,9 +24,13 @@ interface Page<T> {
   readonly nextCursor?: string;
 }
 
-function assertInspectionActive(signal: AbortSignal | undefined, timeoutSignal: AbortSignal): void {
-  if (signal?.aborted) throw new Error("MCP inspection was cancelled");
-  if (timeoutSignal.aborted) throw new Error("MCP inspection exceeded its 30-second budget");
+function assertMcpActive(
+  signal: AbortSignal | undefined,
+  timeoutSignal: AbortSignal,
+  operation: "inspection" | "resource read",
+): void {
+  if (signal?.aborted) throw new Error(`MCP ${operation} was cancelled`);
+  if (timeoutSignal.aborted) throw new Error(`MCP ${operation} exceeded its 30-second budget`);
 }
 
 function boundedText(value: string | undefined, state: LimitState, maximum = 2_000): string | undefined {
@@ -92,6 +102,8 @@ function normalizedPrompt(
 
 async function collectPages<T>(
   enabled: boolean,
+  maximumPages: number,
+  maximumItems: number,
   list: (cursor: string | undefined) => Promise<Page<T>>,
 ): Promise<{ readonly items: readonly T[]; readonly limited: boolean }> {
   if (!enabled) return { items: [], limited: false };
@@ -100,17 +112,17 @@ async function collectPages<T>(
   let cursor: string | undefined;
   let pages = 0;
   let limited = false;
-  while (pages < mcpInspectionBudget.maxPagesPerPrimitive && items.length < mcpInspectionBudget.maxItemsPerPrimitive) {
+  while (pages < maximumPages && items.length < maximumItems) {
     const page = await list(cursor);
     pages += 1;
-    const remaining = mcpInspectionBudget.maxItemsPerPrimitive - items.length;
+    const remaining = maximumItems - items.length;
     items.push(...page.items.slice(0, remaining));
     if (page.items.length > remaining) limited = true;
     const nextCursor = page.nextCursor;
     if (nextCursor === undefined) break;
     if (
-      pages >= mcpInspectionBudget.maxPagesPerPrimitive ||
-      items.length >= mcpInspectionBudget.maxItemsPerPrimitive ||
+      pages >= maximumPages ||
+      items.length >= maximumItems ||
       cursors.has(nextCursor)
     ) {
       limited = true;
@@ -126,13 +138,28 @@ function inspectionBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
 
-export async function inspectMcpStdioServer(
-  value: McpInspectionInvocation,
-  signal?: AbortSignal,
-  timeoutSignal: AbortSignal = AbortSignal.timeout(mcpInspectionBudget.maxDurationMs),
-): Promise<McpInspectionSnapshot> {
-  const invocation = parseMcpInspectionInvocation(value);
-  assertInspectionActive(signal, timeoutSignal);
+interface McpLaunchInvocation {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly environment: Readonly<Record<string, string>>;
+  readonly workingDirectory: string;
+  readonly budget: { readonly maxDurationMs: number };
+}
+
+interface McpRequestOptions {
+  readonly signal: AbortSignal;
+  readonly timeout: number;
+  readonly maxTotalTimeout: number;
+}
+
+async function withMcpClient<T>(
+  invocation: McpLaunchInvocation,
+  signal: AbortSignal | undefined,
+  timeoutSignal: AbortSignal,
+  operation: "inspection" | "resource read",
+  use: (client: Client, requestOptions: McpRequestOptions) => Promise<T>,
+): Promise<T> {
+  assertMcpActive(signal, timeoutSignal, operation);
   const runSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   const transport = new StdioClientTransport({
     command: invocation.command,
@@ -142,7 +169,7 @@ export async function inspectMcpStdioServer(
     stderr: "pipe",
   });
   transport.stderr?.on("data", () => undefined);
-  const client = new Client({ name: "bubu-mcp-inspector", version: "0.1.0" }, { capabilities: {} });
+  const client = new Client({ name: "bubu-mcp-client", version: "0.1.0" }, { capabilities: {} });
   const requestOptions = {
     signal: runSignal,
     timeout: invocation.budget.maxDurationMs,
@@ -150,26 +177,42 @@ export async function inspectMcpStdioServer(
   };
   try {
     await client.connect(transport, requestOptions);
-    assertInspectionActive(signal, timeoutSignal);
+    assertMcpActive(signal, timeoutSignal, operation);
+    return await use(client, requestOptions);
+  } catch (error) {
+    assertMcpActive(signal, timeoutSignal, operation);
+    throw error;
+  } finally {
+    await client.close().catch(() => undefined);
+  }
+}
+
+export async function inspectMcpStdioServer(
+  value: McpInspectionInvocation,
+  signal?: AbortSignal,
+  timeoutSignal: AbortSignal = AbortSignal.timeout(mcpInspectionBudget.maxDurationMs),
+): Promise<McpInspectionSnapshot> {
+  const invocation = parseMcpInspectionInvocation(value);
+  return withMcpClient(invocation, signal, timeoutSignal, "inspection", async (client, requestOptions) => {
     const capabilities = client.getServerCapabilities();
     const hasTools = capabilities?.tools !== undefined;
     const hasResources = capabilities?.resources !== undefined;
     const hasPrompts = capabilities?.prompts !== undefined;
     const [toolPages, resourcePages, promptPages] = await Promise.all([
-      collectPages(hasTools, async (cursor) => {
+      collectPages(hasTools, invocation.budget.maxPagesPerPrimitive, invocation.budget.maxItemsPerPrimitive, async (cursor) => {
         const page = await client.listTools(cursor === undefined ? undefined : { cursor }, requestOptions);
         return { items: page.tools, ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }) };
       }),
-      collectPages(hasResources, async (cursor) => {
+      collectPages(hasResources, invocation.budget.maxPagesPerPrimitive, invocation.budget.maxItemsPerPrimitive, async (cursor) => {
         const page = await client.listResources(cursor === undefined ? undefined : { cursor }, requestOptions);
         return { items: page.resources, ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }) };
       }),
-      collectPages(hasPrompts, async (cursor) => {
+      collectPages(hasPrompts, invocation.budget.maxPagesPerPrimitive, invocation.budget.maxItemsPerPrimitive, async (cursor) => {
         const page = await client.listPrompts(cursor === undefined ? undefined : { cursor }, requestOptions);
         return { items: page.prompts, ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }) };
       }),
     ]);
-    assertInspectionActive(signal, timeoutSignal);
+    assertMcpActive(signal, timeoutSignal, "inspection");
     const state: LimitState = {
       limited: toolPages.limited || resourcePages.limited || promptPages.limited,
     };
@@ -202,10 +245,85 @@ export async function inspectMcpStdioServer(
       snapshot.limited = true;
     }
     return parseMcpInspectionSnapshot(snapshot);
-  } catch (error) {
-    assertInspectionActive(signal, timeoutSignal);
-    throw error;
-  } finally {
-    await client.close().catch(() => undefined);
+  });
+}
+
+function decodeCanonicalBase64(value: string): Buffer {
+  if (
+    value.length % 4 !== 0 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)
+  ) {
+    throw new Error("MCP resource returned invalid base64 content");
   }
+  const decoded = Buffer.from(value, "base64");
+  if (decoded.toString("base64") !== value) throw new Error("MCP resource returned non-canonical base64 content");
+  return decoded;
+}
+
+export async function readMcpStdioResource(
+  value: McpResourceReadInvocation,
+  signal?: AbortSignal,
+  timeoutSignal: AbortSignal = AbortSignal.timeout(mcpResourceReadBudget.maxDurationMs),
+): Promise<McpResourceReadResult> {
+  const invocation = parseMcpResourceReadInvocation(value);
+  return withMcpClient(invocation, signal, timeoutSignal, "resource read", async (client, requestOptions) => {
+    const hasResources = client.getServerCapabilities()?.resources !== undefined;
+    if (!hasResources) throw new Error("MCP server does not advertise resources");
+    const discovered = await collectPages(
+      true,
+      invocation.budget.maxDiscoveryPages,
+      invocation.budget.maxDiscoveredResources,
+      async (cursor) => {
+        const page = await client.listResources(cursor === undefined ? undefined : { cursor }, requestOptions);
+        return { items: page.resources, ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }) };
+      },
+    );
+    const resource = discovered.items.find(({ uri }) => uri === invocation.resourceUri);
+    if (!resource) throw new Error("Approved MCP resource is not present in bounded discovery");
+    if (resource.size !== undefined && resource.size > invocation.budget.maxDecodedBytes) {
+      throw new Error("Approved MCP resource declares a size above the decoded-content budget");
+    }
+    const response = await client.readResource({ uri: invocation.resourceUri }, requestOptions);
+    if (response.contents.length > invocation.budget.maxContentParts) {
+      throw new Error("MCP resource returned too many content parts");
+    }
+    let decodedBytes = 0;
+    const contents = response.contents.map((content) => {
+      if ("text" in content) {
+        const contentBytes = new TextEncoder().encode(content.text).byteLength;
+        decodedBytes += contentBytes;
+        if (decodedBytes > invocation.budget.maxDecodedBytes) {
+          throw new Error("MCP resource exceeds its decoded-content budget");
+        }
+        return {
+          kind: "text" as const,
+          uri: content.uri,
+          ...(content.mimeType === undefined ? {} : { mimeType: content.mimeType }),
+          text: content.text,
+          decodedBytes: contentBytes,
+        };
+      }
+      const decoded = decodeCanonicalBase64(content.blob);
+      decodedBytes += decoded.byteLength;
+      if (decodedBytes > invocation.budget.maxDecodedBytes) {
+        throw new Error("MCP resource exceeds its decoded-content budget");
+      }
+      return {
+        kind: "blob" as const,
+        uri: content.uri,
+        ...(content.mimeType === undefined ? {} : { mimeType: content.mimeType }),
+        decodedBytes: decoded.byteLength,
+        sha256: createHash("sha256").update(decoded).digest("hex"),
+      };
+    });
+    return parseMcpResourceReadResult({
+      schemaVersion: 1,
+      connectionId: invocation.connectionId,
+      requestedUri: invocation.resourceUri,
+      contents,
+      decodedBytes,
+      localOnly: true,
+      untrustedContent: true,
+    });
+  });
 }

@@ -586,6 +586,15 @@ for (const invariant of [
   "maxResultBytes: 262_144 as const",
   "MCP input schema exceeds its byte budget",
   "untrustedMetadata: z.literal(true)",
+  "maxDiscoveryPages: 5 as const",
+  "maxDiscoveredResources: 100 as const",
+  "maxContentParts: 20 as const",
+  "maxDecodedBytes: 262_144 as const",
+  "maxResultBytes: 393_216 as const",
+  "MCP text decoded-byte count is invalid",
+  "MCP resource exceeds its decoded-content budget",
+  "localOnly: z.literal(true)",
+  "untrustedContent: z.literal(true)",
 ]) {
   if (!mcpContract.includes(invariant)) failures.push(`MCP least-authority contract missing: ${invariant}`);
 }
@@ -611,6 +620,35 @@ for (const invariant of [
 ]) {
   if (!mcpApprovals.includes(invariant)) failures.push(`MCP launch approval boundary missing: ${invariant}`);
 }
+const mcpResourceApprovals = read("apps/desktop/src/main/mcp-resource-approval-sessions.ts");
+for (const invariant of [
+  "10 * 60 * 1_000",
+  "maximumMcpResourceApprovalSessions = 20",
+  "session.expiresAt <= options.now()",
+  "launchFingerprint: fingerprint(proposal.connection.name, invocation)",
+  "requestFingerprint: requestFingerprint(proposal.connection.name, invocation)",
+  "environmentKeys: Object.keys(invocation.environment)",
+  "Buffer.from(approved.launchFingerprint, \"hex\")",
+  'warning: "untrusted-local-code-and-content"',
+]) {
+  if (!mcpResourceApprovals.includes(invariant)) failures.push(`MCP resource approval boundary missing: ${invariant}`);
+}
+const mcpAuditStore = read("apps/desktop/src/main/mcp-audit-store.ts");
+for (const invariant of [
+  "maximumMcpAuditStarts = 10_000",
+  "atomicPrivateCreate(startPath(start.auditId)",
+  "atomicPrivateCreate(outcomePath(outcome.auditId)",
+  "MCP audit outcome already exists",
+  'status: activeThisProcess.has(start.auditId) ? "in-progress" as const : "interrupted" as const',
+]) {
+  if (!mcpAuditStore.includes(invariant)) failures.push(`append-only MCP audit boundary missing: ${invariant}`);
+}
+for (const forbidden of ["resourceContent", ".contents", "encryptedEnvironment", "launchFingerprint"]) {
+  if (mcpAuditStore.includes(forbidden)) failures.push(`MCP audit persists forbidden content or secret-derived state: ${forbidden}`);
+}
+for (const invariant of ["linkSync(temporaryPath, path)", "writeFileSync(temporaryPath, value, { flag: \"wx\", mode: 0o600 })"]) {
+  if (!secureFiles.includes(invariant)) failures.push(`append-only private file primitive missing: ${invariant}`);
+}
 const mcpApi = read("apps/desktop/src/main/mcp-api.ts");
 for (const invariant of [
   "realpathSync(resolved.profile.transport.command)",
@@ -634,11 +672,19 @@ for (const invariant of [
   "client.listPrompts",
   "AbortSignal.any([signal, timeoutSignal])",
   "await client.close().catch(() => undefined)",
+  "resource.size > invocation.budget.maxDecodedBytes",
+  "resource is not present in bounded discovery",
+  "decodeCanonicalBase64(content.blob)",
+  'createHash("sha256").update(decoded).digest("hex")',
+  "parseMcpResourceReadResult({",
 ]) {
   if (!mcpClient.includes(invariant)) failures.push(`MCP inspection lifecycle invariant missing: ${invariant}`);
 }
-for (const forbidden of ["client.callTool(", "client.readResource(", "client.getPrompt(", "client.subscribeResource("]) {
-  if (mcpClient.includes(forbidden)) failures.push(`inspection-only MCP client gained primitive authority: ${forbidden}`);
+if ((mcpClient.match(/client\.readResource\(/gu) ?? []).length !== 1) {
+  failures.push("MCP client must contain exactly one policy-bound resource read site");
+}
+for (const forbidden of ["client.callTool(", "client.getPrompt(", "client.subscribeResource(", "client.unsubscribeResource("]) {
+  if (mcpClient.includes(forbidden)) failures.push(`MCP client gained an unapproved primitive authority: ${forbidden}`);
 }
 const aiRuntimePackage = JSON.parse(read("services/ai-runtime/package.json"));
 if (aiRuntimePackage.dependencies?.["@modelcontextprotocol/sdk"] !== "1.29.0") {
@@ -655,7 +701,7 @@ if (
   failures.push("reviewed MCP SDK version, MIT license, and integrity are not locked");
 }
 const aiHandler = read("services/ai-runtime/src/handler.ts");
-for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"']) {
+for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"', 'request.method === "mcp.resource.read"', '"mcp-resource-read"']) {
   if (!aiHandler.includes(invariant)) failures.push(`named MCP utility RPC missing: ${invariant}`);
 }
 for (const invariant of [
@@ -664,6 +710,10 @@ for (const invariant of [
   "prepareMcpInspection",
   "approveMcpInspection",
   "dismissMcpInspection",
+  "listMcpAudits",
+  "prepareMcpResourceRead",
+  "approveMcpResourceRead",
+  "dismissMcpResourceRead",
 ]) {
   if (!preload.includes(invariant)) failures.push(`named MCP preload capability missing: ${invariant}`);
 }
@@ -675,8 +725,38 @@ for (const invariant of [
   "proposal.connection.environmentKeys",
   "批准启动一次并只检查能力",
   "untrustedMetadata",
+  "prepareResourceRead(resource.uri)",
+  "resourceProposal.connection.command",
+  "resourceProposal.connection.args.map",
+  "批准启动一次并读取此 URI",
+  "二进制正文不进入渲染器",
+  "MCP 本地审计",
 ]) {
   if (!mcpSettings.includes(invariant)) failures.push(`exact MCP consent UI missing: ${invariant}`);
+}
+if (/dangerouslySetInnerHTML|innerHTML/u.test(mcpSettings)) {
+  failures.push("MCP settings renders untrusted content as HTML");
+}
+const mcpResourceApi = read("apps/desktop/src/main/mcp-resource-api.ts");
+for (const invariant of [
+  "approvals.consume(approvalToken)",
+  "approvals.matches(approved, resolved.profile.name, invocation)",
+  "dependencies.audits.start({",
+  "result = await dependencies.read(invocation, signal)",
+  'status: "failed"',
+  'status: "succeeded"',
+  "sidecars.readMcpResource(invocation, readSignal)",
+]) {
+  if (!mcpResourceApi.includes(invariant)) failures.push(`approved MCP resource orchestration missing: ${invariant}`);
+}
+const mcpSmoke = read("scripts/smoke-mcp.mjs");
+for (const invariant of [
+  'requestRuntime("mcp.inspect"',
+  'requestRuntime("mcp.resource.read"',
+  'readFileSync(sentinel, "utf8") !== "resource\\n"',
+  'JSON.stringify(resource).includes("YmluYXJ5IGZpeHR1cmU=")',
+]) {
+  if (!mcpSmoke.includes(invariant)) failures.push(`real MCP resource smoke invariant missing: ${invariant}`);
 }
 
 const safeQuery = read("services/data-core/internal/data/query.go");

@@ -123,8 +123,10 @@ capabilities:
   explicit-mcp-process-launch-consent: implemented
   mcp-stdio-lifecycle-negotiation: implemented
   bounded-mcp-capability-discovery: implemented
+  mcp-resource-read: implemented
+  append-only-mcp-operation-audit: implemented
   mcp-tool-execution: planned
-  mcp-resource-and-prompt-use: planned
+  mcp-prompt-use: planned
   mcp-streamable-http: planned
   mcp-oauth: planned
   local-rag: planned

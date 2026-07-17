@@ -56,6 +56,11 @@ import type {
   McpInspectionApproval,
   McpInspectionProposal,
   McpInspectionSnapshot,
+  McpAuditEvent,
+  McpResourceReadApproval,
+  McpResourceReadProposal,
+  McpResourceReadRequest,
+  McpResourceReadResult,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -84,6 +89,10 @@ export const desktopChannels = {
   prepareMcpInspection: "bubu:mcp:prepare-inspection",
   approveMcpInspection: "bubu:mcp:approve-inspection",
   dismissMcpInspection: "bubu:mcp:dismiss-inspection",
+  listMcpAudits: "bubu:mcp:audits-list",
+  prepareMcpResourceRead: "bubu:mcp:prepare-resource-read",
+  approveMcpResourceRead: "bubu:mcp:approve-resource-read",
+  dismissMcpResourceRead: "bubu:mcp:dismiss-resource-read",
   proposeQueryPlan: "bubu:analysis:propose-query-plan",
   executeQueryPlan: "bubu:analysis:execute-query-plan",
   listDatasetGroups: "bubu:dataset-groups:list",
@@ -155,6 +164,10 @@ export interface BuBuDesktopApi {
     prepareInspection(connectionId: McpConnectionId): Promise<McpInspectionProposal>;
     approveInspection(value: McpInspectionApproval, operationId: OperationId): Promise<McpInspectionSnapshot>;
     dismissInspection(value: McpInspectionApproval): Promise<void>;
+    listAudits(): Promise<readonly McpAuditEvent[]>;
+    prepareResourceRead(value: McpResourceReadRequest): Promise<McpResourceReadProposal>;
+    approveResourceRead(value: McpResourceReadApproval, operationId: OperationId): Promise<McpResourceReadResult>;
+    dismissResourceRead(value: McpResourceReadApproval): Promise<void>;
   };
   readonly dataProtection: {
     createBackup(operationId: OperationId): Promise<DataBackupSelectionResult>;
@@ -270,6 +283,11 @@ export type {
   McpInspectionApproval,
   McpInspectionProposal,
   McpInspectionSnapshot,
+  McpAuditEvent,
+  McpResourceReadApproval,
+  McpResourceReadProposal,
+  McpResourceReadRequest,
+  McpResourceReadResult,
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,
