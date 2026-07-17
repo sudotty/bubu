@@ -20,7 +20,8 @@ var (
 )
 
 type Service struct {
-	database *sql.DB
+	database     *sql.DB
+	databasePath string
 }
 
 func Open(dataDirectory string) (*Service, error) {
@@ -31,6 +32,33 @@ func Open(dataDirectory string) (*Service, error) {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
 	databasePath := filepath.Join(dataDirectory, "bubu.db")
+	rollbackPath := databasePath + ".restore-rollback"
+	if _, err := os.Stat(databasePath); errors.Is(err, os.ErrNotExist) {
+		if _, rollbackErr := os.Stat(rollbackPath); rollbackErr == nil {
+			if err := os.Rename(rollbackPath, databasePath); err != nil {
+				return nil, fmt.Errorf("recover interrupted restore: %w", err)
+			}
+		}
+	}
+	database, err := openLocalDatabase(databasePath)
+	if err != nil {
+		if _, rollbackErr := os.Stat(rollbackPath); rollbackErr != nil {
+			return nil, err
+		}
+		removeDatabaseFiles(databasePath)
+		if renameErr := os.Rename(rollbackPath, databasePath); renameErr != nil {
+			return nil, fmt.Errorf("restore original database after startup failure: %w (original error: %v)", renameErr, err)
+		}
+		database, err = openLocalDatabase(databasePath)
+		if err != nil {
+			return nil, fmt.Errorf("open recovered original database: %w", err)
+		}
+	}
+	_ = os.Remove(rollbackPath)
+	return &Service{database: database, databasePath: databasePath}, nil
+}
+
+func openLocalDatabase(databasePath string) (*sql.DB, error) {
 	database, err := sql.Open("sqlite", databasePath)
 	if err != nil {
 		return nil, fmt.Errorf("open SQLite: %w", err)
@@ -49,7 +77,7 @@ func Open(dataDirectory string) (*Service, error) {
 		database.Close()
 		return nil, fmt.Errorf("restrict database permissions: %w", err)
 	}
-	return &Service{database: database}, nil
+	return database, nil
 }
 
 func configureDatabase(ctx context.Context, database *sql.DB) error {
@@ -68,4 +96,10 @@ func configureDatabase(ctx context.Context, database *sql.DB) error {
 
 func (service *Service) Close() error {
 	return service.database.Close()
+}
+
+func removeDatabaseFiles(databasePath string) {
+	_ = os.Remove(databasePath)
+	_ = os.Remove(databasePath + "-wal")
+	_ = os.Remove(databasePath + "-shm")
 }

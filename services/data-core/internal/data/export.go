@@ -100,7 +100,7 @@ func (service *Service) ExportDatasetCSV(
 	if err := temporary.Close(); err != nil {
 		return DatasetExportResult{}, fmt.Errorf("close export: %w", err)
 	}
-	if err := os.Rename(temporaryPath, absolutePath); err != nil {
+	if err := replaceFileAtomically(temporaryPath, absolutePath); err != nil {
 		return DatasetExportResult{}, fmt.Errorf("publish export: %w", err)
 	}
 	committed = true

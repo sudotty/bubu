@@ -7,6 +7,8 @@ import {
   parseDatasetImportResult,
   parseDatasetExportResult,
   parseDatasetDeletionResult,
+  parseDataBackupResult,
+  parseDataRestoreResult,
   parseDatasetGroup,
   parseDatasetGroupDeletionResult,
   parseDatasetGroupList,
@@ -27,6 +29,8 @@ import {
   type DatasetImportResult,
   type DatasetExportResult,
   type DatasetDeletionResult,
+  type DataBackupResult,
+  type DataRestoreResult,
   type ColumnMapping,
   type DatasetGroup,
   type DatasetGroupSaveInput,
@@ -115,6 +119,18 @@ class DataCoreClient implements RuntimeClient {
   async deleteDataset(datasetID: string): Promise<DatasetDeletionResult> {
     return parseDatasetDeletionResult(
       await this.#broker.request("dataset.delete", { datasetId: datasetID }),
+    );
+  }
+
+  async createBackup(targetPath: string): Promise<DataBackupResult> {
+    return parseDataBackupResult(
+      await this.#broker.request("data.backup.create", { targetPath }),
+    );
+  }
+
+  async restoreBackup(sourcePath: string): Promise<DataRestoreResult> {
+    return parseDataRestoreResult(
+      await this.#broker.request("data.backup.restore", { sourcePath }),
     );
   }
 
@@ -286,6 +302,8 @@ export interface SidecarSupervisor {
   importFiles(sourcePaths: readonly string[]): Promise<DatasetImportResult>;
   exportDataset(datasetID: string, targetPath: string): Promise<DatasetExportResult>;
   deleteDataset(datasetID: string): Promise<DatasetDeletionResult>;
+  createBackup(targetPath: string): Promise<DataBackupResult>;
+  restoreBackup(sourcePath: string): Promise<DataRestoreResult>;
   listDatasets(): Promise<readonly DatasetSummary[]>;
   previewDataset(request: DatasetPreviewRequest): Promise<DatasetPreview>;
   replaceDataset(datasetID: string, sourcePath: string): Promise<DatasetReplacementResult>;
@@ -338,6 +356,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     },
     exportDataset: (datasetID, targetPath) => dataCore.exportDataset(datasetID, targetPath),
     deleteDataset: (datasetID) => dataCore.deleteDataset(datasetID),
+    createBackup: (targetPath) => dataCore.createBackup(targetPath),
+    restoreBackup: (sourcePath) => dataCore.restoreBackup(sourcePath),
     listDatasets: () => dataCore.listDatasets(),
     previewDataset: (request) => dataCore.preview(request),
     replaceDataset: (datasetID, sourcePath) => dataCore.replaceFile(datasetID, sourcePath),

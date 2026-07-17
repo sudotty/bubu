@@ -9,6 +9,8 @@ import {
   parseDatasetImportResult,
   parseDatasetExportResult,
   parseDatasetDeletionResult,
+  parseDataBackupResult,
+  parseDataRestoreResult,
   parseDatasetGroup,
   parseDatasetGroupList,
   parseConversationThread,
@@ -31,6 +33,7 @@ const replacementPath = resolve(root, "synthetic-sales-week-2.csv");
 const driftedPath = resolve(root, "synthetic-sales-drifted.csv");
 const targetsPath = resolve(root, "synthetic-targets.csv");
 const exportPath = resolve(root, "safe-export.csv");
+const backupPath = resolve(root, "local-data.bubu-backup");
 const executable = resolve("services", "data-core", "bin", "bubu-data-core");
 const auth = randomBytes(32).toString("hex");
 let stderr = "";
@@ -359,6 +362,30 @@ try {
     throw new Error("Dataset deletion left stale catalog or group state");
   }
 
+  const backupRaw = await request("data.backup.create", { targetPath: backupPath });
+  const backup = parseDataBackupResult(backupRaw);
+  if (JSON.stringify(backupRaw).includes(backupPath) || backup.datasetCount !== 1 || backup.groupCount !== 0) {
+    throw new Error("Local backup disclosed its destination or reported stale catalog counts");
+  }
+  await request("dataset.delete", { datasetId: dataset.id });
+  if (parseDatasetList(await request("dataset.list", {})).length !== 0) {
+    throw new Error("Pre-restore mutation did not empty the local catalog");
+  }
+  const restoreRaw = await request("data.backup.restore", { sourcePath: backupPath });
+  const restore = parseDataRestoreResult(restoreRaw);
+  const restoredDatasets = parseDatasetList(await request("dataset.list", {}));
+  const restoredConversation = parseConversationThread(
+    await request("conversation.get", { target: conversationTarget }),
+  );
+  if (
+    JSON.stringify(restoreRaw).includes(backupPath) ||
+    restore.backupCreatedAt !== backup.backupCreatedAt ||
+    restoredDatasets[0]?.id !== dataset.id ||
+    restoredConversation.entries.length !== 3
+  ) {
+    throw new Error("Verified backup restore did not recover the private local workspace");
+  }
+
   child.stdin.end();
   const exitCode = await new Promise((resolveExit, rejectExit) => {
     child.once("error", rejectExit);
@@ -372,13 +399,13 @@ try {
     throw new Error(`Database permissions are ${(database.mode & 0o777).toString(8)}, want 600`);
   }
   const databaseBytes = await readFile(databasePath);
-  for (const privatePath of [sourcePath, replacementPath, driftedPath, targetsPath]) {
+  for (const privatePath of [sourcePath, replacementPath, driftedPath, targetsPath, backupPath]) {
     if (databaseBytes.includes(Buffer.from(privatePath))) {
       throw new Error("Database persisted an absolute source path");
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

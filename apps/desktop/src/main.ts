@@ -151,7 +151,7 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         return resolve({ ok: false, missing: ["模型设置按钮"] });
       }
       settingsButton.click();
-      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置"];
+      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置", "本地备份与恢复", "创建本地数据备份", "从备份恢复"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;

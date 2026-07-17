@@ -53,6 +53,8 @@ Every imported dataset starts at version 1. Replacing a dataset with the same no
 
 CSV export resolves the current ready version and streams it to a same-directory restricted temporary file. A UTF-8 BOM supports Excel interoperability, while text-shaped formula prefixes are neutralized without changing numeric negatives. The final response contains a base name rather than an absolute path. Permanent deletion first collects internally generated physical table names, then deletes dependent conversations/undersized groups, deletes the stable dataset identity, repairs surviving groups, drops every version table, and commits as one SQLite transaction. Membership is bounded to 100 groups per dataset so its deletion artifact is bounded as well.
 
+Local backup uses `VACUUM INTO` to create a consistent standalone snapshot, then streams it into a strict two-entry `.bubu-backup` container with a SHA-256-bound manifest. Restore stages and validates the complete artifact before closing the live connection. It rejects unknown schema objects, views/triggers, invalid migrations or foreign keys, incomplete versions, persisted source locators, and bounded-state violations. Installation keeps the prior database under a restricted rollback name until the restored database opens and migrates successfully; startup also repairs an interrupted swap.
+
 ## Safe analytical queries
 
 The data core accepts a versioned typed query plan, never SQL text. A plan can select up to eight dimensions and eight measures, apply up to twenty allow-listed filters, sort up to three selected outputs, and return at most 200 rows. Supported measures are count, sum, average, minimum, and maximum. All dataset/column references must match the current immutable version.
@@ -86,7 +88,8 @@ Only validated internal table/physical-column names enter generated SQL. Filter 
 - Deterministic relationship discovery, directional persistence, current-version invalidation, strict RPC decoding, and schema-only ready-relationship model hints.
 - Streaming current-version CSV export, UTF-8/Excel formula hardening, restricted file permissions, path-private typed results, and built-sidecar smoke.
 - Transactional permanent deletion of all version tables and dependent private state, bounded group repair, native destructive confirmation, and integration tests.
+- Consistent local snapshot archive, strict hash/schema/privacy restore validation, destructive native confirmation, database rollback, interrupted-swap recovery, and round-trip integration/binary smoke.
 
 ## Not implemented yet
 
-Richer distributions, backup/recovery, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.
+Richer distributions, cancellation, and reference-device 100 MB performance measurement remain Stage 2 work. The product manifest must keep these capabilities planned or in progress until their runtime, tests, and documentation agree.

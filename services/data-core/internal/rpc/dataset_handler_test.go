@@ -19,6 +19,8 @@ type fakeDatasets struct {
 	exportedID        string
 	exportedPath      string
 	deletedID         string
+	backupPath        string
+	restorePath       string
 }
 
 func (fake *fakeDatasets) SaveGroup(

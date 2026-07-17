@@ -60,6 +60,8 @@ type DatasetService interface {
 	SaveValidationRules(ctx context.Context, datasetID string, rules []data.ValidationRule) (data.DatasetQualityReport, error)
 	ExportDatasetCSV(ctx context.Context, datasetID string, targetPath string) (data.DatasetExportResult, error)
 	DeleteDataset(ctx context.Context, datasetID string) (data.DatasetDeletionResult, error)
+	CreateBackup(ctx context.Context, targetPath string) (data.DataBackupResult, error)
+	RestoreBackup(ctx context.Context, sourcePath string) (data.DataRestoreResult, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
@@ -94,6 +96,8 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 				"dataset-catalog",
 				"excel-safe-csv-export",
 				"permanent-dataset-deletion",
+				"verified-local-backup",
+				"transactional-backup-restore",
 				"preview",
 				"version-replacement",
 				"schema-drift",
@@ -117,6 +121,9 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
 	}
 	if response, handled := handleDatasetLifecycle(ctx, request, datasets); handled {
+		return response
+	}
+	if response, handled := handleDataProtection(ctx, request, datasets); handled {
 		return response
 	}
 
