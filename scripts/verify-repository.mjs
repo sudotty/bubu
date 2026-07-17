@@ -95,6 +95,10 @@ for (const required of [
   "os-encrypted-provider-credentials: implemented",
   "provider-connection-test: implemented",
   "provider-request-adapters: implemented",
+  "safe-query-plan: implemented",
+  "natural-language-query-planning: implemented",
+  "visible-query-approval: implemented",
+  "local-bounded-query-execution: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

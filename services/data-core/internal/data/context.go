@@ -9,6 +9,7 @@ import (
 )
 
 const syntheticRowCount = 3
+const maximumModelContextColumns = 256
 
 func (service *Service) ModelContext(
 	ctx context.Context,
@@ -36,6 +37,9 @@ WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&versionID)
 	profiles, _, err := service.loadColumns(ctx, versionID)
 	if err != nil {
 		return ModelContextResult{}, err
+	}
+	if len(profiles) > maximumModelContextColumns {
+		return ModelContextResult{}, fmt.Errorf("dataset has more than %d columns; select a narrower dataset before AI analysis", maximumModelContextColumns)
 	}
 	columns := make([]ModelContextColumn, len(profiles))
 	for index, profile := range profiles {

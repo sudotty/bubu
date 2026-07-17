@@ -11,6 +11,10 @@ import {
   type ProviderConnectionResult,
   type ProviderId,
   type ProviderRegistryState,
+  type QueryPlanProposal,
+  type QueryPlanRequest,
+  type SafeQueryPlan,
+  type SafeQueryResult,
   type ProductReadiness,
 } from "./shared/product-api.js";
 
@@ -39,6 +43,12 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.removeProvider, providerId) as Promise<ProviderRegistryState>,
     test: (providerId: ProviderId) =>
       ipcRenderer.invoke(desktopChannels.testProvider, providerId) as Promise<ProviderConnectionResult>,
+  },
+  analysis: {
+    propose: (value: QueryPlanRequest) =>
+      ipcRenderer.invoke(desktopChannels.proposeQueryPlan, value) as Promise<QueryPlanProposal>,
+    execute: (plan: SafeQueryPlan) =>
+      ipcRenderer.invoke(desktopChannels.executeQueryPlan, plan) as Promise<SafeQueryResult>,
   },
 };
 
