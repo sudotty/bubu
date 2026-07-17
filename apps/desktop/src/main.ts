@@ -20,6 +20,7 @@ import { createProviderStore } from "./main/provider-store.js";
 import { registerDesktopApi } from "./main/desktop-api.js";
 import { startWorkflowTriggerScheduler } from "./main/workflow-trigger-scheduler.js";
 import { createMcpConnectionStore } from "./main/mcp-connection-store.js";
+import { createMcpAuditStore } from "./main/mcp-audit-store.js";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -155,7 +156,7 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         return resolve({ ok: false, missing: ["模型设置按钮"] });
       }
       settingsButton.click();
-      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置", "MCP 连接", "只保存，不启动", "本地备份与恢复", "创建本地数据备份", "从备份恢复"];
+      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置", "MCP 连接", "只保存，不启动", "MCP 本地审计", "本地备份与恢复", "创建本地数据备份", "从备份恢复"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;
@@ -192,10 +193,14 @@ void app
       directory: join(launchMode.dataDirectory, "mcp"),
       cipher: credentialCipher,
     });
+    const mcpAuditStore = createMcpAuditStore({
+      directory: join(launchMode.dataDirectory, "mcp", "audits"),
+    });
     registerDesktopApi({
       sidecars,
       providerStore,
       mcpConnectionStore,
+      mcpAuditStore,
       mcpRuntimeDirectory: join(launchMode.dataDirectory, "mcp", "runtimes"),
       developmentServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
     });

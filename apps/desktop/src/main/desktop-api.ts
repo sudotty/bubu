@@ -34,11 +34,15 @@ import { generateAuditedModel } from "./model-audit.js";
 import type { McpConnectionStore } from "./mcp-connection-store.js";
 import { createMcpInspectionApprovalSessionStore } from "./mcp-inspection-approval-sessions.js";
 import { registerMcpApi } from "./mcp-api.js";
+import type { McpAuditStore } from "./mcp-audit-store.js";
+import { createMcpResourceApprovalSessionStore } from "./mcp-resource-approval-sessions.js";
+import { registerMcpResourceApi } from "./mcp-resource-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
   readonly providerStore: ProviderStore;
   readonly mcpConnectionStore: McpConnectionStore;
+  readonly mcpAuditStore: McpAuditStore;
   readonly mcpRuntimeDirectory: string;
   readonly developmentServerUrl: string | undefined;
 }
@@ -47,6 +51,7 @@ export function registerDesktopApi({
   sidecars,
   providerStore,
   mcpConnectionStore,
+  mcpAuditStore,
   mcpRuntimeDirectory,
   developmentServerUrl,
 }: DesktopApiDependencies): void {
@@ -67,6 +72,10 @@ export function registerDesktopApi({
     now: Date.now,
     newToken: () => randomBytes(32).toString("hex"),
   });
+  const mcpResourceApprovals = createMcpResourceApprovalSessionStore({
+    now: Date.now,
+    newToken: () => randomBytes(32).toString("hex"),
+  });
   const assertTrustedSender = (frameUrl: string) => {
     if (!isTrustedFrameUrl(frameUrl, developmentServerUrl)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
@@ -83,6 +92,15 @@ export function registerDesktopApi({
     sidecars,
     connections: mcpConnectionStore,
     approvals: mcpInspectionApprovals,
+    operations,
+    runtimeDirectory: mcpRuntimeDirectory,
+    assertTrustedSender,
+  });
+  registerMcpResourceApi({
+    sidecars,
+    connections: mcpConnectionStore,
+    approvals: mcpResourceApprovals,
+    audits: mcpAuditStore,
     operations,
     runtimeDirectory: mcpRuntimeDirectory,
     assertTrustedSender,

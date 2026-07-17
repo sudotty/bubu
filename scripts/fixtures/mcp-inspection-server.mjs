@@ -37,7 +37,18 @@ server.registerResource(
   { title: "Definitions", description: "Available business terms", mimeType: "application/json" },
   async (uri) => {
     recordInvocation("resource");
-    return { contents: [{ uri: uri.href, text: "{}", mimeType: "application/json" }] };
+    return { contents: [
+      {
+        uri: uri.href,
+        text: "{\"gross_margin\":\"Revenue minus cost\"}",
+        mimeType: "application/json",
+      },
+      {
+        uri: "bubu-dictionary://icon",
+        blob: Buffer.from("binary fixture", "utf8").toString("base64"),
+        mimeType: "application/octet-stream",
+      },
+    ] };
   },
 );
 

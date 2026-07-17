@@ -3,10 +3,14 @@ import {
   createRpcSuccess,
   parseMcpInspectionInvocation,
   parseMcpInspectionSnapshot,
+  parseMcpResourceReadInvocation,
+  parseMcpResourceReadResult,
   parseModelInvocation,
   parseRpcRequest,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
+  type McpResourceReadInvocation,
+  type McpResourceReadResult,
   type RpcResponse,
 } from "@bubu/contracts";
 import {
@@ -14,12 +18,17 @@ import {
   ProviderInvocationError,
   type ProviderFetch,
 } from "./providers/invoke.js";
-import { inspectMcpStdioServer } from "./mcp/client.js";
+import { inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
 
 export type McpInspector = (
   invocation: McpInspectionInvocation,
   signal?: AbortSignal,
 ) => Promise<McpInspectionSnapshot>;
+
+export type McpResourceReader = (
+  invocation: McpResourceReadInvocation,
+  signal?: AbortSignal,
+) => Promise<McpResourceReadResult>;
 
 const capabilities = [
   "openai-responses",
@@ -30,6 +39,7 @@ const capabilities = [
   "bounded-http",
   "cancellable-requests",
   "mcp-stdio-inspection",
+  "mcp-resource-read",
 ] as const;
 
 export async function handleAiRuntimeRequest(
@@ -38,6 +48,7 @@ export async function handleAiRuntimeRequest(
   fetchProvider?: ProviderFetch,
   signal?: AbortSignal,
   inspectMcp: McpInspector = inspectMcpStdioServer,
+  readMcpResource: McpResourceReader = readMcpStdioResource,
 ): Promise<RpcResponse> {
   let request;
   try {
@@ -100,6 +111,27 @@ export async function handleAiRuntimeRequest(
       }
       const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP server inspection failed";
       return createRpcError(request.id, "MCP_INSPECTION_FAILED", message || "MCP server inspection failed", false);
+    }
+  }
+
+  if (request.method === "mcp.resource.read") {
+    let invocation;
+    try {
+      invocation = parseMcpResourceReadInvocation(request.params);
+    } catch {
+      return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid MCP resource read invocation", false);
+    }
+    try {
+      return createRpcSuccess(
+        request.id,
+        parseMcpResourceReadResult(await readMcpResource(invocation, signal)),
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      }
+      const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP resource read failed";
+      return createRpcError(request.id, "MCP_RESOURCE_READ_FAILED", message || "MCP resource read failed", false);
     }
   }
 

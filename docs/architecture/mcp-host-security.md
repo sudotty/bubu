@@ -1,10 +1,10 @@
 # MCP host security contract
 
-Status: Local stdio connection persistence, explicit process-launch consent, lifecycle negotiation, and bounded tools/resources/prompts discovery are implemented. MCP primitive use, model/Agent/workflow registration, remote Streamable HTTP, OAuth, roots, subscriptions, sampling, and elicitation are not enabled.
+Status: Local stdio connection persistence, explicit process-launch consent, lifecycle negotiation, bounded tools/resources/prompts discovery, and one exact approved local-only resource read are implemented. MCP prompt/tool use, model/Agent/workflow registration, remote Streamable HTTP, OAuth, roots, templates, subscriptions, sampling, and elicitation are not enabled.
 
 ## Host and process boundary
 
-BuBu is the MCP host. One inspected server receives one isolated official-SDK client connection in the Node AI utility process. The renderer cannot address the utility process, create JSON-RPC messages, choose an MCP method, run a command, or invoke a primitive. Electron main alone resolves the stored connection, owns encrypted secrets, issues a one-use capability, and routes the named inspection operation through authenticated local RPC.
+BuBu is the MCP host. Each approved inspection or resource read receives one short-lived official-SDK client connection in the Node AI utility process. The renderer cannot address the utility process, create JSON-RPC messages, choose an MCP method, run a command, or invoke an arbitrary primitive. Electron main alone resolves the stored connection, owns encrypted secrets, issues one-use capabilities, writes local audit records, and routes named operations through authenticated local RPC.
 
 The production dependency is the pinned official `@modelcontextprotocol/sdk` v1.29.0. The v2 SDK remains pre-release, so BuBu targets MCP 2025-11-25 through the supported v1 client rather than generating a private protocol implementation.
 
@@ -34,6 +34,14 @@ Inspection is bounded to 30 seconds, five pages and 100 items per primitive, a 1
 
 Server identity, instructions, titles, descriptions, annotations, schemas, URIs, and argument descriptions are untrusted. They are normalized through strict contracts and rendered only as escaped text. Tool annotations are displayed for orientation but never treated as proof that a tool is read-only, safe, idempotent, or closed-world.
 
+## Approved local resource read
+
+The user can choose only a resource shown by the current bounded inspection UI; there is no arbitrary URI field. Preparing the read performs no process I/O and returns a second review with the canonical executable, every argument, environment key names, exact URI, expiry, and fixed limits. A separate 256-bit, ten-minute, one-use capability is consumed before I/O. Its in-memory launch fingerprint includes decrypted values so any secret/profile/request drift fails, while the persisted audit fingerprint deliberately excludes values and includes only the public exact request.
+
+After approval, the utility starts a fresh connection, re-lists at most five pages and 100 resources, requires an exact URI match, and calls `resources/read` once. It accepts at most 20 returned parts and 256 KiB decoded total within 30 seconds. Text crosses into the renderer only as escaped text. Canonical base64 blobs are decoded and hashed inside the utility, then only URI, MIME type, decoded size, and SHA-256 cross the boundary. Server `_meta`, stderr, frames, blob bytes, and content above budget are rejected or discarded; nothing enters a model, conversation, Agent, workflow, or file write.
+
+Electron stores each start and at most one success/failure outcome as separate immutable `0600` files below `0700` directories. The audit contains connection identity, operation, URI, secret-free request fingerprint, timestamps, terminal code, part count, and byte count, but no environment value or resource content. A start without an outcome is surfaced as interrupted after restart.
+
 ## Deliberately unavailable authority
 
-No MCP capability is registered with the aggregate Agent, model providers, conversations, or workflows. The presence of a discovered tool does not authorize execution, data disclosure, file access, network access, or side effects. The next MCP slice must add its own typed invocation contract, policy classification, exact input/output disclosure preview, one-use approval, audit trail, timeout, result budget, and server/profile drift check before any primitive can be used.
+No MCP capability is registered with the aggregate Agent, model providers, conversations, or workflows. A completed resource read remains local display data and does not authorize later disclosure. The presence of a discovered tool or prompt does not authorize execution, data disclosure, file access, network access, or side effects. Every future prompt/tool/model/workflow slice must add its own typed invocation contract, policy classification, exact input/output disclosure preview, one-use approval, audit trail, timeout, result budget, and server/profile drift check.

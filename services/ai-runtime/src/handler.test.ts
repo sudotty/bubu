@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRpcRequest, mcpInspectionBudget, parseServiceHealth } from "@bubu/contracts";
+import { createRpcRequest, mcpInspectionBudget, mcpResourceReadBudget, parseServiceHealth } from "@bubu/contracts";
 import { handleAiRuntimeRequest } from "./handler.js";
 
 const auth = "a".repeat(64);
@@ -26,6 +26,7 @@ describe("AI runtime request handler", () => {
         "bounded-http",
         "cancellable-requests",
         "mcp-stdio-inspection",
+        "mcp-resource-read",
       ],
     });
   });
@@ -112,6 +113,46 @@ describe("AI runtime request handler", () => {
 
     const invalid = await handleAiRuntimeRequest(
       createRpcRequest({ auth, id: "mcp-2", method: "mcp.inspect", params: { command: "npx" } }),
+      auth,
+    );
+    expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });
+  });
+
+  it("executes only a parsed MCP resource invocation through the named reader", async () => {
+    const invocation = {
+      connectionId: "b".repeat(32),
+      command: "/opt/bubu-mcp/bin/server",
+      args: ["--stdio"],
+      environment: {},
+      workingDirectory: "/tmp/bubu-mcp-runtime",
+      resourceUri: "bubu-dictionary://definitions",
+      budget: mcpResourceReadBudget,
+    };
+    const response = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-resource-1", method: "mcp.resource.read", params: invocation }),
+      auth,
+      undefined,
+      undefined,
+      undefined,
+      async (parsed) => ({
+        schemaVersion: 1,
+        connectionId: parsed.connectionId,
+        requestedUri: parsed.resourceUri,
+        contents: [{
+          kind: "text",
+          uri: parsed.resourceUri,
+          text: "local content",
+          decodedBytes: 13,
+        }],
+        decodedBytes: 13,
+        localOnly: true,
+        untrustedContent: true,
+      }),
+    );
+    expect(response).toMatchObject({ ok: true, result: { requestedUri: invocation.resourceUri } });
+
+    const invalid = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-resource-2", method: "mcp.resource.read", params: { resourceUri: "x" } }),
       auth,
     );
     expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });

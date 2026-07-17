@@ -223,6 +223,157 @@ export const mcpInspectionSnapshotSchema = z.object({
   }
 });
 
+export const mcpResourceReadBudget = Object.freeze({
+  maxDurationMs: 30_000 as const,
+  maxDiscoveryPages: 5 as const,
+  maxDiscoveredResources: 100 as const,
+  maxContentParts: 20 as const,
+  maxDecodedBytes: 262_144 as const,
+  maxResultBytes: 393_216 as const,
+});
+
+export const mcpResourceReadBudgetSchema = z.object({
+  maxDurationMs: z.literal(mcpResourceReadBudget.maxDurationMs),
+  maxDiscoveryPages: z.literal(mcpResourceReadBudget.maxDiscoveryPages),
+  maxDiscoveredResources: z.literal(mcpResourceReadBudget.maxDiscoveredResources),
+  maxContentParts: z.literal(mcpResourceReadBudget.maxContentParts),
+  maxDecodedBytes: z.literal(mcpResourceReadBudget.maxDecodedBytes),
+  maxResultBytes: z.literal(mcpResourceReadBudget.maxResultBytes),
+}).strict();
+
+export const mcpResourceReadRequestSchema = z.object({
+  connectionId: mcpConnectionIdSchema,
+  resourceUri: boundedUriSchema,
+}).strict();
+
+export const mcpResourceReadProposalSchema = z.object({
+  approvalToken: approvalTokenSchema,
+  expiresAt: z.string().datetime({ offset: true }),
+  connection: approvedMcpConnectionSchema,
+  resourceUri: boundedUriSchema,
+  budget: mcpResourceReadBudgetSchema,
+  warning: z.literal("untrusted-local-code-and-content"),
+}).strict();
+
+export const mcpResourceReadApprovalSchema = z.object({
+  approvalToken: approvalTokenSchema,
+}).strict();
+
+export const mcpResourceReadInvocationSchema = z.object({
+  connectionId: mcpConnectionIdSchema,
+  command: mcpDirectExecutableSchema,
+  args: z.array(mcpArgumentSchema).max(maximumMcpArguments),
+  environment: mcpResolvedEnvironmentSchema,
+  workingDirectory: absolutePathSchema,
+  resourceUri: boundedUriSchema,
+  budget: mcpResourceReadBudgetSchema,
+}).strict();
+
+const resourceMimeTypeSchema = z.string().trim().min(1).max(200);
+const resourceTextContentSchema = z.object({
+  kind: z.literal("text"),
+  uri: boundedUriSchema,
+  mimeType: resourceMimeTypeSchema.optional(),
+  text: z.string().max(mcpResourceReadBudget.maxDecodedBytes),
+  decodedBytes: z.number().int().nonnegative().max(mcpResourceReadBudget.maxDecodedBytes),
+}).strict().superRefine((value, context) => {
+  if (new TextEncoder().encode(value.text).byteLength !== value.decodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP text decoded-byte count is invalid" });
+  }
+});
+const resourceBlobMetadataSchema = z.object({
+  kind: z.literal("blob"),
+  uri: boundedUriSchema,
+  mimeType: resourceMimeTypeSchema.optional(),
+  decodedBytes: z.number().int().nonnegative().max(mcpResourceReadBudget.maxDecodedBytes),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+}).strict();
+
+export const mcpResourceReadResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  connectionId: mcpConnectionIdSchema,
+  requestedUri: boundedUriSchema,
+  contents: z.array(z.discriminatedUnion("kind", [resourceTextContentSchema, resourceBlobMetadataSchema]))
+    .max(mcpResourceReadBudget.maxContentParts),
+  decodedBytes: z.number().int().nonnegative().max(mcpResourceReadBudget.maxDecodedBytes),
+  localOnly: z.literal(true),
+  untrustedContent: z.literal(true),
+}).strict().superRefine((value, context) => {
+  const decodedBytes = value.contents.reduce((total, content) => total + content.decodedBytes, 0);
+  if (decodedBytes !== value.decodedBytes || decodedBytes > mcpResourceReadBudget.maxDecodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP resource exceeds its decoded-content budget" });
+  }
+  if (new TextEncoder().encode(JSON.stringify(value)).byteLength > mcpResourceReadBudget.maxResultBytes) {
+    context.addIssue({ code: "custom", message: "MCP resource result exceeds its serialized-byte budget" });
+  }
+});
+
+const mcpAuditIdSchema = z.string().uuid();
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
+const mcpAuditErrorCodeSchema = z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/u);
+
+export const mcpAuditStartSchema = z.object({
+  auditId: mcpAuditIdSchema,
+  connectionId: mcpConnectionIdSchema,
+  connectionName: z.string().trim().min(1).max(100),
+  operation: z.literal("resource-read"),
+  resourceUri: boundedUriSchema,
+  requestFingerprint: sha256Schema,
+  startedAt: z.string().datetime({ offset: true }),
+}).strict();
+
+const mcpAuditSuccessOutcomeSchema = z.object({
+  auditId: mcpAuditIdSchema,
+  status: z.literal("succeeded"),
+  completedAt: z.string().datetime({ offset: true }),
+  contentParts: z.number().int().nonnegative().max(mcpResourceReadBudget.maxContentParts),
+  decodedBytes: z.number().int().nonnegative().max(mcpResourceReadBudget.maxDecodedBytes),
+}).strict();
+const mcpAuditFailureOutcomeSchema = z.object({
+  auditId: mcpAuditIdSchema,
+  status: z.literal("failed"),
+  completedAt: z.string().datetime({ offset: true }),
+  errorCode: mcpAuditErrorCodeSchema,
+}).strict();
+export const mcpAuditOutcomeSchema = z.discriminatedUnion("status", [
+  mcpAuditSuccessOutcomeSchema,
+  mcpAuditFailureOutcomeSchema,
+]);
+
+const mcpAuditEventBase = mcpAuditStartSchema.omit({ auditId: true });
+const mcpAuditSucceededEventSchema = mcpAuditEventBase.extend({
+  auditId: mcpAuditIdSchema,
+  status: z.literal("succeeded"),
+  completedAt: z.string().datetime({ offset: true }),
+  contentParts: z.number().int().nonnegative().max(mcpResourceReadBudget.maxContentParts),
+  decodedBytes: z.number().int().nonnegative().max(mcpResourceReadBudget.maxDecodedBytes),
+}).strict();
+const mcpAuditFailedEventSchema = mcpAuditEventBase.extend({
+  auditId: mcpAuditIdSchema,
+  status: z.literal("failed"),
+  completedAt: z.string().datetime({ offset: true }),
+  errorCode: mcpAuditErrorCodeSchema,
+}).strict();
+const mcpAuditInterruptedEventSchema = mcpAuditEventBase.extend({
+  auditId: mcpAuditIdSchema,
+  status: z.literal("interrupted"),
+}).strict();
+const mcpAuditInProgressEventSchema = mcpAuditEventBase.extend({
+  auditId: mcpAuditIdSchema,
+  status: z.literal("in-progress"),
+}).strict();
+export const mcpAuditEventSchema = z.discriminatedUnion("status", [
+  mcpAuditSucceededEventSchema,
+  mcpAuditFailedEventSchema,
+  mcpAuditInterruptedEventSchema,
+  mcpAuditInProgressEventSchema,
+]);
+export const mcpAuditEventsSchema = z.array(mcpAuditEventSchema).max(100).superRefine((events, context) => {
+  if (new Set(events.map(({ auditId }) => auditId)).size !== events.length) {
+    context.addIssue({ code: "custom", message: "MCP audit identifiers must be unique" });
+  }
+});
+
 export type McpConnectionId = z.infer<typeof mcpConnectionIdSchema>;
 export type McpConnectionConfigurationInput = z.infer<typeof mcpConnectionConfigurationInputSchema>;
 export type McpConnectionProfile = z.infer<typeof mcpConnectionProfileSchema>;
@@ -232,6 +383,14 @@ export type McpInspectionApproval = z.infer<typeof mcpInspectionApprovalSchema>;
 export type McpInspectionInvocation = z.infer<typeof mcpInspectionInvocationSchema>;
 export type McpInspectionSnapshot = z.infer<typeof mcpInspectionSnapshotSchema>;
 export type McpResolvedEnvironment = z.infer<typeof mcpResolvedEnvironmentSchema>;
+export type McpResourceReadRequest = z.infer<typeof mcpResourceReadRequestSchema>;
+export type McpResourceReadProposal = z.infer<typeof mcpResourceReadProposalSchema>;
+export type McpResourceReadApproval = z.infer<typeof mcpResourceReadApprovalSchema>;
+export type McpResourceReadInvocation = z.infer<typeof mcpResourceReadInvocationSchema>;
+export type McpResourceReadResult = z.infer<typeof mcpResourceReadResultSchema>;
+export type McpAuditStart = z.infer<typeof mcpAuditStartSchema>;
+export type McpAuditOutcome = z.infer<typeof mcpAuditOutcomeSchema>;
+export type McpAuditEvent = z.infer<typeof mcpAuditEventSchema>;
 
 export function parseMcpConnectionId(value: unknown): McpConnectionId {
   return mcpConnectionIdSchema.parse(value);
@@ -239,6 +398,38 @@ export function parseMcpConnectionId(value: unknown): McpConnectionId {
 
 export function parseMcpConnectionConfigurationInput(value: unknown): McpConnectionConfigurationInput {
   return mcpConnectionConfigurationInputSchema.parse(value);
+}
+
+export function parseMcpResourceReadRequest(value: unknown): McpResourceReadRequest {
+  return mcpResourceReadRequestSchema.parse(value);
+}
+
+export function parseMcpResourceReadProposal(value: unknown): McpResourceReadProposal {
+  return mcpResourceReadProposalSchema.parse(value);
+}
+
+export function parseMcpResourceReadApproval(value: unknown): McpResourceReadApproval {
+  return mcpResourceReadApprovalSchema.parse(value);
+}
+
+export function parseMcpResourceReadInvocation(value: unknown): McpResourceReadInvocation {
+  return mcpResourceReadInvocationSchema.parse(value);
+}
+
+export function parseMcpResourceReadResult(value: unknown): McpResourceReadResult {
+  return mcpResourceReadResultSchema.parse(value);
+}
+
+export function parseMcpAuditStart(value: unknown): McpAuditStart {
+  return mcpAuditStartSchema.parse(value);
+}
+
+export function parseMcpAuditOutcome(value: unknown): McpAuditOutcome {
+  return mcpAuditOutcomeSchema.parse(value);
+}
+
+export function parseMcpAuditEvents(value: unknown): readonly McpAuditEvent[] {
+  return mcpAuditEventsSchema.parse(value);
 }
 
 export function parseMcpConnectionProfile(value: unknown): McpConnectionProfile {
