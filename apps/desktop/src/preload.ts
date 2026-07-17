@@ -3,6 +3,8 @@ import {
   desktopChannels,
   type BuBuDesktopApi,
   type ConversationTarget,
+  type DataBackupSelectionResult,
+  type DataRestoreSelectionResult,
   type ConversationThread,
   type DatasetPreview,
   type DatasetPreviewRequest,
@@ -71,6 +73,12 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.removeProvider, providerId) as Promise<ProviderRegistryState>,
     test: (providerId: ProviderId) =>
       ipcRenderer.invoke(desktopChannels.testProvider, providerId) as Promise<ProviderConnectionResult>,
+  },
+  dataProtection: {
+    createBackup: () =>
+      ipcRenderer.invoke(desktopChannels.createBackup) as Promise<DataBackupSelectionResult>,
+    restoreBackup: () =>
+      ipcRenderer.invoke(desktopChannels.restoreBackup) as Promise<DataRestoreSelectionResult>,
   },
   analysis: {
     propose: (value: QueryPlanRequest) =>

@@ -49,6 +49,9 @@ capabilities:
   excel-safe-csv-export: implemented
   permanent-dataset-deletion: implemented
   group-repair-on-dataset-delete: implemented
+  consistent-local-backup: implemented
+  verified-backup-restore: implemented
+  crash-safe-database-restore: implemented
   group-natural-language-query-planning: implemented
   group-query-approval: implemented
   privacy-gateway: in-progress

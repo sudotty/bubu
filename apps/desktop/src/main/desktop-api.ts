@@ -32,6 +32,7 @@ import { isTrustedFrameUrl } from "./security.js";
 import type { SidecarSupervisor } from "./sidecars.js";
 import { createReplacementSessionStore } from "./replacement-sessions.js";
 import { registerDatasetLifecycleApi } from "./dataset-lifecycle-api.js";
+import { registerBackupApi } from "./backup-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -72,6 +73,7 @@ export function registerDesktopApi({
   };
 
   registerDatasetLifecycleApi({ sidecars, assertTrustedSender });
+  registerBackupApi({ sidecars, assertTrustedSender });
 
   ipcMain.handle(desktopChannels.getReadiness, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

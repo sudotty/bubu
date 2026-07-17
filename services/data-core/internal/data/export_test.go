@@ -21,6 +21,9 @@ func TestExportDatasetCSVStreamsAnExcelSafeCurrentVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(output, []byte("stale export"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	result, err := service.ExportDatasetCSV(context.Background(), imported.Datasets[0].ID, output)
 	if err != nil {
 		t.Fatal(err)

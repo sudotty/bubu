@@ -21,6 +21,7 @@ const requiredFiles = [
   "docs/product/data-quality-and-validation.md",
   "docs/product/dataset-groups-and-relationships.md",
   "docs/product/exporting-and-deleting.md",
+  "docs/product/backup-and-recovery.md",
   "docs/product/querying-and-visualizations.md",
 ];
 
@@ -117,6 +118,9 @@ for (const required of [
   "excel-safe-csv-export: implemented",
   "permanent-dataset-deletion: implemented",
   "group-repair-on-dataset-delete: implemented",
+  "consistent-local-backup: implemented",
+  "verified-backup-restore: implemented",
+  "crash-safe-database-restore: implemented",
   "group-natural-language-query-planning: implemented",
   "group-query-approval: implemented",
   "local-result-visualizations: implemented",

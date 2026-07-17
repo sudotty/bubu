@@ -5,6 +5,7 @@ import type {
   DatasetSummary,
 } from "../shared/product-api.js";
 import { ProviderSettings } from "./ProviderSettings.js";
+import { DataProtectionPanel } from "./DataProtectionPanel.js";
 import { DatasetGroupWorkspace } from "./DatasetGroupWorkspace.js";
 import {
   DatasetWorkspace,
@@ -217,6 +218,18 @@ export function App() {
     }
   }
 
+  async function reloadCatalogAfterRestore(): Promise<void> {
+    const [nextDatasets, nextGroups] = await Promise.all([
+      window.bubu.datasets.list(),
+      window.bubu.datasetGroups.list(),
+    ]);
+    setDatasets(nextDatasets);
+    setGroups(nextGroups);
+    setSelectedDatasetId(nextDatasets[0]?.id);
+    setSelectedGroupId(nextGroups[0]?.id);
+    setPendingMapping(undefined);
+  }
+
   return (
     <main className="shell">
       <aside className="rail" aria-label="主导航">
@@ -325,7 +338,12 @@ export function App() {
         </header>
 
         <div className="conversation">
-          {view === "settings" && <ProviderSettings />}
+          {view === "settings" && (
+            <>
+              <ProviderSettings />
+              <DataProtectionPanel onRestored={reloadCatalogAfterRestore} />
+            </>
+          )}
           {view === "groups" && (
             <DatasetGroupWorkspace
               group={selectedGroup}

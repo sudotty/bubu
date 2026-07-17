@@ -173,6 +173,47 @@ const lifecycleApi = read("apps/desktop/src/main/dataset-lifecycle-api.ts");
 for (const invariant of ["dialog.showSaveDialog", "dialog.showMessageBox", "showOverwriteConfirmation", "此操作无法撤销"]) {
   if (!lifecycleApi.includes(invariant)) failures.push(`desktop lifecycle boundary missing: ${invariant}`);
 }
+
+const dataBackup = read("services/data-core/internal/data/backup.go");
+for (const invariant of [
+  '"VACUUM main INTO ?"',
+  "DatabaseSHA256:  digest",
+  "copyWithContext(ctx, databaseEntry, snapshot)",
+  "temporary.Chmod(0o600)",
+]) {
+  if (!dataBackup.includes(invariant)) failures.push(`local backup invariant missing: ${invariant}`);
+}
+const windowsFileReplacement = read("services/data-core/internal/data/replace_file_windows.go");
+for (const invariant of ["windows.MoveFileEx", "windows.MOVEFILE_REPLACE_EXISTING", "windows.MOVEFILE_WRITE_THROUGH"]) {
+  if (!windowsFileReplacement.includes(invariant)) failures.push(`Windows atomic file replacement missing: ${invariant}`);
+}
+const backupValidation = read("services/data-core/internal/data/backup_validation.go");
+for (const invariant of [
+  '"PRAGMA integrity_check"',
+  '"PRAGMA foreign_key_check"',
+  'objectType',
+  'source_locator <> \'\'',
+  "maximumConversationEntries",
+]) {
+  if (!backupValidation.includes(invariant)) failures.push(`backup validation invariant missing: ${invariant}`);
+}
+const dataRestore = read("services/data-core/internal/data/restore.go");
+for (const invariant of [
+  "strictBackupEntries(archive.File)",
+  "manifest.DatabaseSHA256",
+  'service.databasePath + ".restore-rollback"',
+  "service.rollbackDatabaseRestore",
+]) {
+  if (!dataRestore.includes(invariant)) failures.push(`backup restore invariant missing: ${invariant}`);
+}
+const backupContract = read("packages/contracts/src/backup.ts");
+if (!backupContract.includes("Only a backup file name may cross into the renderer")) {
+  failures.push("backup contract exposes more than a safe file name");
+}
+const backupApi = read("apps/desktop/src/main/backup-api.ts");
+for (const invariant of ["dialog.showSaveDialog", "dialog.showOpenDialog", "dialog.showMessageBox", "验证并恢复"]) {
+  if (!backupApi.includes(invariant)) failures.push(`desktop backup boundary missing: ${invariant}`);
+}
 const analysisOrchestrator = read("apps/desktop/src/main/analysis-orchestrator.ts");
 for (const invariant of [
   'relationship.status !== "ready"',

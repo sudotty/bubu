@@ -1,5 +1,7 @@
 import type {
   ConversationTarget,
+  DataBackupSelectionResult,
+  DataRestoreSelectionResult,
   ConversationThread,
   DatasetGroup,
   DatasetGroupId,
@@ -37,6 +39,8 @@ export const desktopChannels = {
   importDatasets: "bubu:datasets:import",
   exportDataset: "bubu:datasets:export",
   deleteDataset: "bubu:datasets:delete",
+  createBackup: "bubu:data-protection:create-backup",
+  restoreBackup: "bubu:data-protection:restore-backup",
   listDatasets: "bubu:datasets:list",
   previewDataset: "bubu:datasets:preview",
   replaceDataset: "bubu:datasets:replace",
@@ -99,6 +103,10 @@ export interface BuBuDesktopApi {
     remove(providerId: ProviderId): Promise<ProviderRegistryState>;
     test(providerId: ProviderId): Promise<ProviderConnectionResult>;
   };
+  readonly dataProtection: {
+    createBackup(): Promise<DataBackupSelectionResult>;
+    restoreBackup(): Promise<DataRestoreSelectionResult>;
+  };
   readonly analysis: {
     propose(value: QueryPlanRequest): Promise<QueryPlanProposal>;
     execute(plan: SafeQueryPlan): Promise<SafeQueryResult>;
@@ -123,6 +131,8 @@ export interface BuBuDesktopApi {
 export type {
   ColumnProfile,
   ConversationEntry,
+  DataBackupSelectionResult,
+  DataRestoreSelectionResult,
   ConversationTarget,
   ConversationThread,
   DatasetGroup,
