@@ -57,6 +57,7 @@ type DatasetService interface {
 	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
+	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
 	SaveGroup(ctx context.Context, groupID string, name string, datasetIDs []string) (data.DatasetGroup, error)
 	ListGroups(ctx context.Context) ([]data.DatasetGroup, error)
 	DeleteGroup(ctx context.Context, groupID string) error
@@ -180,6 +181,16 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 			return failure(request.ID, "GROUP_DELETE_FAILED", err.Error(), false)
 		}
 		return success(request.ID, map[string]bool{"deleted": true})
+	case "dataset.group.query.execute":
+		plan, ok := objectParam[data.SafeGroupQueryPlan](request.Params, "plan")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "plan must be a strict safe group query plan", false)
+		}
+		result, err := datasets.ExecuteGroupQueryPlan(ctx, plan)
+		if err != nil {
+			return failure(request.ID, "GROUP_QUERY_REJECTED", err.Error(), false)
+		}
+		return success(request.ID, result)
 	case "dataset.list":
 		result, err := datasets.ListDatasets(ctx)
 		if err != nil {

@@ -125,7 +125,7 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         return resolve({ ok: false, missing: ["数据群组按钮"] });
       }
       groupButton.click();
-      const expected = ["synthetic-group", "2 个数据联系人", "群组只保存成员关系"];
+      const expected = ["synthetic-group", "2 个数据联系人", "群组只保存成员关系", "先生成关联计划"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;

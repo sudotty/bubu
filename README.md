@@ -13,8 +13,9 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: schema-only/synthetic model context, a local provider registry, OS-encrypted write-only credentials, active-model selection, connection tests, and bounded OpenAI, Anthropic, Gemini, compatible, and Ollama adapters.
 - Implemented: single-dataset natural-language planning with an exact disclosure preview, explicit user approval, a no-raw-SQL typed plan, and bounded local execution in Go.
 - Implemented: local data groups with 2–8 current dataset contacts, create/edit/delete UI, stable member order, and no raw-data copying.
+- Implemented: natural-language group lookup/join plans, connected-tree enforcement, unique right-side lookup keys, disclosure review, explicit approval, and bounded local multi-table execution.
 - In progress: interactive drift mapping, richer quality profiles, validation, relationships, deletion, and export.
-- Not complete yet: persisted/group conversations, charts and reports, multi-dataset joins, full privacy audit/usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
+- Not complete yet: persisted conversation history, charts and reports, full privacy audit/usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
 

@@ -56,12 +56,27 @@ WHERE d.id = ? AND v.status = 'ready'`, plan.DatasetID).Scan(&currentVersionID, 
 	if err != nil {
 		return SafeQueryResult{}, err
 	}
+	resultRows, truncated, err := service.runCompiledQuery(ctx, compiled, plan.Limit)
+	if err != nil {
+		return SafeQueryResult{}, err
+	}
+	return SafeQueryResult{
+		DatasetID: plan.DatasetID, VersionID: plan.VersionID,
+		Columns: compiled.columns, Rows: resultRows, Truncated: truncated,
+	}, nil
+}
+
+func (service *Service) runCompiledQuery(
+	ctx context.Context,
+	compiled compiledQuery,
+	limit int,
+) ([][]any, bool, error) {
 	rows, err := service.database.QueryContext(ctx, compiled.sql, compiled.args...)
 	if err != nil {
-		return SafeQueryResult{}, fmt.Errorf("execute safe query: %w", err)
+		return nil, false, fmt.Errorf("execute safe query: %w", err)
 	}
 	defer rows.Close()
-	resultRows := make([][]any, 0, plan.Limit)
+	resultRows := make([][]any, 0, limit)
 	for rows.Next() {
 		values := make([]any, len(compiled.columns))
 		destinations := make([]any, len(values))
@@ -69,23 +84,17 @@ WHERE d.id = ? AND v.status = 'ready'`, plan.DatasetID).Scan(&currentVersionID, 
 			destinations[index] = &values[index]
 		}
 		if err := rows.Scan(destinations...); err != nil {
-			return SafeQueryResult{}, fmt.Errorf("scan safe query result: %w", err)
+			return nil, false, fmt.Errorf("scan safe query result: %w", err)
 		}
-		if len(resultRows) == plan.Limit {
-			return SafeQueryResult{
-				DatasetID: plan.DatasetID, VersionID: plan.VersionID,
-				Columns: compiled.columns, Rows: resultRows, Truncated: true,
-			}, nil
+		if len(resultRows) == limit {
+			return resultRows, true, nil
 		}
 		resultRows = append(resultRows, normalizeQueryRow(values))
 	}
 	if err := rows.Err(); err != nil {
-		return SafeQueryResult{}, fmt.Errorf("iterate safe query result: %w", err)
+		return nil, false, fmt.Errorf("iterate safe query result: %w", err)
 	}
-	return SafeQueryResult{
-		DatasetID: plan.DatasetID, VersionID: plan.VersionID,
-		Columns: compiled.columns, Rows: resultRows, Truncated: false,
-	}, nil
+	return resultRows, false, nil
 }
 
 func validateQueryPlanShape(plan SafeQueryPlan) error {

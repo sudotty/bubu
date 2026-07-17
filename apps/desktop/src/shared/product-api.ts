@@ -7,12 +7,16 @@ import type {
   DatasetPreviewRequest,
   DatasetReplacementResult,
   DatasetSummary,
+  GroupQueryPlanProposal,
+  GroupQueryRequest,
   ProviderConfigurationInput,
   ProviderConnectionResult,
   ProviderId,
   ProviderRegistryState,
   QueryPlanProposal,
   QueryPlanRequest,
+  SafeGroupQueryPlan,
+  SafeGroupQueryResult,
   SafeQueryPlan,
   SafeQueryResult,
 } from "@bubu/contracts";
@@ -33,6 +37,8 @@ export const desktopChannels = {
   listDatasetGroups: "bubu:dataset-groups:list",
   saveDatasetGroup: "bubu:dataset-groups:save",
   removeDatasetGroup: "bubu:dataset-groups:remove",
+  proposeGroupQueryPlan: "bubu:analysis:propose-group-query-plan",
+  executeGroupQueryPlan: "bubu:analysis:execute-group-query-plan",
 } as const;
 
 export type DatasetReplacementSelectionResult =
@@ -75,6 +81,8 @@ export interface BuBuDesktopApi {
   readonly analysis: {
     propose(value: QueryPlanRequest): Promise<QueryPlanProposal>;
     execute(plan: SafeQueryPlan): Promise<SafeQueryResult>;
+    proposeGroup(value: GroupQueryRequest): Promise<GroupQueryPlanProposal>;
+    executeGroup(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult>;
   };
   readonly datasetGroups: {
     list(): Promise<readonly DatasetGroup[]>;
@@ -93,6 +101,8 @@ export type {
   DatasetPreviewRequest,
   DatasetReplacementResult,
   DatasetSummary,
+  GroupQueryPlanProposal,
+  GroupQueryRequest,
   ProviderConfigurationInput,
   ProviderConnectionResult,
   ProviderId,
@@ -102,6 +112,8 @@ export type {
   ProviderSummary,
   QueryPlanProposal,
   QueryPlanRequest,
+  SafeGroupQueryPlan,
+  SafeGroupQueryResult,
   SafeQueryPlan,
   SafeQueryResult,
   SchemaDrift,

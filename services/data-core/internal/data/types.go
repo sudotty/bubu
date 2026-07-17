@@ -79,6 +79,7 @@ type ModelContextColumn struct {
 	Name     string     `json:"name"`
 	Type     ColumnType `json:"type"`
 	Nullable bool       `json:"nullable"`
+	Unique   bool       `json:"unique"`
 }
 
 type ModelContextResult struct {

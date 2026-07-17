@@ -1,0 +1,148 @@
+import { useEffect, useState } from "react";
+import type {
+  DatasetGroup,
+  GroupQueryPlanProposal,
+  SafeGroupQueryResult,
+} from "../shared/product-api.js";
+
+type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
+
+function messageFrom(error: unknown): string {
+  return error instanceof Error ? error.message : "群组分析失败，请重试";
+}
+
+function sourceLabel(group: DatasetGroup, sourceIndex: number): string {
+  return group.members[sourceIndex]?.displayName ?? `数据源 ${sourceIndex + 1}`;
+}
+
+function columnLabel(group: DatasetGroup, sourceIndex: number, column: string): string {
+  return `${sourceLabel(group, sourceIndex)} · ${column}`;
+}
+
+function resultLabel(group: DatasetGroup, label: string): string {
+  return label.replace(/^Source (\d+) · /u, (_match, rawIndex: string) => {
+    const sourceIndex = Number(rawIndex) - 1;
+    return `${sourceLabel(group, sourceIndex)} · `;
+  });
+}
+
+export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }) {
+  const [question, setQuestion] = useState("");
+  const [submittedQuestion, setSubmittedQuestion] = useState<string>();
+  const [proposal, setProposal] = useState<GroupQueryPlanProposal>();
+  const [result, setResult] = useState<SafeGroupQueryResult>();
+  const [state, setState] = useState<GroupAnalysisState>("idle");
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    setQuestion("");
+    setSubmittedQuestion(undefined);
+    setProposal(undefined);
+    setResult(undefined);
+    setState("idle");
+    setError(undefined);
+  }, [group.id, group.updatedAt]);
+
+  async function propose(): Promise<void> {
+    const normalized = question.trim();
+    if (!normalized) return;
+    setSubmittedQuestion(normalized);
+    setProposal(undefined);
+    setResult(undefined);
+    setError(undefined);
+    setState("planning");
+    try {
+      setProposal(await window.bubu.analysis.proposeGroup({ groupId: group.id, question: normalized }));
+      setState("proposed");
+    } catch (reason) {
+      setError(messageFrom(reason));
+      setState("failed");
+    }
+  }
+
+  async function execute(): Promise<void> {
+    if (!proposal) return;
+    setError(undefined);
+    setState("executing");
+    try {
+      setResult(await window.bubu.analysis.executeGroup(proposal.plan));
+      setState("complete");
+    } catch (reason) {
+      setError(messageFrom(reason));
+      setState("failed");
+    }
+  }
+
+  return (
+    <section className="analysis-panel group-analysis" aria-label={`与群组 ${group.name} 对话`}>
+      <header className="analysis-header">
+        <div><p className="hero-kicker">PRIVATE MULTI-TABLE CHAT</p><h3>和群组对话</h3></div>
+        <span className="mode-pill">等值关联 · 禁止笛卡尔积</span>
+      </header>
+      <div className="group-source-order">
+        {group.members.map((member, index) => <span key={member.id}><strong>{index + 1}</strong>{member.displayName}</span>)}
+      </div>
+      {submittedQuestion && <div className="question-bubble"><small>你</small><p>{submittedQuestion}</p></div>}
+      {state === "planning" && <div className="analysis-progress">正在根据每个成员的结构和合成示例生成关联树…</div>}
+      {error && <div className="notice error-text" role="alert">{error}</div>}
+
+      {proposal && (
+        <article className="plan-card">
+          <header>
+            <div><p className="hero-kicker">REVIEW JOIN TREE</p><h4>{proposal.plan.purpose}</h4></div>
+            <span className={state === "complete" ? "plan-state plan-complete" : "plan-state"}>{state === "complete" ? "已本地执行" : "尚未执行"}</span>
+          </header>
+          <div className="join-tree">
+            {proposal.plan.joins.map((join, index) => (
+              <div key={`${join.rightSourceIndex}-${index}`}>
+                <span>{columnLabel(group, join.leftSourceIndex, join.leftColumn)}</span>
+                <strong>{join.type === "left" ? "左关联 =" : "内关联 ="}</strong>
+                <span>{columnLabel(group, join.rightSourceIndex, join.rightColumn)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="plan-grid">
+            <div><small>维度</small><strong>{proposal.plan.dimensions.map((item) => columnLabel(group, item.sourceIndex, item.column)).join("、") || "无"}</strong></div>
+            <div><small>计算</small><strong>{proposal.plan.measures.map((item) => `${item.operation}（${item.column === null ? "全部行" : columnLabel(group, item.sourceIndex, item.column)}）`).join("、") || "关联明细"}</strong></div>
+            <div><small>筛选</small><strong>{proposal.plan.filters.map((item) => `${columnLabel(group, item.sourceIndex, item.column)} ${item.operator}${"value" in item ? ` ${item.value}` : ""}`).join("；") || "无"}</strong></div>
+            <div><small>最多返回</small><strong>{proposal.plan.limit} 行</strong></div>
+          </div>
+          <details className="disclosure-preview">
+            <summary>查看所有发送给模型的结构与合成示例</summary>
+            <p>成员显示名称只在本地帮助你阅读。模型收到的是按 1–{proposal.disclosedContexts.length} 编号的列结构和合成示例，不含文件名、预览行或画像值。</p>
+            {proposal.disclosedContexts.map((context, sourceIndex) => (
+              <section className="group-disclosure-source" key={context.datasetId}>
+                <h5>{sourceIndex + 1}. {sourceLabel(group, sourceIndex)}</h5>
+                <div className="table-scroll disclosure-table">
+                  <table>
+                    <thead><tr>{context.columns.map((column) => <th key={column.name}>{column.name}<small>{column.type}</small></th>)}</tr></thead>
+                    <tbody>{context.syntheticRows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={context.columns[columnIndex]?.name ?? columnIndex}>{cell === null ? "—" : String(cell)}</td>)}</tr>)}</tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
+          </details>
+          {state !== "complete" && <div className="plan-actions">
+            <button type="button" className="primary-action" onClick={() => void execute()} disabled={state === "executing"}>{state === "executing" ? "正在本地关联…" : "批准并在本地关联"}</button>
+            <button type="button" className="secondary-action" onClick={() => { setProposal(undefined); setState("idle"); }} disabled={state === "executing"}>放弃计划</button>
+          </div>}
+        </article>
+      )}
+
+      {result && <article className="query-result">
+        <header className="preview-header"><div><p className="hero-kicker">LOCAL JOIN RESULT</p><h3>关联结果</h3></div><span>{result.rows.length} 行{result.truncated ? " · 已截断" : ""}</span></header>
+        <div className="table-scroll"><table>
+          <thead><tr>{result.columns.map((column) => <th key={column.label}>{resultLabel(group, column.label)}<small>{column.type}</small></th>)}</tr></thead>
+          <tbody>{result.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}</tbody>
+        </table></div>
+        {result.rows.length === 0 && <p className="empty-copy">这个关联计划没有找到匹配的数据。</p>}
+      </article>}
+
+      <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
+        <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>
+        <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} />
+        <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
+      </form>
+    </section>
+  );
+}

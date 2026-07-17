@@ -38,8 +38,8 @@ describe("safe query plan boundary", () => {
       versionId,
       disclosure: "schema-synthetic",
       columns: [
-        { name: "Region", type: "text", nullable: false },
-        { name: "Amount", type: "real", nullable: false },
+        { name: "Region", type: "text", nullable: false, unique: false },
+        { name: "Amount", type: "real", nullable: false, unique: false },
       ],
       syntheticRows: [["example_1_1", 101.25], ["example_2_1", 102.25], ["example_3_1", 103.25]],
     } as const;
