@@ -22,7 +22,7 @@ The repository is migrating from the historical Wails prototype to a hardened El
 - Implemented: path-private consistent local data backups and destructive restore with strict container/hash/schema/privacy validation, rollback, and interrupted-swap startup recovery.
 - Implemented: on-demand local-only column exploration with 10-bin numeric histograms, means/ranges, and bounded categorical Top values that never enter model context.
 - Implemented: named cancellation for imports, replacements, exports, backup/restore, local scans, model planning, and single/group queries, propagated through authenticated RPC into Go contexts and provider fetch signals.
-- In progress: reference-device performance evidence.
+- Implemented: an executable 100 MiB/183,246-row reference-device gate; the recorded M1 Max run imported and profiled in 3.77s at 33.11 MiB peak data-core RSS, while the safe aggregation query measured 164.36ms p95 against a 3s budget.
 - Not complete yet: richer charts and reports, full privacy usage ledger, workflows, Agent/MCP/RAG, Hub/RBAC/sync, signing, and updates.
 
 `PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
@@ -43,7 +43,7 @@ flowchart LR
 
 The renderer has no Node access. Electron main owns lifecycle, OS permissions, credentials, updates, and process supervision but not data policy. The Go data core is the final authority for raw-data disclosure and SQL execution. The optional Hub is never required for local mode and never shares a SQLite file between users.
 
-See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), [the cancellation and budget contract](docs/architecture/cancellation-and-operation-budgets.md), [the privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), [the local conversation contract](docs/architecture/local-conversations.md), [the import guide](docs/product/importing-data.md), [the export/deletion guide](docs/product/exporting-and-deleting.md), [the backup/recovery guide](docs/product/backup-and-recovery.md), and [the query/visualization guide](docs/product/querying-and-visualizations.md).
+See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), [the cancellation and budget contract](docs/architecture/cancellation-and-operation-budgets.md), [the reference performance evidence](docs/performance/reference-desktop-2026-07-17.md), [the privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), [the local conversation contract](docs/architecture/local-conversations.md), [the import guide](docs/product/importing-data.md), [the export/deletion guide](docs/product/exporting-and-deleting.md), [the backup/recovery guide](docs/product/backup-and-recovery.md), and [the query/visualization guide](docs/product/querying-and-visualizations.md).
 
 ## Development
 
@@ -70,6 +70,7 @@ npm run lint                # repository, architecture, and type gates
 npm run build               # package the host platform application
 npm run smoke:data-core     # import/list/preview against the built Go sidecar
 npm run smoke:desktop       # launch the packaged app and verify both sidecars
+npm run verify:performance  # generate 100 MiB locally and enforce import/query/RSS budgets
 ```
 
 Build output and user data are ignored. Credentials belong in OS-backed secure storage; databases, uploaded files, API keys, and local configuration must never be committed.

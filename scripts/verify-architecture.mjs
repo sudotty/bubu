@@ -292,6 +292,23 @@ const tabularSource = read("services/data-core/internal/data/source.go");
 if (tabularSource.includes("os.ReadFile")) {
   failures.push("tabular import reads an entire source file before parsing");
 }
+for (const invariant of ["io.LimitReader(file, 64*1024)", "for rowNumber := 2; ; rowNumber++", "reader.Read()"] ) {
+  if (!tabularSource.includes(invariant)) failures.push(`streaming CSV invariant missing: ${invariant}`);
+}
+const performanceBenchmark = read("scripts/benchmark-data-core.mjs");
+for (const invariant of [
+  'sizeMiB < 100',
+  'minimumRows: Math.ceil(number("minimum-rows", 100_000))',
+  'percentile(querySamplesMs, 0.95)',
+  'maximumPeakResidentMemoryMebibytes',
+  'dataset.query.execute',
+]) {
+  if (!performanceBenchmark.includes(invariant)) failures.push(`reference performance invariant missing: ${invariant}`);
+}
+const rootPackage = read("package.json");
+for (const invariant of ['"verify:performance"', 'npm run verify:performance']) {
+  if (!rootPackage.includes(invariant)) failures.push(`root performance gate missing: ${invariant}`);
+}
 
 const safeQuery = read("services/data-core/internal/data/query.go");
 for (const invariant of [
@@ -313,9 +330,6 @@ for (const invariant of [
   "args = append(args, plan.Limit+1)",
 ]) {
   if (!safeGroupQuery.includes(invariant)) failures.push(`safe group query invariant missing: ${invariant}`);
-}
-if (!tabularSource.includes("io.LimitReader(file, 64*1024)")) {
-  failures.push("delimiter detection is missing its bounded streaming sample");
 }
 
 for (const path of sourceFiles("apps/desktop/src")) {

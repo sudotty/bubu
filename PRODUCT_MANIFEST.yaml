@@ -31,6 +31,9 @@ capabilities:
   csv-import: implemented
   xlsx-import: implemented
   atomic-batch-import: implemented
+  streaming-large-csv-import: implemented
+  reference-100mib-performance-gate: implemented
+  reference-100k-query-budget: implemented
   dataset-versioning: implemented
   same-schema-replacement: implemented
   schema-drift-detection: implemented
@@ -102,4 +105,5 @@ releaseGates:
   - production-build
   - desktop-security
   - privacy-non-disclosure
+  - reference-performance
   - signed-artifacts
