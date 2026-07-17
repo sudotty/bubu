@@ -94,7 +94,7 @@ export const safeGroupQueryPlanSchema = z
   });
 
 const groupResultColumnSchema = z.object({ label: z.string().min(1).max(500), type: columnTypeSchema }).strict();
-const groupQueryCellSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const groupQueryCellSchema = z.union([z.string().max(10_000), z.number(), z.boolean(), z.null()]);
 
 export const safeGroupQueryResultSchema = z
   .object({

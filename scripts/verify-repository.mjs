@@ -14,6 +14,7 @@ const requiredFiles = [
   "docs/adr/0004-privacy-gateway-and-safe-query-plans.md",
   "docs/architecture/local-data-kernel.md",
   "docs/architecture/privacy-and-model-providers.md",
+  "docs/architecture/local-conversations.md",
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
   "docs/plans/2026-07-17-electron-migration-implementation.md",
   "docs/product/importing-data.md",
@@ -108,6 +109,10 @@ for (const required of [
   "local-result-visualizations: implemented",
   "bar-chart: implemented",
   "time-series-chart: implemented",
+  "dataset-conversations: implemented",
+  "group-conversations: implemented",
+  "append-only-local-conversation-history: implemented",
+  "typed-conversation-artifacts: implemented",
 ]) {
   if (!manifest.includes(required)) {
     failures.push(`manifest invariant missing: ${required}`);

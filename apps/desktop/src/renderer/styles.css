@@ -209,6 +209,16 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .chart-point { fill: #fffdf9; stroke: #9b6c35; stroke-width: 3; }
 .chart-label { fill: #6e675e; font-size: 10px; }
 .chart-value-label { fill: #91887c; font-size: 9px; }
+.conversation-history { display: grid; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #d8d0c4; }
+.conversation-history > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.conversation-history > header p { margin-bottom: 0; }
+.conversation-history > header span { font-size: 11px; color: #777168; }
+.history-question { margin-top: 2px; }
+.history-plan { display: grid; gap: 5px; padding: 12px; border: 1px solid #ddd5c8; border-radius: 12px; background: #fffdf9; }
+.history-plan > span { justify-self: start; padding: 4px 7px; border-radius: 999px; font-size: 10px; color: #6f5b39; background: #eee4d3; }
+.history-plan small { color: #777168; }
+.history-result { overflow: hidden; border: 1px solid #dcd4c6; border-radius: 14px; background: #fffdf9; }
+.history-result .result-visualization { border: 0; border-top: 1px solid #e3ddd3; border-radius: 0; }
 
 @media (max-width: 1040px) {
   .shell { grid-template-columns: 60px 250px minmax(0, 1fr); }

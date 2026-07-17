@@ -1,4 +1,6 @@
 import type {
+  ConversationTarget,
+  ConversationThread,
   DatasetGroup,
   DatasetGroupId,
   DatasetGroupSaveInput,
@@ -39,6 +41,7 @@ export const desktopChannels = {
   removeDatasetGroup: "bubu:dataset-groups:remove",
   proposeGroupQueryPlan: "bubu:analysis:propose-group-query-plan",
   executeGroupQueryPlan: "bubu:analysis:execute-group-query-plan",
+  getConversation: "bubu:conversations:get",
 } as const;
 
 export type DatasetReplacementSelectionResult =
@@ -89,10 +92,16 @@ export interface BuBuDesktopApi {
     save(value: DatasetGroupSaveInput): Promise<DatasetGroup>;
     remove(groupId: DatasetGroupId): Promise<readonly DatasetGroup[]>;
   };
+  readonly conversations: {
+    get(target: ConversationTarget): Promise<ConversationThread | null>;
+  };
 }
 
 export type {
   ColumnProfile,
+  ConversationEntry,
+  ConversationTarget,
+  ConversationThread,
   DatasetGroup,
   DatasetGroupId,
   DatasetGroupSaveInput,

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import type {
   QueryPlanProposal,
   SafeQueryResult,
+  ConversationThread,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
+import { ConversationHistory } from "./ConversationHistory.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -46,6 +48,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
   const [result, setResult] = useState<SafeQueryResult>();
   const [state, setState] = useState<AnalysisState>("idle");
   const [error, setError] = useState<string>();
+  const [history, setHistory] = useState<ConversationThread | null>();
 
   useEffect(() => {
     setQuestion("");
@@ -54,6 +57,12 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     setResult(undefined);
     setState("idle");
     setError(undefined);
+    setHistory(undefined);
+    let active = true;
+    void window.bubu.conversations.get({ kind: "dataset", id: datasetId })
+      .then((thread) => { if (active) setHistory(thread); })
+      .catch(() => { if (active) setHistory(null); });
+    return () => { active = false; };
   }, [datasetId]);
 
   async function propose(): Promise<void> {
@@ -96,6 +105,8 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
         </div>
         <span className="mode-pill">计划批准后才查询</span>
       </header>
+
+      <ConversationHistory thread={history} />
 
       {submittedQuestion && (
         <div className="question-bubble">

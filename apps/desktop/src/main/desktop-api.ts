@@ -4,6 +4,7 @@ import {
   parseDatasetGroupSaveInput,
   parseDatasetId,
   parseDatasetPreviewRequest,
+  parseConversationTarget,
   parseGroupQueryRequest,
   parseProviderConfigurationInput,
   parseProviderConnectionResult,
@@ -11,6 +12,7 @@ import {
   parseQueryPlanRequest,
   parseSafeGroupQueryPlan,
   parseSafeQueryPlan,
+  type ConversationThread,
 } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
 import {
@@ -38,6 +40,23 @@ export function registerDesktopApi({
     if (!isTrustedFrameUrl(frameUrl, developmentServerUrl)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
     }
+  };
+
+  const errorMessage = (error: unknown) =>
+    (error instanceof Error ? error.message : "分析失败").slice(0, 2_000);
+
+  const persistError = async (target: { readonly kind: "dataset" | "group"; readonly id: string }, error: unknown) => {
+    await sidecars.appendConversation({
+      target,
+      entry: { kind: "error", role: "system", payload: { message: errorMessage(error) } },
+    }).catch(() => undefined);
+  };
+
+  const containsProposedPlan = (thread: ConversationThread | null, plan: unknown) => {
+    const encoded = JSON.stringify(plan);
+    return thread?.entries.some((entry) =>
+      entry.kind === "plan" && JSON.stringify(entry.payload.proposal.plan) === encoded,
+    ) ?? false;
   };
 
   ipcMain.handle(desktopChannels.getReadiness, (event) => {
@@ -122,20 +141,50 @@ export function registerDesktopApi({
   ipcMain.handle(desktopChannels.proposeQueryPlan, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     const request = parseQueryPlanRequest(value);
-    const activeProviderId = providerStore.state().activeProviderId;
-    if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
-    const [context, resolved] = await Promise.all([
-      sidecars.modelContext(request.datasetId, "schema-synthetic"),
-      Promise.resolve(providerStore.resolve(activeProviderId)),
-    ]);
-    const completion = await sidecars.generateModel(
-      buildQueryPlanInvocation(resolved, context, request.question),
-    );
-    return createQueryPlanProposal(request.question, context, completion);
+    const target = { kind: "dataset", id: request.datasetId } as const;
+    await sidecars.appendConversation({
+      target,
+      entry: { kind: "question", role: "user", payload: { question: request.question } },
+    });
+    try {
+      const activeProviderId = providerStore.state().activeProviderId;
+      if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
+      const [context, resolved] = await Promise.all([
+        sidecars.modelContext(request.datasetId, "schema-synthetic"),
+        Promise.resolve(providerStore.resolve(activeProviderId)),
+      ]);
+      const completion = await sidecars.generateModel(
+        buildQueryPlanInvocation(resolved, context, request.question),
+      );
+      const proposal = createQueryPlanProposal(request.question, context, completion);
+      await sidecars.appendConversation({
+        target,
+        entry: { kind: "plan", role: "assistant", payload: { proposal } },
+      });
+      return proposal;
+    } catch (error) {
+      await persistError(target, error);
+      throw error;
+    }
   });
-  ipcMain.handle(desktopChannels.executeQueryPlan, (event, value: unknown) => {
+  ipcMain.handle(desktopChannels.executeQueryPlan, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    return sidecars.executeQueryPlan(parseSafeQueryPlan(value));
+    const plan = parseSafeQueryPlan(value);
+    const target = { kind: "dataset", id: plan.datasetId } as const;
+    if (!containsProposedPlan(await sidecars.getConversation(target), plan)) {
+      throw new Error("只能执行已经生成并审查的查询计划");
+    }
+    try {
+      const result = await sidecars.executeQueryPlan(plan);
+      await sidecars.appendConversation({
+        target,
+        entry: { kind: "result", role: "assistant", payload: { result } },
+      });
+      return result;
+    } catch (error) {
+      await persistError(target, error);
+      throw error;
+    }
   });
   ipcMain.handle(desktopChannels.listDatasetGroups, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
@@ -153,26 +202,60 @@ export function registerDesktopApi({
   ipcMain.handle(desktopChannels.proposeGroupQueryPlan, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     const request = parseGroupQueryRequest(value);
-    const groups = await sidecars.listGroups();
-    const group = groups.find(({ id }) => id === request.groupId);
-    if (!group) throw new Error("数据群组不存在");
-    const activeProviderId = providerStore.state().activeProviderId;
-    if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
-    const contexts = await Promise.all(
-      group.members.map(({ id }) => sidecars.modelContext(id, "schema-synthetic")),
-    );
-    const completion = await sidecars.generateModel(
-      buildGroupQueryPlanInvocation(
-        providerStore.resolve(activeProviderId),
-        group.id,
-        contexts,
-        request.question,
-      ),
-    );
-    return createGroupQueryPlanProposal(request.question, contexts, completion);
+    const target = { kind: "group", id: request.groupId } as const;
+    await sidecars.appendConversation({
+      target,
+      entry: { kind: "question", role: "user", payload: { question: request.question } },
+    });
+    try {
+      const groups = await sidecars.listGroups();
+      const group = groups.find(({ id }) => id === request.groupId);
+      if (!group) throw new Error("数据群组不存在");
+      const activeProviderId = providerStore.state().activeProviderId;
+      if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
+      const contexts = await Promise.all(
+        group.members.map(({ id }) => sidecars.modelContext(id, "schema-synthetic")),
+      );
+      const completion = await sidecars.generateModel(
+        buildGroupQueryPlanInvocation(
+          providerStore.resolve(activeProviderId),
+          group.id,
+          contexts,
+          request.question,
+        ),
+      );
+      const proposal = createGroupQueryPlanProposal(request.question, contexts, completion);
+      await sidecars.appendConversation({
+        target,
+        entry: { kind: "plan", role: "assistant", payload: { proposal } },
+      });
+      return proposal;
+    } catch (error) {
+      await persistError(target, error);
+      throw error;
+    }
   });
-  ipcMain.handle(desktopChannels.executeGroupQueryPlan, (event, value: unknown) => {
+  ipcMain.handle(desktopChannels.executeGroupQueryPlan, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    return sidecars.executeGroupQueryPlan(parseSafeGroupQueryPlan(value));
+    const plan = parseSafeGroupQueryPlan(value);
+    const target = { kind: "group", id: plan.groupId } as const;
+    if (!containsProposedPlan(await sidecars.getConversation(target), plan)) {
+      throw new Error("只能执行已经生成并审查的群组计划");
+    }
+    try {
+      const result = await sidecars.executeGroupQueryPlan(plan);
+      await sidecars.appendConversation({
+        target,
+        entry: { kind: "result", role: "assistant", payload: { result } },
+      });
+      return result;
+    } catch (error) {
+      await persistError(target, error);
+      throw error;
+    }
+  });
+  ipcMain.handle(desktopChannels.getConversation, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.getConversation(parseConversationTarget(value));
   });
 }

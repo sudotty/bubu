@@ -9,6 +9,7 @@ import {
   parseDatasetImportResult,
   parseDatasetGroup,
   parseDatasetGroupList,
+  parseConversationThread,
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
@@ -164,23 +165,61 @@ try {
   if (modelContext.syntheticRows.length !== 3) {
     throw new Error("Model context is missing bounded synthetic examples");
   }
+  const singlePlan = {
+    schemaVersion: 1,
+    datasetId: dataset.id,
+    versionId: replacement.dataset.versionId,
+    purpose: "Sum amount by region",
+    dimensions: ["Region"],
+    measures: [{ operation: "sum", column: "Amount" }],
+    filters: [],
+    sort: [{ outputIndex: 1, direction: "descending" }],
+    limit: 10,
+  };
   const queryResult = parseSafeQueryResult(
     await request("dataset.query.execute", {
-      plan: {
-        schemaVersion: 1,
-        datasetId: dataset.id,
-        versionId: replacement.dataset.versionId,
-        purpose: "Sum amount by region",
-        dimensions: ["Region"],
-        measures: [{ operation: "sum", column: "Amount" }],
-        filters: [],
-        sort: [{ outputIndex: 1, direction: "descending" }],
-        limit: 10,
-      },
+      plan: singlePlan,
     }),
   );
   if (queryResult.rows[0]?.[0] !== "West" || queryResult.rows[0]?.[1] !== 512) {
     throw new Error(`Safe query returned an unexpected result: ${JSON.stringify(queryResult.rows)}`);
+  }
+  const conversationTarget = { kind: "dataset", id: dataset.id };
+  await request("conversation.append", {
+    input: {
+      target: conversationTarget,
+      entry: { kind: "question", role: "user", payload: { question: "Sum amount by region" } },
+    },
+  });
+  await request("conversation.append", {
+    input: {
+      target: conversationTarget,
+      entry: {
+        kind: "plan",
+        role: "assistant",
+        payload: {
+          proposal: {
+            question: "Sum amount by region",
+            disclosedContext: modelContext,
+            plan: singlePlan,
+          },
+        },
+      },
+    },
+  });
+  const conversation = parseConversationThread(
+    await request("conversation.append", {
+      input: {
+        target: conversationTarget,
+        entry: { kind: "result", role: "assistant", payload: { result: queryResult } },
+      },
+    }),
+  );
+  const reloadedConversation = parseConversationThread(
+    await request("conversation.get", { target: conversationTarget }),
+  );
+  if (conversation.entries.length !== 3 || reloadedConversation.entries[2]?.kind !== "result") {
+    throw new Error("Local conversation did not preserve question, plan, and result in order");
   }
   const targetImport = parseDatasetImportResult(
     await request("dataset.import.batch", { sourcePaths: [targetsPath] }),
@@ -247,7 +286,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, replacement, drift, groups, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, replacement, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

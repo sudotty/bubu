@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   desktopChannels,
   type BuBuDesktopApi,
+  type ConversationTarget,
+  type ConversationThread,
   type DatasetPreview,
   type DatasetPreviewRequest,
   type DatasetReplacementSelectionResult,
@@ -68,6 +70,10 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.saveDatasetGroup, value) as Promise<DatasetGroup>,
     remove: (groupId: DatasetGroupId) =>
       ipcRenderer.invoke(desktopChannels.removeDatasetGroup, groupId) as Promise<readonly DatasetGroup[]>,
+  },
+  conversations: {
+    get: (target: ConversationTarget) =>
+      ipcRenderer.invoke(desktopChannels.getConversation, target) as Promise<ConversationThread | null>,
   },
 };
 

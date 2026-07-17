@@ -33,6 +33,20 @@ func (fake *fakeDatasets) ListGroups(context.Context) ([]data.DatasetGroup, erro
 
 func (fake *fakeDatasets) DeleteGroup(context.Context, string) error { return nil }
 
+func (fake *fakeDatasets) GetConversation(
+	_ context.Context,
+	target data.ConversationTarget,
+) (*data.ConversationThread, error) {
+	return &data.ConversationThread{Target: target, Entries: []data.ConversationEntry{}}, nil
+}
+
+func (fake *fakeDatasets) AppendConversationEntry(
+	_ context.Context,
+	input data.ConversationAppendInput,
+) (*data.ConversationThread, error) {
+	return &data.ConversationThread{Target: input.Target, Entries: []data.ConversationEntry{}}, nil
+}
+
 func (fake *fakeDatasets) ExecuteQueryPlan(
 	_ context.Context,
 	plan data.SafeQueryPlan,
@@ -268,5 +282,23 @@ func TestDatasetGroupQueryRejectsRawSQLAtTheRPCBoundary(t *testing.T) {
 	plan["sql"] = "DROP TABLE datasets"
 	if response := HandleWithData(context.Background(), request, testToken, &fakeDatasets{}); response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
 		t.Fatalf("raw SQL escaped group plan decoding: %#v", response)
+	}
+}
+
+func TestConversationAppendRejectsUnknownEntryFields(t *testing.T) {
+	input := map[string]any{
+		"target": map[string]any{"kind": "dataset", "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		"entry": map[string]any{
+			"kind": "question", "role": "user",
+			"payload": map[string]any{"question": "Hello"},
+		},
+	}
+	request := Request{ProtocolVersion: ProtocolVersion, Auth: testToken, ID: "conversation-1", Method: "conversation.append", Params: map[string]any{"input": input}}
+	if response := HandleWithData(context.Background(), request, testToken, &fakeDatasets{}); !response.OK {
+		t.Fatalf("valid conversation entry was rejected: %#v", response)
+	}
+	input["writeToCloud"] = true
+	if response := HandleWithData(context.Background(), request, testToken, &fakeDatasets{}); response.OK || response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("unknown conversation field escaped strict decoding: %#v", response)
 	}
 }

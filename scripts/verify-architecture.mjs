@@ -54,6 +54,19 @@ if (!preload.includes('contextBridge.exposeInMainWorld("bubu", desktopApi)')) {
 if (preload.includes("send(") || preload.includes("on(") || preload.includes("removeListener")) {
   failures.push("preload exposes event-shaped or generic IPC behavior");
 }
+if (preload.includes("appendConversation")) {
+  failures.push("preload exposes privileged conversation writes");
+}
+
+const conversations = read("services/data-core/internal/data/conversation.go");
+for (const invariant of [
+  "maximumConversationEntries = 500",
+  "maximumConversationPayload = 1024 * 1024",
+  "a conversation must start with a user question",
+  "INSERT INTO conversation_entries",
+]) {
+  if (!conversations.includes(invariant)) failures.push(`conversation invariant missing: ${invariant}`);
+}
 
 const security = read("apps/desktop/src/main/security.ts");
 for (const invariant of [

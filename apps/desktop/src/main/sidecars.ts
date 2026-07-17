@@ -11,6 +11,8 @@ import {
   parseDatasetList,
   parseDatasetPreview,
   parseDatasetReplacementResult,
+  parseConversationThread,
+  parseOptionalConversationThread,
   parseModelCompletion,
   parseModelContext,
   parseSafeGroupQueryResult,
@@ -23,6 +25,9 @@ import {
   type DatasetPreviewRequest,
   type DatasetReplacementResult,
   type DatasetSummary,
+  type ConversationAppendInput,
+  type ConversationTarget,
+  type ConversationThread,
   type ModelCompletion,
   type ModelContext,
   type DisclosureLevel,
@@ -129,6 +134,18 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
+  async getConversation(target: ConversationTarget): Promise<ConversationThread | null> {
+    return parseOptionalConversationThread(
+      await this.#broker.request("conversation.get", { target }),
+    );
+  }
+
+  async appendConversation(input: ConversationAppendInput): Promise<ConversationThread> {
+    return parseConversationThread(
+      await this.#broker.request("conversation.append", { input }),
+    );
+  }
+
   stop(): void {
     this.#broker.close(new Error("data-core stopped by desktop"));
     this.#process.kill("SIGTERM");
@@ -208,6 +225,8 @@ export interface SidecarSupervisor {
   generateModel(invocation: ModelInvocation): Promise<ModelCompletion>;
   executeQueryPlan(plan: SafeQueryPlan): Promise<SafeQueryResult>;
   executeGroupQueryPlan(plan: SafeGroupQueryPlan): Promise<SafeGroupQueryResult>;
+  getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
+  appendConversation(input: ConversationAppendInput): Promise<ConversationThread>;
   listGroups(): Promise<readonly DatasetGroup[]>;
   saveGroup(input: DatasetGroupSaveInput): Promise<DatasetGroup>;
   deleteGroup(groupID: string): Promise<void>;
@@ -246,6 +265,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     generateModel: (invocation) => aiRuntime.generate(invocation),
     executeQueryPlan: (plan) => dataCore.executeQueryPlan(plan),
     executeGroupQueryPlan: (plan) => dataCore.executeGroupQueryPlan(plan),
+    getConversation: (target) => dataCore.getConversation(target),
+    appendConversation: (input) => dataCore.appendConversation(input),
     listGroups: () => dataCore.listGroups(),
     saveGroup: (input) => dataCore.saveGroup(input),
     deleteGroup: (groupID) => dataCore.deleteGroup(groupID),

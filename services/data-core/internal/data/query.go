@@ -20,6 +20,11 @@ type compiledQuery struct {
 	columns []QueryResultColumn
 }
 
+const (
+	maximumQueryCellBytes   = 10_000
+	maximumQueryResultBytes = 768 * 1024
+)
+
 func (service *Service) ExecuteQueryPlan(ctx context.Context, plan SafeQueryPlan) (SafeQueryResult, error) {
 	if err := validateQueryPlanShape(plan); err != nil {
 		return SafeQueryResult{}, err
@@ -77,6 +82,7 @@ func (service *Service) runCompiledQuery(
 	}
 	defer rows.Close()
 	resultRows := make([][]any, 0, limit)
+	resultBytes := 0
 	for rows.Next() {
 		values := make([]any, len(compiled.columns))
 		destinations := make([]any, len(values))
@@ -89,7 +95,15 @@ func (service *Service) runCompiledQuery(
 		if len(resultRows) == limit {
 			return resultRows, true, nil
 		}
-		resultRows = append(resultRows, normalizeQueryRow(values))
+		normalized, rowBytes, err := normalizeQueryRow(values)
+		if err != nil {
+			return nil, false, err
+		}
+		resultBytes += rowBytes
+		if resultBytes > maximumQueryResultBytes {
+			return nil, false, errors.New("query result exceeds the local response budget")
+		}
+		resultRows = append(resultRows, normalized)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, false, fmt.Errorf("iterate safe query result: %w", err)
@@ -296,14 +310,23 @@ func compileComparison(filter QueryFilter, column queryColumn) (string, any, err
 	return expression + " " + operator + " ?", argument, nil
 }
 
-func normalizeQueryRow(values []any) []any {
+func normalizeQueryRow(values []any) ([]any, int, error) {
 	result := make([]any, len(values))
+	totalBytes := 0
 	for index, value := range values {
 		if bytes, ok := value.([]byte); ok {
-			result[index] = string(bytes)
+			value = string(bytes)
+		}
+		if text, ok := value.(string); ok {
+			if len(text) > maximumQueryCellBytes {
+				return nil, 0, errors.New("query result contains a cell larger than 10000 bytes")
+			}
+			totalBytes += len(text)
+			result[index] = text
 		} else {
+			totalBytes += 16
 			result[index] = value
 		}
 	}
-	return result
+	return result, totalBytes, nil
 }

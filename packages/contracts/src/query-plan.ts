@@ -70,7 +70,7 @@ const queryResultColumnSchema = z
   })
   .strict();
 
-const queryCellSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const queryCellSchema = z.union([z.string().max(10_000), z.number(), z.boolean(), z.null()]);
 
 export const safeQueryResultSchema = z
   .object({

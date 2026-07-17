@@ -3,8 +3,10 @@ import type {
   DatasetGroup,
   GroupQueryPlanProposal,
   SafeGroupQueryResult,
+  ConversationThread,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
+import { ConversationHistory } from "./ConversationHistory.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -34,6 +36,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
   const [result, setResult] = useState<SafeGroupQueryResult>();
   const [state, setState] = useState<GroupAnalysisState>("idle");
   const [error, setError] = useState<string>();
+  const [history, setHistory] = useState<ConversationThread | null>();
 
   useEffect(() => {
     setQuestion("");
@@ -42,6 +45,12 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     setResult(undefined);
     setState("idle");
     setError(undefined);
+    setHistory(undefined);
+    let active = true;
+    void window.bubu.conversations.get({ kind: "group", id: group.id })
+      .then((thread) => { if (active) setHistory(thread); })
+      .catch(() => { if (active) setHistory(null); });
+    return () => { active = false; };
   }, [group.id, group.updatedAt]);
 
   async function propose(): Promise<void> {
@@ -80,6 +89,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
         <div><p className="hero-kicker">PRIVATE MULTI-TABLE CHAT</p><h3>和群组对话</h3></div>
         <span className="mode-pill">等值关联 · 禁止笛卡尔积</span>
       </header>
+      <ConversationHistory thread={history} group={group} />
       <div className="group-source-order">
         {group.members.map((member, index) => <span key={member.id}><strong>{index + 1}</strong>{member.displayName}</span>)}
       </div>

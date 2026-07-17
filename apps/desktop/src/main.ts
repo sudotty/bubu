@@ -102,7 +102,9 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         "数值",
         "日期时间",
         "替换数据版本",
-        "先生成计划"
+        "先生成计划",
+        "LOCAL CONVERSATION HISTORY",
+        "历史结果"
       ];
       const deadline = Date.now() + 5000;
       const inspect = () => {
@@ -190,6 +192,39 @@ void app
         name: "synthetic-group",
         datasetIds: imported.datasets.map(({ id }) => id),
       });
+      for (const dataset of imported.datasets) {
+        const context = await sidecars.modelContext(dataset.id, "schema-synthetic");
+        const plan = {
+          schemaVersion: 1 as const,
+          datasetId: dataset.id,
+          versionId: dataset.versionId,
+          purpose: "Smoke sum by region",
+          dimensions: ["Region"],
+          measures: [{ operation: "sum" as const, column: "Amount" }],
+          filters: [],
+          sort: [{ outputIndex: 1, direction: "descending" as const }],
+          limit: 10,
+        };
+        const target = { kind: "dataset" as const, id: dataset.id };
+        const question = "Smoke sum by region";
+        await sidecars.appendConversation({
+          target,
+          entry: { kind: "question", role: "user", payload: { question } },
+        });
+        await sidecars.appendConversation({
+          target,
+          entry: {
+            kind: "plan",
+            role: "assistant",
+            payload: { proposal: { question, disclosedContext: context, plan } },
+          },
+        });
+        const result = await sidecars.executeQueryPlan(plan);
+        await sidecars.appendConversation({
+          target,
+          entry: { kind: "result", role: "assistant", payload: { result } },
+        });
+      }
     }
     const window = await createMainWindow(launchMode.kind !== "smoke");
 

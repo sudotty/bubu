@@ -1,6 +1,6 @@
 # Querying data and local visualizations
 
-Status: Single-dataset and bounded group lookup queries are implemented. Persisted history, reusable relationship definitions, richer chart families, and reports remain in progress.
+Status: Single-dataset and bounded group lookup queries, local conversation history, and baseline charts are implemented. Reusable relationship definitions, richer chart families, and reports remain in progress.
 
 ## Ask one data contact
 
@@ -30,9 +30,11 @@ After a successful query, BuBu locally derives a chart when the result contains 
 
 Charts use the first 20 valid result points and report how many additional points were omitted for readability. The full bounded result remains visible in the table. Chart derivation is deterministic React/SVG code; query results are not sent to a model and no model-generated HTML or JavaScript is rendered.
 
+Questions, reviewed plans, local results, and failures are appended to the target's private local thread. Reopening the contact or group restores the typed timeline and locally regenerates charts. The renderer can read this history but cannot forge or append entries through preload.
+
 ## Current limits
 
 - One query has at most 8 dimensions, 8 measures, 20 filters, 3 sorts, and 200 result rows.
 - A group has at most 8 members and 7 joins.
 - Supported measures are count, sum, average, minimum, and maximum.
-- Query result explanations, reports, exports, saved charts, conversation history, cancellation, and usage/audit history are not yet complete.
+- Query result explanations, reports, exports, saved chart preferences, cancellation, retention controls, and usage/audit history are not yet complete.

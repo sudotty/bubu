@@ -87,6 +87,38 @@ CREATE TABLE dataset_group_members (
 CREATE INDEX dataset_group_members_dataset_id_idx ON dataset_group_members(dataset_id);
 `,
 	},
+	{
+		version: 4,
+		sql: `
+CREATE TABLE conversation_threads (
+    id TEXT PRIMARY KEY,
+    target_kind TEXT NOT NULL CHECK (target_kind IN ('dataset', 'group')),
+    target_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (target_kind, target_id)
+);
+
+CREATE TABLE conversation_entries (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL REFERENCES conversation_threads(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal > 0),
+    kind TEXT NOT NULL CHECK (kind IN ('question', 'plan', 'result', 'error')),
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (thread_id, ordinal),
+    CHECK (
+        (kind = 'question' AND role = 'user') OR
+        (kind IN ('plan', 'result') AND role = 'assistant') OR
+        (kind = 'error' AND role = 'system')
+    )
+);
+
+CREATE INDEX conversation_entries_thread_id_idx ON conversation_entries(thread_id, ordinal);
+`,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {
