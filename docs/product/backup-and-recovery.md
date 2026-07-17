@@ -29,6 +29,7 @@ Choose **从备份恢复**, select a `.bubu-backup`, then accept the native dest
 - SQLite `integrity_check` and `foreign_key_check` pass;
 - migrations are contiguous and supported;
 - schema objects are allow-listed, physical data tables match version metadata, and no view or trigger exists;
+- workflow definitions, runs, and checkpoints obey their count, deadline, payload, and foreign-key bounds;
 - every version is ready, group/conversation bounds hold, and no source locator was persisted;
 - manifest catalog counts match the restored database.
 

@@ -5,7 +5,6 @@ import {
   parseQueryPlanRequest,
   parseSafeGroupQueryPlan,
   parseSafeQueryPlan,
-  type ConversationThread,
 } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
 import {
@@ -18,6 +17,7 @@ import {
 import type { OperationRegistry } from "./operation-registry.js";
 import type { ProviderStore } from "./provider-store.js";
 import type { SidecarSupervisor } from "./sidecars.js";
+import { containsProposedPlan } from "./conversation-plan.js";
 
 interface AnalysisApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -28,13 +28,6 @@ interface AnalysisApiDependencies {
 
 const errorMessage = (error: unknown) =>
   (error instanceof Error ? error.message : "分析失败").slice(0, 2_000);
-
-const containsProposedPlan = (thread: ConversationThread | null, plan: unknown) => {
-  const encoded = JSON.stringify(plan);
-  return thread?.entries.some((entry) =>
-    entry.kind === "plan" && JSON.stringify(entry.payload.proposal.plan) === encoded,
-  ) ?? false;
-};
 
 export function registerAnalysisApi({
   sidecars,

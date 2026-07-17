@@ -288,6 +288,43 @@ if (!providerInvocation.includes("AbortSignal.any([signal, AbortSignal.timeout(1
   failures.push("provider request does not combine user cancellation with its network deadline");
 }
 
+const workflowValidation = read("services/data-core/internal/data/workflow_validation.go");
+for (const invariant of [
+  "maximumWorkflowDefinitions = 500",
+  "maximumWorkflowSteps       = 8",
+  "maximumWorkflowAttempts    = 3",
+  "maximumWorkflowRuns        = 10_000",
+  "maximumWorkflowJSONBytes   = 1024 * 1024",
+  'input.Trigger.Kind != "manual"',
+]) {
+  if (!workflowValidation.includes(invariant)) failures.push(`workflow budget invariant missing: ${invariant}`);
+}
+const workflowRunner = read("services/data-core/internal/data/workflow_run.go");
+for (const invariant of [
+  "getWorkflowRunByIdempotency",
+  "context.WithTimeout",
+  "step.MaximumAttempts",
+  "current_version_id",
+  "workflow group membership order changed",
+  "finishWorkflowStepRun",
+]) {
+  if (!workflowRunner.includes(invariant)) failures.push(`workflow execution invariant missing: ${invariant}`);
+}
+const workflowMigration = read("services/data-core/internal/data/migrations.go");
+for (const invariant of [
+  "CREATE TABLE workflow_definitions",
+  "CREATE TABLE workflow_runs",
+  "CREATE TABLE workflow_step_runs",
+  "UNIQUE (workflow_id, idempotency_key)",
+  "UNIQUE (run_id, ordinal, attempt)",
+]) {
+  if (!workflowMigration.includes(invariant)) failures.push(`workflow persistence invariant missing: ${invariant}`);
+}
+const workflowApi = read("apps/desktop/src/main/workflow-api.ts");
+for (const invariant of ["containsProposedPlan", "parseWorkflowDefinitionInput", "operations.run", "envelope.operationId"]) {
+  if (!workflowApi.includes(invariant)) failures.push(`workflow desktop boundary missing: ${invariant}`);
+}
+
 const tabularSource = read("services/data-core/internal/data/source.go");
 if (tabularSource.includes("os.ReadFile")) {
   failures.push("tabular import reads an entire source file before parsing");

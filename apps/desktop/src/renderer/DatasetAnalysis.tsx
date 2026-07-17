@@ -8,6 +8,7 @@ import type {
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
+import { WorkflowPanel } from "./WorkflowPanel.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -211,6 +212,10 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
         </button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
+      <WorkflowPanel
+        target={{ kind: "dataset", id: datasetId }}
+        draft={proposal ? { kind: "dataset-query", plan: proposal.plan } : undefined}
+      />
     </section>
   );
 }

@@ -14,3 +14,4 @@ export * from "./relationship.js";
 export * from "./query-plan.js";
 export * from "./rpc.js";
 export * from "./visualization.js";
+export * from "./workflow.js";

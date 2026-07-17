@@ -88,37 +88,7 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 	}
 
 	if request.Method == "system.health" {
-		capabilities := []string{"local-rpc"}
-		if datasets != nil {
-			capabilities = []string{
-				"cancellable-requests",
-				"sqlite",
-				"csv-import",
-				"xlsx-import",
-				"dataset-catalog",
-				"excel-safe-csv-export",
-				"permanent-dataset-deletion",
-				"verified-local-backup",
-				"transactional-backup-restore",
-				"preview",
-				"version-replacement",
-				"schema-drift",
-				"local-quality-report",
-				"local-column-distributions",
-				"validation-rules",
-				"privacy-context",
-				"safe-query-plan",
-				"dataset-groups",
-				"reusable-relationships",
-				"local-conversations",
-			}
-		}
-		return success(request.ID, ServiceHealth{
-			Service:         "data-core",
-			ProtocolVersion: ProtocolVersion,
-			Status:          "ready",
-			Capabilities:    capabilities,
-		})
+		return handleHealth(request, datasets)
 	}
 	if datasets == nil {
 		return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)

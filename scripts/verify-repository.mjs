@@ -25,6 +25,7 @@ const requiredFiles = [
   "docs/product/exporting-and-deleting.md",
   "docs/product/backup-and-recovery.md",
   "docs/product/querying-and-visualizations.md",
+  "docs/product/repeatable-workflows.md",
 ];
 
 for (const path of requiredFiles) {
@@ -139,6 +140,14 @@ for (const required of [
   "group-conversations: implemented",
   "append-only-local-conversation-history: implemented",
   "typed-conversation-artifacts: implemented",
+  "manual-query-workflows: implemented",
+  "versioned-workflow-definitions: implemented",
+  "workflow-current-version-rebinding: implemented",
+  "workflow-idempotency: implemented",
+  "workflow-retry-budgets: implemented",
+  "workflow-step-checkpoints: implemented",
+  "workflow-local-run-audit: implemented",
+  "cancellable-workflow-runs: implemented",
   "named-operation-cancellation: implemented",
   "cancellable-data-core-operations: implemented",
   "cancellable-model-requests: implemented",

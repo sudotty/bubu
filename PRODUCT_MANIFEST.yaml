@@ -89,7 +89,15 @@ capabilities:
   bar-chart: implemented
   time-series-chart: implemented
   reports: planned
-  workflows: planned
+  workflows: in-progress
+  manual-query-workflows: implemented
+  versioned-workflow-definitions: implemented
+  workflow-current-version-rebinding: implemented
+  workflow-idempotency: implemented
+  workflow-retry-budgets: implemented
+  workflow-step-checkpoints: implemented
+  workflow-local-run-audit: implemented
+  cancellable-workflow-runs: implemented
   bounded-agents: planned
   mcp-host: planned
   local-rag: planned
