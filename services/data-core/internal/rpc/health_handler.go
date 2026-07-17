@@ -8,6 +8,7 @@ func handleHealth(request Request, datasets DatasetService) Response {
 			"deterministic-workflows",
 			"workflow-idempotency",
 			"workflow-checkpoints",
+			"persistent-workflow-triggers",
 			"model-disclosure-ledger",
 			"model-usage-accounting",
 			"sqlite",

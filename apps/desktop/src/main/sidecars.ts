@@ -31,6 +31,8 @@ import {
   parseWorkflowDefinitions,
   parseWorkflowRun,
   parseWorkflowRuns,
+  parseWorkflowTriggerEvent,
+  parseWorkflowTriggerEvents,
   parseModelAuditEvent,
   parseModelAuditEvents,
   type DatasetImportResult,
@@ -67,6 +69,8 @@ import {
   type WorkflowDefinitionInput,
   type WorkflowRun,
   type WorkflowTarget,
+  type WorkflowTriggerEvent,
+  type WorkflowTriggerFinishInput,
   type ModelAuditEvent,
   type ModelAuditFinishInput,
   type ModelAuditStartInput,
@@ -283,6 +287,14 @@ class DataCoreClient implements RuntimeClient {
     return parseWorkflowRuns(await this.#broker.request("workflow.runs.list", { id: workflowID }));
   }
 
+  async claimDueWorkflowTriggers(now: string): Promise<readonly WorkflowTriggerEvent[]> {
+    return parseWorkflowTriggerEvents(await this.#broker.request("workflow.triggers.claim", { now }));
+  }
+
+  async finishWorkflowTrigger(input: WorkflowTriggerFinishInput): Promise<WorkflowTriggerEvent> {
+    return parseWorkflowTriggerEvent(await this.#broker.request("workflow.triggers.finish", { input }));
+  }
+
   async startModelAudit(input: ModelAuditStartInput): Promise<ModelAuditEvent> {
     return parseModelAuditEvent(await this.#broker.request("privacy.disclosure.start", { input }));
   }
@@ -399,6 +411,8 @@ export interface SidecarSupervisor {
   deleteWorkflow(workflowID: string): Promise<void>;
   runWorkflow(workflowID: string, idempotencyKey: string, signal?: AbortSignal): Promise<WorkflowRun>;
   listWorkflowRuns(workflowID: string): Promise<readonly WorkflowRun[]>;
+  claimDueWorkflowTriggers(now: string): Promise<readonly WorkflowTriggerEvent[]>;
+  finishWorkflowTrigger(input: WorkflowTriggerFinishInput): Promise<WorkflowTriggerEvent>;
   startModelAudit(input: ModelAuditStartInput): Promise<ModelAuditEvent>;
   finishModelAudit(input: ModelAuditFinishInput): Promise<ModelAuditEvent>;
   listModelAudits(): Promise<readonly ModelAuditEvent[]>;
@@ -460,6 +474,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     runWorkflow: (workflowID, idempotencyKey, signal) =>
       dataCore.runWorkflow(workflowID, idempotencyKey, signal),
     listWorkflowRuns: (workflowID) => dataCore.listWorkflowRuns(workflowID),
+    claimDueWorkflowTriggers: (now) => dataCore.claimDueWorkflowTriggers(now),
+    finishWorkflowTrigger: (input) => dataCore.finishWorkflowTrigger(input),
     startModelAudit: (input) => dataCore.startModelAudit(input),
     finishModelAudit: (input) => dataCore.finishModelAudit(input),
     listModelAudits: () => dataCore.listModelAudits(),

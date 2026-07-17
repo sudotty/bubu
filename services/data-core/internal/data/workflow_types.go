@@ -6,7 +6,8 @@ type WorkflowTarget struct {
 }
 
 type WorkflowTrigger struct {
-	Kind string `json:"kind"`
+	Kind         string `json:"kind"`
+	EveryMinutes int    `json:"everyMinutes,omitempty"`
 }
 
 type WorkflowStepDefinition struct {
@@ -36,6 +37,29 @@ type WorkflowDefinition struct {
 	Version   int                      `json:"version"`
 	CreatedAt string                   `json:"createdAt"`
 	UpdatedAt string                   `json:"updatedAt"`
+	NextDueAt *string                  `json:"nextDueAt"`
+}
+
+type WorkflowTriggerEvent struct {
+	ID                string         `json:"id"`
+	WorkflowID        string         `json:"workflowId"`
+	DefinitionVersion int            `json:"definitionVersion"`
+	OperationID       string         `json:"operationId"`
+	Target            WorkflowTarget `json:"target"`
+	TriggerKind       string         `json:"triggerKind"`
+	DueAt             string         `json:"dueAt"`
+	Status            string         `json:"status"`
+	RunID             *string        `json:"runId"`
+	Error             *string        `json:"error"`
+	CreatedAt         string         `json:"createdAt"`
+	FinishedAt        *string        `json:"finishedAt"`
+}
+
+type WorkflowTriggerFinishInput struct {
+	ID     string  `json:"id"`
+	Status string  `json:"status"`
+	RunID  *string `json:"runId"`
+	Error  *string `json:"error"`
 }
 
 type WorkflowStepResult struct {

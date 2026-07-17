@@ -6,7 +6,9 @@ BuBu can save an already generated and reviewed single-dataset or group query pl
 
 After BuBu displays a query or join plan, select **保存当前计划** in the workflow section. Electron main verifies that every step exactly matches a plan in the local conversation before sending the strict workflow definition to the Go data core.
 
-A manual workflow contains 1–8 ordered read-only query steps. Each step has a stable local name and 1–3 attempts. The complete run has a 1-second to 10-minute deadline; the current UI uses 60 seconds and two attempts. Unknown step kinds, arbitrary commands, SQL, duplicate step names, target drift, oversized plans, and extra JSON fields are rejected.
+A workflow contains 1–8 ordered read-only query steps. Each step has a stable local name and 1–3 attempts. The complete run has a 1-second to 10-minute deadline; the current UI uses 60 seconds and two attempts. Unknown step kinds, arbitrary commands, SQL, duplicate step names, target drift, oversized plans, and extra JSON fields are rejected.
+
+Before saving, choose one trigger: manual only, every 24 hours, every 7 days, or after the target data version changes. For a group, the version signature includes every member identity and current immutable version in saved order. Interval triggers measure elapsed time from save or the last claimed run; they are not yet wall-clock calendar schedules.
 
 On each run, BuBu:
 
@@ -26,10 +28,16 @@ Definitions, runs, attempts, resolved version identities, bounded results, and e
 
 Removing a workflow soft-deletes the active definition but retains its run audit. Permanently deleting a dataset retires workflows targeting that dataset and every affected group. Deleting a group retires its workflows. Data backup and restore include definitions, runs, and checkpoints and validate their schema, references, counts, and payload bounds before installation.
 
+## Persistent trigger delivery
+
+The Go data core, not the renderer, stores trigger state and creates deduplicated trigger events with a UUID operation identity. Electron main checks for work on startup and every 30 seconds while BuBu is open. A pending event survives application restart and reuses the same operation identity, so a lost response cannot create a duplicate workflow run. Missed interval windows collapse into one catch-up event rather than a burst.
+
+After the idempotent workflow reaches a terminal state, Go verifies that the run belongs to the event, derives the typed final result or bounded error, appends it to the existing local conversation, and marks the event terminal in one SQLite transaction. A crash cannot commit only half of that delivery. The open conversation and workflow schedule refresh from local state on the same bounded 30-second interval, without adding a generic Electron event channel, so the result appears while the user remains in that chat. If the application stopped during an active query, startup marks that run as a visible failure; the still-pending trigger then delivers the failure instead of remaining stuck. Resuming a partially completed multi-step run is a later capability.
+
 ## Cancellation and failure behavior
 
 Manual runs use the named operation cancellation path. Electron aborts the operation, authenticated RPC cancels the Go context, SQLite stops the active query, and BuBu records cancelled step/run terminal state without killing the data process. Deadline exhaustion is recorded as failure; explicit user cancellation is recorded as cancelled. Successful earlier step checkpoints remain in the audit.
 
 ## Current boundary
 
-This release implements deterministic manual query workflows. Schedule and dataset-version triggers, reminders, crash resume from the next safe checkpoint, approval nodes for side effects, bounded model/agent steps, external tools, MCP, and RAG steps remain separate in-progress automation slices. Until those runtimes and gates exist, `workflows` stays `in-progress`; only the narrower manual-query workflow capabilities are marked implemented.
+This release implements deterministic query workflows plus elapsed-interval and dataset-version triggers with in-app conversation delivery. Wall-clock schedules, operating-system notifications, crash resume from the next safe checkpoint, approval nodes for side effects, bounded model/agent steps, external tools, MCP, and RAG steps remain separate automation slices. Until those runtimes and gates exist, `workflows` and `reminders` stay `in-progress`; only their narrower executable capabilities are marked implemented.

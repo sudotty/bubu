@@ -211,6 +211,8 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .workflow-panel { display: grid; gap: 14px; margin-top: 4px; padding: 20px; border: 1px solid #d9d1c4; border-radius: 16px; background: #fffdf9; }
 .workflow-header, .workflow-row, .workflow-run > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .workflow-header h3 { margin-bottom: 0; }
+.workflow-save-controls { display: flex; align-items: center; gap: 8px; }
+.workflow-save-controls select { padding: 8px 10px; border: 1px solid #d9d1c4; border-radius: 9px; color: #514a40; background: #fffdf9; }
 .workflow-list { display: grid; gap: 8px; }
 .workflow-row { padding: 12px; border-radius: 12px; background: #f3f0e9; }
 .workflow-row > div:first-child { display: grid; gap: 4px; }

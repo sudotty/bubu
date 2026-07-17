@@ -189,3 +189,49 @@ func questionTitle(payload json.RawMessage) (string, error) {
 	}
 	return title, nil
 }
+
+func appendExistingConversationEntry(
+	ctx context.Context,
+	transaction *sql.Tx,
+	target ConversationTarget,
+	entry ConversationEntryInput,
+	createdAt string,
+) error {
+	if err := validateConversationTarget(target); err != nil {
+		return err
+	}
+	if err := validateConversationEntry(entry); err != nil {
+		return err
+	}
+	var threadID string
+	var nextOrdinal int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT threads.id, COALESCE(MAX(entries.ordinal), 0) + 1
+FROM conversation_threads threads
+LEFT JOIN conversation_entries entries ON entries.thread_id = threads.id
+WHERE threads.target_kind = ? AND threads.target_id = ?
+GROUP BY threads.id`, target.Kind, target.ID).Scan(&threadID, &nextOrdinal); errors.Is(err, sql.ErrNoRows) {
+		return errors.New("triggered workflow requires an existing reviewed conversation")
+	} else if err != nil {
+		return fmt.Errorf("load triggered workflow conversation: %w", err)
+	}
+	if nextOrdinal > maximumConversationEntries {
+		return fmt.Errorf("conversation reached its %d-entry local limit", maximumConversationEntries)
+	}
+	entryID, err := newID()
+	if err != nil {
+		return err
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO conversation_entries(id, thread_id, ordinal, kind, role, payload_json, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, entryID, threadID, nextOrdinal, entry.Kind,
+		entry.Role, string(entry.Payload), createdAt); err != nil {
+		return fmt.Errorf("append triggered workflow conversation entry: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx,
+		"UPDATE conversation_threads SET updated_at = ? WHERE id = ?", createdAt, threadID,
+	); err != nil {
+		return fmt.Errorf("touch triggered workflow conversation: %w", err)
+	}
+	return nil
+}

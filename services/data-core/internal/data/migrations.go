@@ -256,6 +256,38 @@ CREATE INDEX model_disclosure_events_started_idx
 ON model_disclosure_events(started_at DESC, id DESC);
 `,
 	},
+	{
+		version: 9,
+		sql: `
+ALTER TABLE workflow_definitions
+ADD COLUMN trigger_json TEXT NOT NULL DEFAULT '{"kind":"manual"}';
+
+ALTER TABLE workflow_definitions
+ADD COLUMN next_due_at TEXT;
+
+ALTER TABLE workflow_definitions
+ADD COLUMN target_signature TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE workflow_trigger_events (
+    id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL REFERENCES workflow_definitions(id),
+    definition_version INTEGER NOT NULL CHECK (definition_version > 0),
+    operation_id TEXT NOT NULL UNIQUE,
+    trigger_kind TEXT NOT NULL CHECK (trigger_kind IN ('interval', 'dataset-version')),
+    dedupe_key TEXT NOT NULL,
+    due_at TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed', 'cancelled')),
+    run_id TEXT REFERENCES workflow_runs(id),
+    error TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT,
+    UNIQUE (workflow_id, dedupe_key)
+);
+
+CREATE INDEX workflow_trigger_events_status_idx
+ON workflow_trigger_events(status, due_at, id);
+`,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

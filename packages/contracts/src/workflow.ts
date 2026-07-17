@@ -31,11 +31,20 @@ export const workflowStepDefinitionSchema = z.discriminatedUnion("kind", [
   groupQueryStepSchema,
 ]);
 
+export const workflowTriggerSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("manual") }).strict(),
+  z.object({
+    kind: z.literal("interval"),
+    everyMinutes: z.number().int().min(60).max(7 * 24 * 60),
+  }).strict(),
+  z.object({ kind: z.literal("dataset-version") }).strict(),
+]);
+
 export const workflowDefinitionInputSchema = z.object({
   id: workflowIdSchema.optional(),
   name: z.string().trim().min(1).max(100),
   target: workflowTargetSchema,
-  trigger: z.object({ kind: z.literal("manual") }).strict(),
+  trigger: workflowTriggerSchema,
   timeoutMs: z.number().int().min(1_000).max(10 * 60_000),
   steps: z.array(workflowStepDefinitionSchema).min(1).max(8),
 }).strict().superRefine((definition, context) => {
@@ -60,7 +69,50 @@ export const workflowDefinitionSchema = workflowDefinitionInputSchema.safeExtend
   version: z.number().int().positive(),
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true }),
+  nextDueAt: z.string().datetime({ offset: true }).nullable(),
 }).strict();
+
+export const workflowTriggerEventSchema = z.object({
+  id: workflowIdSchema,
+  workflowId: workflowIdSchema,
+  definitionVersion: z.number().int().positive(),
+  operationId: operationIdSchema,
+  target: workflowTargetSchema,
+  triggerKind: z.enum(["interval", "dataset-version"]),
+  dueAt: z.string().datetime({ offset: true }),
+  status: z.enum(["pending", "succeeded", "failed", "cancelled"]),
+  runId: workflowIdSchema.nullable(),
+  error: z.string().min(1).max(2_000).nullable(),
+  createdAt: z.string().datetime({ offset: true }),
+  finishedAt: z.string().datetime({ offset: true }).nullable(),
+}).strict().superRefine((event, context) => {
+  if (event.status === "pending" && (event.runId !== null || event.error !== null || event.finishedAt !== null)) {
+    context.addIssue({ code: "custom", message: "Pending trigger events cannot contain terminal fields" });
+  }
+  if (event.status !== "pending" && event.finishedAt === null) {
+    context.addIssue({ code: "custom", path: ["finishedAt"], message: "Terminal trigger events require a finish time" });
+  }
+  if (event.status === "succeeded" && (event.runId === null || event.error !== null)) {
+    context.addIssue({ code: "custom", message: "Successful trigger events require only a run identity" });
+  }
+  if ((event.status === "failed" || event.status === "cancelled") && event.error === null) {
+    context.addIssue({ code: "custom", path: ["error"], message: "Unsuccessful trigger events require an error" });
+  }
+});
+
+export const workflowTriggerFinishInputSchema = z.object({
+  id: workflowIdSchema,
+  status: z.enum(["succeeded", "failed", "cancelled"]),
+  runId: workflowIdSchema.nullable(),
+  error: z.string().min(1).max(2_000).nullable(),
+}).strict().superRefine((input, context) => {
+  if (input.status === "succeeded" && (input.runId === null || input.error !== null)) {
+    context.addIssue({ code: "custom", message: "Successful trigger completion requires only a run identity" });
+  }
+  if (input.status !== "succeeded" && input.error === null) {
+    context.addIssue({ code: "custom", path: ["error"], message: "Unsuccessful trigger completion requires an error" });
+  }
+});
 
 const workflowStepResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("dataset-query"), value: safeQueryResultSchema }).strict(),
@@ -125,10 +177,13 @@ export const workflowRunSchema = z.object({
 });
 
 export type WorkflowTarget = z.infer<typeof workflowTargetSchema>;
+export type WorkflowTrigger = z.infer<typeof workflowTriggerSchema>;
 export type WorkflowStepDefinition = z.infer<typeof workflowStepDefinitionSchema>;
 export type WorkflowDefinitionInput = z.infer<typeof workflowDefinitionInputSchema>;
 export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
 export type WorkflowRun = z.infer<typeof workflowRunSchema>;
+export type WorkflowTriggerEvent = z.infer<typeof workflowTriggerEventSchema>;
+export type WorkflowTriggerFinishInput = z.infer<typeof workflowTriggerFinishInputSchema>;
 
 export function parseWorkflowId(value: unknown): string {
   return workflowIdSchema.parse(value);
@@ -156,4 +211,16 @@ export function parseWorkflowRun(value: unknown): WorkflowRun {
 
 export function parseWorkflowRuns(value: unknown): readonly WorkflowRun[] {
   return z.array(workflowRunSchema).max(50).parse(value);
+}
+
+export function parseWorkflowTriggerEvents(value: unknown): readonly WorkflowTriggerEvent[] {
+  return z.array(workflowTriggerEventSchema).max(100).parse(value);
+}
+
+export function parseWorkflowTriggerEvent(value: unknown): WorkflowTriggerEvent {
+  return workflowTriggerEventSchema.parse(value);
+}
+
+export function parseWorkflowTriggerFinishInput(value: unknown): WorkflowTriggerFinishInput {
+  return workflowTriggerFinishInputSchema.parse(value);
 }

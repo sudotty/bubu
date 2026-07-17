@@ -5,17 +5,26 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
-func validateBackupWorkflows(ctx context.Context, database *sql.DB) error {
+func validateBackupWorkflows(ctx context.Context, database *sql.DB, schemaVersion int) error {
 	type backupWorkflow struct {
 		input   WorkflowDefinitionInput
 		deleted bool
 	}
 
-	rows, err := database.QueryContext(ctx, `
-SELECT id, name, target_kind, target_id, trigger_kind, timeout_ms, steps_json, deleted_at
-FROM workflow_definitions`)
+	query := `
+SELECT id, name, target_kind, target_id, timeout_ms, steps_json, deleted_at,
+       trigger_json, next_due_at, target_signature
+FROM workflow_definitions`
+	if schemaVersion < 9 {
+		query = `
+SELECT id, name, target_kind, target_id, timeout_ms, steps_json, deleted_at,
+       '{"kind":"manual"}', NULL, ''
+FROM workflow_definitions`
+	}
+	rows, err := database.QueryContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("inspect backup workflows: %w", err)
 	}
@@ -24,10 +33,11 @@ FROM workflow_definitions`)
 	for rows.Next() {
 		var input WorkflowDefinitionInput
 		var deletedAt sql.NullString
-		var rawSteps string
+		var rawSteps, rawTrigger, targetSignature string
+		var nextDueAt sql.NullString
 		if err := rows.Scan(
 			&input.ID, &input.Name, &input.Target.Kind, &input.Target.ID,
-			&input.Trigger.Kind, &input.TimeoutMS, &rawSteps, &deletedAt,
+			&input.TimeoutMS, &rawSteps, &deletedAt, &rawTrigger, &nextDueAt, &targetSignature,
 		); err != nil {
 			return fmt.Errorf("scan backup workflow: %w", err)
 		}
@@ -36,9 +46,16 @@ FROM workflow_definitions`)
 			return err
 		}
 		input.Steps = steps
+		input.Trigger, err = decodeWorkflowTrigger(rawTrigger)
+		if err != nil {
+			return err
+		}
 		if err := validateWorkflowDefinitionInput(input); err != nil {
 			_ = rows.Close()
 			return fmt.Errorf("backup workflow definition is invalid: %w", err)
+		}
+		if err := validateBackupWorkflowTriggerState(input.Trigger, nextDueAt, targetSignature); err != nil {
+			return err
 		}
 		workflows = append(workflows, backupWorkflow{input: input, deleted: deletedAt.Valid})
 	}
@@ -61,7 +78,35 @@ FROM workflow_definitions`)
 			return errors.New("backup contains an active workflow with no target")
 		}
 	}
-	return validateBackupWorkflowRuns(ctx, database)
+	if err := validateBackupWorkflowRuns(ctx, database); err != nil {
+		return err
+	}
+	if schemaVersion >= 9 {
+		return validateBackupWorkflowTriggers(ctx, database)
+	}
+	return nil
+}
+
+func validateBackupWorkflowTriggerState(
+	trigger WorkflowTrigger,
+	nextDueAt sql.NullString,
+	targetSignature string,
+) error {
+	if trigger.Kind == "manual" && (nextDueAt.Valid || targetSignature != "") {
+		return errors.New("backup contains state for a manual workflow trigger")
+	}
+	if trigger.Kind == "interval" {
+		if !nextDueAt.Valid || targetSignature != "" {
+			return errors.New("backup interval workflow trigger state is invalid")
+		}
+		if _, err := time.Parse(time.RFC3339Nano, nextDueAt.String); err != nil {
+			return errors.New("backup interval workflow due time is invalid")
+		}
+	}
+	if trigger.Kind == "dataset-version" && (nextDueAt.Valid || !validSHA256(targetSignature)) {
+		return errors.New("backup dataset-version workflow signature is invalid")
+	}
+	return nil
 }
 
 func validateBackupWorkflowRuns(ctx context.Context, database *sql.DB) error {
@@ -159,6 +204,40 @@ FROM workflow_step_runs`)
 		return fmt.Errorf("iterate backup workflow steps: %w", err)
 	}
 	return nil
+}
+
+func validateBackupWorkflowTriggers(ctx context.Context, database *sql.DB) error {
+	var invalid int
+	if err := database.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM (
+  SELECT workflow_id FROM workflow_trigger_events
+  GROUP BY workflow_id HAVING COUNT(*) > ?
+)`, maximumWorkflowTriggerEvents).Scan(&invalid); err != nil || invalid != 0 {
+		return errors.New("backup exceeds the workflow trigger event limit")
+	}
+	if err := database.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM workflow_trigger_events events
+JOIN workflow_definitions definitions ON definitions.id = events.workflow_id
+LEFT JOIN workflow_runs runs ON runs.id = events.run_id
+WHERE length(events.dedupe_key) > 200
+   OR events.definition_version > definitions.version
+   OR (events.status = 'pending' AND events.definition_version <> definitions.version)
+   OR (events.run_id IS NOT NULL AND runs.workflow_id <> events.workflow_id)`).Scan(&invalid); err != nil || invalid != 0 {
+		return errors.New("backup contains inconsistent workflow trigger references")
+	}
+	rows, err := database.QueryContext(ctx, workflowTriggerEventSelect)
+	if err != nil {
+		return fmt.Errorf("inspect backup workflow triggers: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		event, err := scanWorkflowTriggerEvent(rows)
+		if err != nil || validateWorkflowTriggerEvent(event) != nil {
+			return errors.New("backup contains an invalid workflow trigger event")
+		}
+	}
+	return rows.Err()
 }
 
 func backupWorkflowTargetExists(

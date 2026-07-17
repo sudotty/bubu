@@ -31,6 +31,8 @@ import {
   parseWorkflowRuns,
   parseModelAuditEvent,
   parseModelAuditEvents,
+  parseWorkflowTriggerEvents,
+  parseWorkflowTriggerEvent,
 } from "../packages/contracts/dist/index.js";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
@@ -365,7 +367,7 @@ try {
       input: {
         name: "Synthetic regional totals",
         target: { kind: "dataset", id: dataset.id },
-        trigger: { kind: "manual" },
+        trigger: { kind: "dataset-version" },
         timeoutMs: 60_000,
         steps: [{ id: "regional-totals", kind: "dataset-query", plan: singlePlan, maxAttempts: 2 }],
       },
@@ -385,6 +387,45 @@ try {
     repeatedWorkflowRun.id !== workflowRun.id
   ) {
     throw new Error("Version-rebound idempotent workflow execution did not checkpoint correctly");
+  }
+
+  const triggerReplacement = parseDatasetReplacementResult(
+    await request("dataset.replace.mapped", {
+      datasetId: dataset.id,
+      sourcePath: driftedPath,
+      mappings: [
+        { currentColumn: "Order ID", incomingColumn: "Order ID" },
+        { currentColumn: "Region", incomingColumn: "Zone" },
+        { currentColumn: "Amount", incomingColumn: "Amount" },
+        { currentColumn: "Date", incomingColumn: "Date" },
+      ],
+    }),
+  );
+  const triggerEvents = parseWorkflowTriggerEvents(
+    await request("workflow.triggers.claim", { now: new Date().toISOString() }),
+  );
+  const triggerEvent = triggerEvents[0];
+  if (triggerReplacement.status !== "replaced" || !triggerEvent || triggerEvent.workflowId !== workflow.id) {
+    throw new Error("Dataset-version workflow trigger was not persisted and claimed");
+  }
+  const triggeredRun = parseWorkflowRun(
+    await request("workflow.run", { id: workflow.id, idempotencyKey: triggerEvent.operationId }),
+  );
+  const finishedTrigger = parseWorkflowTriggerEvent(
+    await request("workflow.triggers.finish", {
+      input: {
+        id: triggerEvent.id,
+        status: triggeredRun.status,
+        runId: triggeredRun.id,
+        error: triggeredRun.error,
+      },
+    }),
+  );
+  if (
+    finishedTrigger.status !== "succeeded" ||
+    triggeredRun.steps[0]?.result?.value.versionId !== triggerReplacement.dataset.versionId
+  ) {
+    throw new Error("Triggered workflow did not bind the replacement and deliver its result");
   }
 
   const modelAudit = parseModelAuditEvent(await request("privacy.disclosure.start", {
@@ -476,9 +517,10 @@ try {
     JSON.stringify(restoreRaw).includes(backupPath) ||
     restore.backupCreatedAt !== backup.backupCreatedAt ||
     restoredDatasets[0]?.id !== dataset.id ||
-    restoredConversation.entries.length !== 3 ||
+    restoredConversation.entries.length !== 4 ||
     restoredWorkflows[0]?.id !== workflow.id ||
-    restoredWorkflowRuns[0]?.id !== workflowRun.id ||
+    !restoredWorkflowRuns.some(({ id }) => id === workflowRun.id) ||
+    !restoredWorkflowRuns.some(({ id }) => id === triggeredRun.id) ||
     restoredModelAudits[0]?.id !== modelAudit.id
   ) {
     throw new Error("Verified backup restore did not recover the private local workspace");
@@ -503,7 +545,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, model disclosure/usage audit, version-rebound idempotent workflows, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, model disclosure/usage audit, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, synthetic disclosure, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });
