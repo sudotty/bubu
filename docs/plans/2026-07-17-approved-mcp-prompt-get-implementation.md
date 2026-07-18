@@ -2,7 +2,7 @@
 
 > **Execution:** Test-drive every boundary on `main`; treat prompt arguments as an explicit disclosure to local code and returned messages as untrusted local data, never model instructions.
 
-**Status:** Complete on 2026-07-17. The exact approved local-only `prompts/get` slice is implemented and verified; prompt-to-model/chat/Agent/workflow use and MCP tool execution remain explicitly unavailable.
+**Status:** Complete on 2026-07-17. The exact approved local-only `prompts/get` slice is implemented and verified; prompt-to-model/chat/Agent/workflow use remains unavailable. A later separately approved manual tool-call slice is documented in `2026-07-17-approved-mcp-tool-call-implementation.md`.
 
 **Goal:** Let a user choose one prompt discovered during an approved local stdio MCP inspection, fill only its declared string arguments, review every exact value and process detail, approve one bounded `prompts/get`, and inspect normalized messages locally without automatically sending them to a model, conversation, Agent, or workflow.
 

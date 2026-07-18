@@ -1,0 +1,24 @@
+# Contributing to BuBu
+
+BuBu accepts changes against the current Electron/Go/Node product. `bubu-bi/` is migration evidence, not a second runtime or a destination for new product behavior.
+
+## Before changing code
+
+1. Read [the repository contract](AGENTS.md), [the product manifest](PRODUCT_MANIFEST.yaml), and the nearest directory README.
+2. Confirm whether the capability is implemented, disabled, or planned. Do not make unavailable behavior look shipped.
+3. For import, query, privacy, workflow, sync, or MCP changes, add a failing behavior test first.
+
+## Local workflow
+
+Use Node 22.18, npm 10.9.3, and Go 1.25 as declared by the repository. Install and verify with:
+
+```bash
+npm ci
+npm run verify
+```
+
+Keep payload parsing at every process or trust boundary. The renderer must use the typed preload API; Electron main supervises processes; Go remains authoritative for database execution and raw-data disclosure.
+
+## Pull requests
+
+Keep changes outcome-focused, preserve unrelated work, and explain privacy, migration, compatibility, and rollback impact. UI changes should regenerate the packaged synthetic screenshots with `npm run capture:ui`. Never attach credentials, user datasets, databases, uploads, local configuration, or build output.

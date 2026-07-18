@@ -1,4 +1,6 @@
-# 自然语言查询功能使用指南
+# 历史自然语言查询说明（迁移资料，不是当前产品）
+
+> **Migration source only:** 本文只记录旧 Wails 原型的早期交互与测试设想。当前 BuBu 不直接执行模型生成的 SQL；请以[根目录 README](../README.md)、`PRODUCT_MANIFEST.yaml` 和类型化查询计划为准。以下命令、SQL 示例与功能描述不得作为当前产品承诺。
 
 ## 功能概述
 

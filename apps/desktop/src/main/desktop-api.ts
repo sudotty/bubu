@@ -39,6 +39,8 @@ import { createMcpResourceApprovalSessionStore } from "./mcp-resource-approval-s
 import { registerMcpResourceApi } from "./mcp-resource-api.js";
 import { createMcpPromptApprovalSessionStore } from "./mcp-prompt-approval-sessions.js";
 import { registerMcpPromptApi } from "./mcp-prompt-api.js";
+import { createMcpToolApprovalSessionStore } from "./mcp-tool-approval-sessions.js";
+import { registerMcpToolApi } from "./mcp-tool-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -82,6 +84,10 @@ export function registerDesktopApi({
     now: Date.now,
     newToken: () => randomBytes(32).toString("hex"),
   });
+  const mcpToolApprovals = createMcpToolApprovalSessionStore({
+    now: Date.now,
+    newToken: () => randomBytes(32).toString("hex"),
+  });
   const assertTrustedSender = (frameUrl: string) => {
     if (!isTrustedFrameUrl(frameUrl, developmentServerUrl)) {
       throw new Error("Untrusted renderer attempted to call the desktop API");
@@ -115,6 +121,15 @@ export function registerDesktopApi({
     sidecars,
     connections: mcpConnectionStore,
     approvals: mcpPromptApprovals,
+    audits: mcpAuditStore,
+    operations,
+    runtimeDirectory: mcpRuntimeDirectory,
+    assertTrustedSender,
+  });
+  registerMcpToolApi({
+    sidecars,
+    connections: mcpConnectionStore,
+    approvals: mcpToolApprovals,
     audits: mcpAuditStore,
     operations,
     runtimeDirectory: mcpRuntimeDirectory,

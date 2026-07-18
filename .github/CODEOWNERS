@@ -1,0 +1,9 @@
+# Repository-wide default ownership. Add narrower teams when ownership grows.
+* @sudotty
+
+# Security and product contracts always require the repository owner.
+/.github/ @sudotty
+/PRODUCT_MANIFEST.yaml @sudotty
+/packages/contracts/ @sudotty
+/services/data-core/ @sudotty
+/apps/desktop/src/main/ @sudotty

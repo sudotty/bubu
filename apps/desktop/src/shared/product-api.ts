@@ -65,6 +65,10 @@ import type {
   McpPromptGetProposal,
   McpPromptGetRequest,
   McpPromptGetResult,
+  McpToolCallApproval,
+  McpToolCallProposal,
+  McpToolCallRequest,
+  McpToolCallResult,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -100,6 +104,9 @@ export const desktopChannels = {
   prepareMcpPromptGet: "bubu:mcp:prepare-prompt-get",
   approveMcpPromptGet: "bubu:mcp:approve-prompt-get",
   dismissMcpPromptGet: "bubu:mcp:dismiss-prompt-get",
+  prepareMcpToolCall: "bubu:mcp:prepare-tool-call",
+  approveMcpToolCall: "bubu:mcp:approve-tool-call",
+  dismissMcpToolCall: "bubu:mcp:dismiss-tool-call",
   proposeQueryPlan: "bubu:analysis:propose-query-plan",
   executeQueryPlan: "bubu:analysis:execute-query-plan",
   listDatasetGroups: "bubu:dataset-groups:list",
@@ -178,6 +185,9 @@ export interface BuBuDesktopApi {
     preparePromptGet(value: McpPromptGetRequest): Promise<McpPromptGetProposal>;
     approvePromptGet(value: McpPromptGetApproval, operationId: OperationId): Promise<McpPromptGetResult>;
     dismissPromptGet(value: McpPromptGetApproval): Promise<void>;
+    prepareToolCall(value: McpToolCallRequest): Promise<McpToolCallProposal>;
+    approveToolCall(value: McpToolCallApproval, operationId: OperationId): Promise<McpToolCallResult>;
+    dismissToolCall(value: McpToolCallApproval): Promise<void>;
   };
   readonly dataProtection: {
     createBackup(operationId: OperationId): Promise<DataBackupSelectionResult>;
@@ -302,6 +312,10 @@ export type {
   McpPromptGetProposal,
   McpPromptGetRequest,
   McpPromptGetResult,
+  McpToolCallApproval,
+  McpToolCallProposal,
+  McpToolCallRequest,
+  McpToolCallResult,
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,

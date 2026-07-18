@@ -68,6 +68,10 @@ import {
   type McpPromptGetProposal,
   type McpPromptGetRequest,
   type McpPromptGetResult,
+  type McpToolCallApproval,
+  type McpToolCallProposal,
+  type McpToolCallRequest,
+  type McpToolCallResult,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -135,6 +139,12 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.approveMcpPromptGet, { operationId, value }) as Promise<McpPromptGetResult>,
     dismissPromptGet: (value: McpPromptGetApproval) =>
       ipcRenderer.invoke(desktopChannels.dismissMcpPromptGet, value) as Promise<void>,
+    prepareToolCall: (value: McpToolCallRequest) =>
+      ipcRenderer.invoke(desktopChannels.prepareMcpToolCall, value) as Promise<McpToolCallProposal>,
+    approveToolCall: (value: McpToolCallApproval, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.approveMcpToolCall, { operationId, value }) as Promise<McpToolCallResult>,
+    dismissToolCall: (value: McpToolCallApproval) =>
+      ipcRenderer.invoke(desktopChannels.dismissMcpToolCall, value) as Promise<void>,
   },
   dataProtection: {
     createBackup: (operationId: OperationId) =>

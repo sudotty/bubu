@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Database, Plus, Settings, UsersRound } from "lucide-react";
 import type {
   DatasetGroup,
   DatasetReplacementMappingInput,
@@ -40,6 +41,7 @@ export function App() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
   const [activeOperationId, setActiveOperationId] = useState<OperationId>();
+  const conversationRef = useRef<HTMLDivElement>(null);
 
   function startOperation(): OperationId {
     const operationId = createOperationId();
@@ -104,6 +106,10 @@ export function App() {
   useEffect(() => {
     setPendingMapping(undefined);
   }, [selectedDatasetId]);
+
+  useEffect(() => {
+    conversationRef.current?.scrollTo({ top: 0 });
+  }, [view, selectedDatasetId, selectedGroupId]);
 
   const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
   const selectedGroup = groups.find((group) => group.id === selectedGroupId);
@@ -259,31 +265,37 @@ export function App() {
   }
 
   return (
-    <main className="shell">
+    <main className={`shell ${view === "settings" ? "shell-settings" : ""}`}>
       <aside className="rail" aria-label="主导航">
         <div className="brand-mark" aria-hidden="true">B</div>
         <button
           type="button"
           className={`rail-item ${view === "datasets" ? "rail-item-active" : ""}`}
           title="数据联系人"
+          aria-label="数据联系人"
+          aria-pressed={view === "datasets"}
           onClick={() => setView("datasets")}
-        >▦</button>
+        ><Database aria-hidden="true" size={20} strokeWidth={1.9} /></button>
         <button
           type="button"
           className={`rail-item ${view === "groups" ? "rail-item-active" : ""}`}
           title="数据群组"
+          aria-label="数据群组"
+          aria-pressed={view === "groups"}
           onClick={() => { setView("groups"); setSearch(""); }}
-        >◎</button>
+        ><UsersRound aria-hidden="true" size={20} strokeWidth={1.9} /></button>
         <div className="rail-spacer" />
         <button
           type="button"
           className={`rail-item ${view === "settings" ? "rail-item-active" : ""}`}
-          title="模型设置"
+          title="设置"
+          aria-label="设置"
+          aria-pressed={view === "settings"}
           onClick={() => setView("settings")}
-        >⚙</button>
+        ><Settings aria-hidden="true" size={20} strokeWidth={1.9} /></button>
       </aside>
 
-      <section className="contacts">
+      {view !== "settings" && <section className="contacts">
         <header className="contacts-header">
           <div>
             <p className="eyebrow">{view === "groups" ? "DATA GROUPS" : "LOCAL DATA AGENT"}</p>
@@ -297,7 +309,7 @@ export function App() {
             aria-label={view === "groups" ? "创建数据群组" : "导入 Excel 或 CSV"}
             title={view === "groups" ? "创建数据群组" : "导入 Excel 或 CSV"}
           >
-            {view !== "groups" && importing ? "…" : "＋"}
+            {view !== "groups" && importing ? "…" : <Plus aria-hidden="true" size={19} strokeWidth={2.2} />}
           </button>
         </header>
         <label className="search-field">
@@ -313,7 +325,7 @@ export function App() {
           {catalogLoading && <p className="empty-copy">正在读取本地数据目录…</p>}
           {view !== "groups" && !catalogLoading && filteredDatasets.length === 0 && (
             <div className="empty-contact">
-              <span className="contact-avatar">＋</span>
+              <span className="contact-avatar"><Plus aria-hidden="true" size={18} /></span>
               <strong>{datasets.length === 0 ? "导入第一个表格" : "没有匹配的数据"}</strong>
               <small>{datasets.length === 0 ? "CSV 与 XLSX 会转换为本地表" : "尝试其他关键词"}</small>
             </div>
@@ -334,7 +346,7 @@ export function App() {
           ))}
           {view === "groups" && !catalogLoading && filteredGroups.length === 0 && (
             <div className="empty-contact">
-              <span className="contact-avatar">＋</span>
+              <span className="contact-avatar"><Plus aria-hidden="true" size={18} /></span>
               <strong>创建第一个数据群组</strong>
               <small>选择 2–8 个数据联系人</small>
             </div>
@@ -352,20 +364,20 @@ export function App() {
           ))}
         </div>
         <p className="local-note">{view === "groups" ? "群组只保存成员关系 · 不复制原始数据" : "默认本地模式 · 原始数据不会自动出站"}</p>
-      </section>
+      </section>}
 
       <section className="workspace">
         <header className="workspace-header">
           <div>
             <p className="eyebrow">{view === "settings" ? "SECURE LOCAL CONFIG" : view === "groups" ? "LOCAL GROUP WORKSPACE" : "PRIVATE BY DEFAULT"}</p>
-            <h2>{view === "settings" ? "模型设置" : view === "groups" ? selectedGroup?.name ?? "创建数据群组" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
+            <h2>{view === "settings" ? "设置" : view === "groups" ? selectedGroup?.name ?? "创建数据群组" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
           </div>
           <span className="mode-pill">
             {readiness.kind === "loaded" && readiness.value.status === "ready" ? "本地服务就绪" : "本地模式"}
           </span>
         </header>
 
-        <div className="conversation">
+        <div ref={conversationRef} className={`conversation ${view === "settings" ? "conversation-settings" : ""}`}>
           {view === "settings" && (
             <>
               <ProviderSettings />

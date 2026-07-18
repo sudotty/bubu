@@ -7,6 +7,8 @@ import {
   parseMcpPromptGetResult,
   parseMcpResourceReadInvocation,
   parseMcpResourceReadResult,
+  parseMcpToolCallInvocation,
+  parseMcpToolCallResult,
   parseModelInvocation,
   parseRpcRequest,
   type McpInspectionInvocation,
@@ -15,6 +17,8 @@ import {
   type McpPromptGetResult,
   type McpResourceReadInvocation,
   type McpResourceReadResult,
+  type McpToolCallInvocation,
+  type McpToolCallResult,
   type RpcResponse,
 } from "@bubu/contracts";
 import {
@@ -22,7 +26,7 @@ import {
   ProviderInvocationError,
   type ProviderFetch,
 } from "./providers/invoke.js";
-import { getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
+import { callMcpStdioTool, getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
 
 export type McpInspector = (
   invocation: McpInspectionInvocation,
@@ -39,6 +43,11 @@ export type McpPromptGetter = (
   signal?: AbortSignal,
 ) => Promise<McpPromptGetResult>;
 
+export type McpToolCaller = (
+  invocation: McpToolCallInvocation,
+  signal?: AbortSignal,
+) => Promise<McpToolCallResult>;
+
 const capabilities = [
   "openai-responses",
   "anthropic-messages",
@@ -50,6 +59,7 @@ const capabilities = [
   "mcp-stdio-inspection",
   "mcp-resource-read",
   "mcp-prompt-get",
+  "mcp-tool-call",
 ] as const;
 
 export async function handleAiRuntimeRequest(
@@ -60,6 +70,7 @@ export async function handleAiRuntimeRequest(
   inspectMcp: McpInspector = inspectMcpStdioServer,
   readMcpResource: McpResourceReader = readMcpStdioResource,
   getMcpPrompt: McpPromptGetter = getMcpStdioPrompt,
+  callMcpTool: McpToolCaller = callMcpStdioTool,
 ): Promise<RpcResponse> {
   let request;
   try {
@@ -164,6 +175,27 @@ export async function handleAiRuntimeRequest(
       }
       const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP prompt get failed";
       return createRpcError(request.id, "MCP_PROMPT_GET_FAILED", message || "MCP prompt get failed", false);
+    }
+  }
+
+  if (request.method === "mcp.tool.call") {
+    let invocation;
+    try {
+      invocation = parseMcpToolCallInvocation(request.params);
+    } catch {
+      return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid MCP tool call invocation", false);
+    }
+    try {
+      return createRpcSuccess(
+        request.id,
+        parseMcpToolCallResult(await callMcpTool(invocation, signal)),
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      }
+      const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP tool call failed";
+      return createRpcError(request.id, "MCP_TOOL_CALL_FAILED", message || "MCP tool call failed", false);
     }
   }
 

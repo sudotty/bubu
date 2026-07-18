@@ -17,6 +17,18 @@ const requiredFiles = [
   "docs/architecture/privacy-and-model-providers.md",
   "docs/architecture/local-conversations.md",
   "docs/architecture/mcp-host-security.md",
+  "docs/product/ui-ux-guidelines.md",
+  "docs/README.md",
+  "apps/README.md",
+  "apps/desktop/README.md",
+  "services/README.md",
+  "services/data-core/README.md",
+  "services/ai-runtime/README.md",
+  "packages/README.md",
+  "packages/contracts/README.md",
+  "scripts/README.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
   "docs/plans/2026-07-17-electron-migration-implementation.md",
   "docs/plans/2026-07-17-bounded-aggregate-agent-implementation.md",
@@ -24,6 +36,10 @@ const requiredFiles = [
   "docs/plans/2026-07-17-approved-mcp-resource-read-implementation.md",
   "docs/plans/2026-07-17-approved-mcp-prompt-get-implementation.md",
   "docs/plans/2026-07-17-approved-mcp-tool-call-implementation.md",
+  "packages/contracts/src/mcp-tool-schema-validator.ts",
+  "services/ai-runtime/src/mcp/schema-validator.ts",
+  "apps/desktop/src/main/mcp-tool-approval-sessions.ts",
+  "apps/desktop/src/main/mcp-tool-api.ts",
   "docs/performance/reference-desktop-2026-07-17.md",
   "docs/product/importing-data.md",
   "docs/product/data-quality-and-validation.md",
@@ -66,8 +82,10 @@ const forbiddenTracked = [
   /(^|\/)node_modules\//u,
   /(^|\/)dist\//u,
 ];
+const allowedTrackedConfiguration = new Set([".github/ISSUE_TEMPLATE/config.yml"]);
 
 for (const path of tracked) {
+  if (allowedTrackedConfiguration.has(path)) continue;
   if (forbiddenTracked.some((pattern) => pattern.test(path))) {
     failures.push(`forbidden tracked runtime artifact: ${path}`);
   }
@@ -180,6 +198,8 @@ for (const required of [
   "mcp-resource-read: implemented",
   "append-only-mcp-operation-audit: implemented",
   "mcp-prompt-get: implemented",
+  "mcp-tool-call: implemented",
+  "model-driven-mcp-tool-execution: planned",
   "mcp-prompt-to-model: planned",
   "named-operation-cancellation: implemented",
   "cancellable-data-core-operations: implemented",

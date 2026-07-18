@@ -4,6 +4,7 @@ import {
   mcpInspectionBudget,
   mcpPromptGetBudget,
   mcpResourceReadBudget,
+  mcpToolCallBudget,
   parseServiceHealth,
 } from "@bubu/contracts";
 import { handleAiRuntimeRequest } from "./handler.js";
@@ -34,6 +35,7 @@ describe("AI runtime request handler", () => {
         "mcp-stdio-inspection",
         "mcp-resource-read",
         "mcp-prompt-get",
+        "mcp-tool-call",
       ],
     });
   });
@@ -200,6 +202,48 @@ describe("AI runtime request handler", () => {
 
     const invalid = await handleAiRuntimeRequest(
       createRpcRequest({ auth, id: "mcp-prompt-2", method: "mcp.prompt.get", params: { promptName: "x" } }),
+      auth,
+    );
+    expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });
+  });
+
+  it("executes only a parsed MCP tool invocation through the named caller", async () => {
+    const invocation = {
+      connectionId: "b".repeat(32),
+      command: "/opt/bubu-mcp/bin/server",
+      args: ["--stdio"],
+      environment: {},
+      workingDirectory: "/tmp/bubu-mcp-runtime",
+      toolName: "lookup_term",
+      inputSchemaSha256: "c".repeat(64),
+      taskSupport: "forbidden" as const,
+      arguments: { term: "gross margin" },
+      budget: mcpToolCallBudget,
+    };
+    const response = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-tool-1", method: "mcp.tool.call", params: invocation }),
+      auth,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async (parsed) => ({
+        schemaVersion: 1,
+        connectionId: parsed.connectionId,
+        toolName: parsed.toolName,
+        isError: false,
+        contents: [{ kind: "text", text: "local result", decodedBytes: 12 }],
+        structuredContent: null,
+        decodedBytes: 12,
+        localOnly: true,
+        untrustedContent: true,
+      }),
+    );
+    expect(response).toMatchObject({ ok: true, result: { toolName: invocation.toolName } });
+
+    const invalid = await handleAiRuntimeRequest(
+      createRpcRequest({ auth, id: "mcp-tool-2", method: "mcp.tool.call", params: { toolName: "x" } }),
       auth,
     );
     expect(invalid).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });

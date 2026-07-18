@@ -10,6 +10,9 @@ import type {
   McpResourceReadResult,
   McpPromptGetProposal,
   McpPromptGetResult,
+  McpToolCallProposal,
+  McpToolCallRequest,
+  McpToolCallResult,
   OperationId,
 } from "../shared/product-api.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
@@ -37,6 +40,13 @@ interface PromptArgumentDraft {
 interface PromptDraft {
   readonly promptName: string;
   readonly arguments: readonly PromptArgumentDraft[];
+}
+
+interface ToolDraft {
+  readonly toolName: string;
+  readonly inputSchemaJson: string;
+  readonly taskSupport: "forbidden" | "optional" | "required";
+  readonly argumentsJson: string;
 }
 
 const emptyDraft: McpDraft = { name: "", command: "", args: [], environment: [] };
@@ -68,7 +78,9 @@ function capabilityCount(snapshot: McpInspectionSnapshot): number {
   return snapshot.tools.length + snapshot.resources.length + snapshot.prompts.length;
 }
 
-function PromptMessageContent({ content }: { readonly content: McpPromptGetResult["messages"][number]["content"] }) {
+function LocalMcpContent({ content }: {
+  readonly content: McpPromptGetResult["messages"][number]["content"] | McpToolCallResult["contents"][number];
+}) {
   if (content.kind === "text") return <pre>{content.text}</pre>;
   if (content.kind === "embedded-text") return <><code>{content.uri}</code><pre>{content.text}</pre></>;
   if (content.kind === "resource-link") return <dl>
@@ -96,6 +108,9 @@ export function McpSettings() {
   const [promptDraft, setPromptDraft] = useState<PromptDraft>();
   const [promptProposal, setPromptProposal] = useState<McpPromptGetProposal>();
   const [promptResult, setPromptResult] = useState<McpPromptGetResult>();
+  const [toolDraft, setToolDraft] = useState<ToolDraft>();
+  const [toolProposal, setToolProposal] = useState<McpToolCallProposal>();
+  const [toolResult, setToolResult] = useState<McpToolCallResult>();
   const [audits, setAudits] = useState<readonly McpAuditEvent[]>([]);
   const [operationId, setOperationId] = useState<OperationId>();
   const [busy, setBusy] = useState<string>();
@@ -166,6 +181,9 @@ export function McpSettings() {
       setPromptDraft(undefined);
       setPromptProposal(undefined);
       setPromptResult(undefined);
+      setToolDraft(undefined);
+      setToolProposal(undefined);
+      setToolResult(undefined);
       setNotice("MCP 连接已删除。");
     } catch (error) {
       setNotice(operationErrorMessage(error, "删除 MCP 连接失败"));
@@ -184,6 +202,9 @@ export function McpSettings() {
     setPromptDraft(undefined);
     setPromptProposal(undefined);
     setPromptResult(undefined);
+    setToolDraft(undefined);
+    setToolProposal(undefined);
+    setToolResult(undefined);
     try {
       setProposal(await window.bubu.mcp.prepareInspection(connectionId));
     } catch (error) {
@@ -217,7 +238,7 @@ export function McpSettings() {
 
 
   async function prepareResourceRead(resourceUri: string): Promise<void> {
-    if (!inspectedConnectionId || resourceProposal || promptProposal) return;
+    if (!inspectedConnectionId || resourceProposal || promptProposal || toolProposal) return;
     setBusy(resourceUri);
     setNotice(undefined);
     setResourceResult(undefined);
@@ -358,6 +379,97 @@ export function McpSettings() {
     }
   }
 
+  function editTool(tool: McpInspectionSnapshot["tools"][number]): void {
+    setToolDraft({
+      toolName: tool.name,
+      inputSchemaJson: tool.inputSchemaJson,
+      taskSupport: tool.taskSupport,
+      argumentsJson: "{}",
+    });
+    setToolProposal(undefined);
+    setToolResult(undefined);
+  }
+
+  function toolRequest(): McpToolCallRequest | undefined {
+    if (!toolDraft || !inspectedConnectionId) return undefined;
+    const parsed = JSON.parse(toolDraft.argumentsJson) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("工具参数必须是一个 JSON 对象");
+    }
+    return {
+      connectionId: inspectedConnectionId,
+      toolName: toolDraft.toolName,
+      inputSchemaJson: toolDraft.inputSchemaJson,
+      taskSupport: toolDraft.taskSupport,
+      arguments: parsed as McpToolCallRequest["arguments"],
+    };
+  }
+
+  async function prepareToolCall(): Promise<void> {
+    if (toolProposal) return;
+    setBusy(toolDraft?.toolName ?? "tool-call");
+    setNotice(undefined);
+    setToolResult(undefined);
+    try {
+      const request = toolRequest();
+      if (!request) throw new Error("请先选择一个 MCP 工具");
+      setToolProposal(await window.bubu.mcp.prepareToolCall(request));
+    } catch (error) {
+      setNotice(operationErrorMessage(error, "无法准备 MCP 工具调用审查；请检查 JSON 与工具模式"));
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function approveToolCall(): Promise<void> {
+    if (!toolProposal) return;
+    const nextOperationId = createOperationId();
+    setOperationId(nextOperationId);
+    setNotice(undefined);
+    const request: McpToolCallRequest = {
+      connectionId: toolProposal.connection.id,
+      toolName: toolProposal.toolName,
+      inputSchemaJson: toolProposal.inputSchemaJson,
+      taskSupport: toolProposal.taskSupport,
+      arguments: toolProposal.arguments,
+    };
+    try {
+      const result = await window.bubu.mcp.approveToolCall({
+        approvalToken: toolProposal.approvalToken,
+        request,
+      }, nextOperationId);
+      setToolResult(result);
+      setToolProposal(undefined);
+      setNotice(`本地工具调用完成：${result.contents.length} 个内容片段，${result.decodedBytes} 字节；未发送给模型、Agent 或工作流。`);
+    } catch (error) {
+      setToolProposal(undefined);
+      setNotice(operationErrorMessage(error, "MCP 工具调用失败，请重新发现并审查"));
+    } finally {
+      setOperationId(undefined);
+      await refreshAudits();
+    }
+  }
+
+  async function dismissToolCall(): Promise<void> {
+    if (!toolProposal) return;
+    try {
+      await window.bubu.mcp.dismissToolCall({
+        approvalToken: toolProposal.approvalToken,
+        request: {
+          connectionId: toolProposal.connection.id,
+          toolName: toolProposal.toolName,
+          inputSchemaJson: toolProposal.inputSchemaJson,
+          taskSupport: toolProposal.taskSupport,
+          arguments: toolProposal.arguments,
+        },
+      });
+      setToolProposal(undefined);
+      setNotice("已撤销 MCP 工具调用批准；没有启动本地进程，也没有发送参数。");
+    } catch (error) {
+      setNotice(operationErrorMessage(error, "撤销 MCP 工具调用批准失败"));
+    }
+  }
+
   async function dismissInspection(): Promise<void> {
     if (!proposal) return;
     try {
@@ -389,8 +501,8 @@ export function McpSettings() {
           </button>
           <div className="provider-badges"><small>stdio</small><small>{connection.transport.environmentKeys.length} 个加密环境值</small></div>
           <div className="provider-actions">
-            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void prepareInspection(connection.id)}>审查并检查</button>
-            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void remove(connection.id)}>删除</button>
+            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined || promptProposal !== undefined || toolProposal !== undefined} onClick={() => void prepareInspection(connection.id)}>审查并检查</button>
+            <button type="button" disabled={busy !== undefined || operationId !== undefined || proposal !== undefined || resourceProposal !== undefined || promptProposal !== undefined || toolProposal !== undefined} onClick={() => void remove(connection.id)}>删除</button>
           </div>
         </article>)}
       </div>
@@ -428,7 +540,17 @@ export function McpSettings() {
       {snapshot.untrustedMetadata && <div className="security-warning" role="note">以下名称、描述、annotations、schema、URI 和参数说明均来自 MCP 服务，只作为未受信任文本展示。</div>}
       {snapshot.instructions && <section><strong>服务说明（不可信，不会发送给模型）</strong><p>{snapshot.instructions}</p></section>}
       <div className="mcp-capability-columns">
-        <section><h5>Tools · {snapshot.tools.length}</h5>{snapshot.tools.map((tool) => <details key={tool.name}><summary>{tool.title ?? tool.name}</summary><p>{tool.description ?? "无描述"}</p><small>annotations 仅展示，不作为安全事实：{JSON.stringify(tool.annotations ?? {})}</small><pre>{tool.inputSchemaJson}</pre></details>)}</section>
+        <section><h5>Tools · {snapshot.tools.length}</h5>{snapshot.tools.map((tool) => <details key={tool.name} open={toolDraft?.toolName === tool.name}>
+          <summary>{tool.title ?? tool.name}</summary><p>{tool.description ?? "无描述"}</p>
+          <small>任务支持：{tool.taskSupport} · annotations 仅展示，不作为安全事实：{JSON.stringify(tool.annotations ?? {})}</small>
+          <pre>{tool.inputSchemaJson}</pre>
+          {tool.taskSupport === "required" && <div className="security-warning" role="note">此工具要求 MCP Tasks；当前一次性调用路径不会假装支持它。</div>}
+          {toolDraft?.toolName === tool.name && tool.taskSupport !== "required" && <form className="mcp-tool-arguments" onSubmit={(event) => { event.preventDefault(); void prepareToolCall(); }}>
+            <label><span>精确 JSON 参数对象</span><textarea rows={6} spellCheck={false} value={toolDraft.argumentsJson} onChange={(event) => setToolDraft({ ...toolDraft, argumentsJson: event.target.value })} /></label>
+            <button type="submit" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined || toolProposal !== undefined}>校验模式并审查调用</button>
+          </form>}
+          {toolDraft?.toolName !== tool.name && <div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined || toolProposal !== undefined || tool.taskSupport === "required"} onClick={() => editTool(tool)}>填写 JSON 并审查</button></div>}
+        </details>)}</section>
         <section><h5>Resources · {snapshot.resources.length}</h5>{snapshot.resources.map((resource) => <details key={resource.uri}><summary>{resource.title ?? resource.name}</summary><p>{resource.description ?? "无描述"}</p><code>{resource.uri}</code><div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void prepareResourceRead(resource.uri)}>审查读取</button></div></details>)}</section>
         <section><h5>Prompts · {snapshot.prompts.length}</h5>{snapshot.prompts.map((prompt) => <details key={prompt.name} open={promptDraft?.promptName === prompt.name}>
           <summary>{prompt.title ?? prompt.name}</summary><p>{prompt.description ?? "无描述"}</p>
@@ -488,15 +610,35 @@ export function McpSettings() {
       {promptResult.messages.map((message, index) => <section key={index}>
         <strong>{message.role === "user" ? "用户消息" : "助手消息"} · {message.content.kind}</strong>
         <small>{message.content.decodedBytes} 字节</small>
-        <PromptMessageContent content={message.content} />
+        <LocalMcpContent content={message.content} />
       </section>)}
+    </article>}
+    {toolProposal && <article className="mcp-launch-review">
+      <header><div><strong>批准前检查精确工具调用</strong><small>{toolProposal.connection.name}</small></div><span>{toolProposal.budget.maxDurationMs / 1_000} 秒上限</span></header>
+      <div className="security-warning" role="alert">工具可能产生副作用。批准后会再次启动本地代码，并发送下方精确参数。返回内容不可信，只在本地显示，不会进入模型、Agent 或工作流。</div>
+      <dl>
+        <div><dt>规范化可执行文件</dt><dd><code>{toolProposal.connection.command}</code></dd></div>
+        <div><dt>精确工具名称</dt><dd><code>{toolProposal.toolName}</code></dd></div>
+        <div><dt>输入模式 SHA-256</dt><dd><code>{toolProposal.inputSchemaSha256}</code></dd></div>
+        <div><dt>任务支持</dt><dd>{toolProposal.taskSupport}</dd></div>
+        <div><dt>批准失效</dt><dd>{new Date(toolProposal.expiresAt).toLocaleTimeString("zh-CN")}</dd></div>
+      </dl>
+      <div><strong>全部 JSON 参数（原样发送给本地服务）</strong><pre>{JSON.stringify(toolProposal.arguments, null, 2)}</pre></div>
+      <p>调用前最多重新发现 {toolProposal.budget.maxDiscoveredTools} 个工具 / {toolProposal.budget.maxDiscoveryPages} 页，并核对名称、模式哈希与任务支持；最多 {toolProposal.budget.maxContentParts} 个内容片段和 {toolProposal.budget.maxDecodedBytes / 1_024} KiB 解码内容。超限整体失败。</p>
+      <div className="plan-actions"><button type="button" className="primary-action" onClick={() => void approveToolCall()}>批准启动一次并调用此工具</button><button type="button" className="secondary-action" onClick={() => void dismissToolCall()}>撤销且不发送参数</button></div>
+    </article>}
+    {toolResult && <article className="mcp-tool-result">
+      <header><div><p className="hero-kicker">LOCAL ONLY · UNTRUSTED TOOL OUTPUT</p><h4>MCP 本地工具结果</h4><small>{toolResult.toolName} · {toolResult.contents.length} 个内容片段 · {toolResult.decodedBytes} 字节</small></div><span>{toolResult.isError ? "工具返回错误" : "未发送给模型"}</span></header>
+      <div className="security-warning" role="note">以下内容来自本地 MCP 服务，不作为 BuBu 指令；annotations 与 _meta 已丢弃，二进制正文不进入渲染器。</div>
+      {toolResult.contents.map((content, index) => <section key={index}><strong>内容 {index + 1} · {content.kind}</strong><small>{content.decodedBytes} 字节</small><LocalMcpContent content={content} /></section>)}
+      {toolResult.structuredContent && <section><strong>结构化 JSON</strong><small>{toolResult.structuredContent.decodedBytes} 字节</small><pre>{JSON.stringify(JSON.parse(toolResult.structuredContent.json), null, 2)}</pre></section>}
     </article>}
     <article className="mcp-audit-history">
       <header><div><p className="hero-kicker">APPEND-ONLY · NO CONTENT</p><h4>MCP 本地审计</h4></div><button type="button" className="secondary-action" onClick={() => void refreshAudits()}>刷新</button></header>
-      {audits.length === 0 ? <p className="empty-copy">尚无已批准的 MCP 资源读取或提示获取记录。</p> : <div className="mcp-audit-list">{audits.map((audit) => <div key={audit.auditId}>
+      {audits.length === 0 ? <p className="empty-copy">尚无已批准的 MCP 资源读取、提示获取或工具调用记录。</p> : <div className="mcp-audit-list">{audits.map((audit) => <div key={audit.auditId}>
         <strong>{audit.connectionName} · {audit.status}</strong>
-        <code>{audit.operation === "resource-read" ? audit.resourceUri : `${audit.promptName}(${audit.argumentKeys.join(", ")})`}</code>
-        <small>{new Date(audit.startedAt).toLocaleString("zh-CN")}{audit.operation === "prompt-get" ? ` · 参数 ${audit.argumentBytes} 字节` : ""}{audit.status === "succeeded" ? ` · ${audit.contentParts} 片段 / ${audit.decodedBytes} 字节` : audit.status === "failed" ? ` · ${audit.errorCode}` : ""}</small>
+        <code>{audit.operation === "resource-read" ? audit.resourceUri : audit.operation === "prompt-get" ? `${audit.promptName}(${audit.argumentKeys.join(", ")})` : `${audit.toolName}(${audit.inputKeys.join(", ")})`}</code>
+        <small>{new Date(audit.startedAt).toLocaleString("zh-CN")}{audit.operation === "prompt-get" ? ` · 参数 ${audit.argumentBytes} 字节` : audit.operation === "tool-call" ? ` · 输入 ${audit.inputBytes} 字节` : ""}{audit.status === "succeeded" ? ` · ${audit.contentParts} 片段 / ${audit.decodedBytes} 字节` : audit.status === "failed" ? ` · ${audit.errorCode}` : ""}</small>
       </div>)}</div>}
     </article>
   </section>;

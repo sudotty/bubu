@@ -20,3 +20,4 @@ export * from "./visualization.js";
 export * from "./workflow.js";
 export * from "./model-audit.js";
 export * from "./mcp.js";
+export * from "./mcp-tool-schema-validator.js";

@@ -1,0 +1,38 @@
+name: Product proposal
+description: Propose an outcome while preserving BuBu's local-first privacy boundary.
+title: "[Proposal]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the decision or workflow that is difficult today, not only the desired implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should the user be able to complete, and how will we know it works?
+    validations:
+      required: true
+  - type: dropdown
+    id: disclosure
+    attributes:
+      label: Highest remote-data disclosure needed
+      options:
+        - None; fully local
+        - Schema only
+        - Schema plus synthetic examples
+        - Explicitly approved aggregates
+        - Explicitly selected rows
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: Failure and recovery
+      description: What should happen when the provider, sidecar, database, or network is unavailable?
+    validations:
+      required: true

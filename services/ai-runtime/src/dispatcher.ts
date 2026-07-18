@@ -5,7 +5,7 @@ import {
   type RpcResponse,
 } from "@bubu/contracts";
 import { handleAiRuntimeRequest } from "./handler.js";
-import type { McpInspector, McpPromptGetter, McpResourceReader } from "./handler.js";
+import type { McpInspector, McpPromptGetter, McpResourceReader, McpToolCaller } from "./handler.js";
 import type { ProviderFetch } from "./providers/invoke.js";
 
 export interface AiRuntimeDispatcher {
@@ -18,6 +18,7 @@ export function createAiRuntimeDispatcher(
   inspectMcp?: McpInspector,
   readMcpResource?: McpResourceReader,
   getMcpPrompt?: McpPromptGetter,
+  callMcpTool?: McpToolCaller,
 ): AiRuntimeDispatcher {
   const active = new Map<string, AbortController>();
   return {
@@ -54,6 +55,7 @@ export function createAiRuntimeDispatcher(
           inspectMcp,
           readMcpResource,
           getMcpPrompt,
+          callMcpTool,
         );
       } finally {
         active.delete(request.id);

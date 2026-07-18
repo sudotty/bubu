@@ -1,24 +1,31 @@
 import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResultSchema, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import {
+  canonicalMcpJson,
   mcpInspectionBudget,
   mcpResourceReadBudget,
   mcpPromptGetBudget,
+  mcpToolCallBudget,
   parseMcpInspectionInvocation,
   parseMcpInspectionSnapshot,
   parseMcpResourceReadInvocation,
   parseMcpResourceReadResult,
   parseMcpPromptGetInvocation,
   parseMcpPromptGetResult,
+  parseMcpToolCallInvocation,
+  parseMcpToolCallResult,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
   type McpResourceReadInvocation,
   type McpResourceReadResult,
   type McpPromptGetInvocation,
   type McpPromptGetResult,
+  type McpToolCallInvocation,
+  type McpToolCallResult,
 } from "@bubu/contracts";
+import { validateMcpToolArguments, validateMcpToolStructuredContent } from "./schema-validator.js";
 
 interface LimitState {
   limited: boolean;
@@ -32,7 +39,7 @@ interface Page<T> {
 function assertMcpActive(
   signal: AbortSignal | undefined,
   timeoutSignal: AbortSignal,
-  operation: "inspection" | "resource read" | "prompt get",
+  operation: "inspection" | "resource read" | "prompt get" | "tool call",
 ): void {
   if (signal?.aborted) throw new Error(`MCP ${operation} was cancelled`);
   if (timeoutSignal.aborted) throw new Error(`MCP ${operation} exceeded its 30-second budget`);
@@ -58,7 +65,7 @@ function normalizedTool(
   tool: Awaited<ReturnType<Client["listTools"]>>["tools"][number],
   state: LimitState,
 ) {
-  const inputSchemaJson = JSON.stringify(tool.inputSchema);
+  const inputSchemaJson = canonicalMcpJson(tool.inputSchema);
   if (new TextEncoder().encode(inputSchemaJson).byteLength > 16 * 1024) {
     throw new Error(`MCP tool ${tool.name} input schema exceeds 16 KiB`);
   }
@@ -71,6 +78,7 @@ function normalizedTool(
     ...optionalTextProperty("title", tool.title, state),
     ...optionalTextProperty("description", tool.description, state),
     inputSchemaJson,
+    taskSupport: tool.execution?.taskSupport ?? "forbidden",
     ...(annotations === undefined || Object.keys(annotations).length === 0 ? {} : { annotations }),
   };
 }
@@ -161,7 +169,7 @@ async function withMcpClient<T>(
   invocation: McpLaunchInvocation,
   signal: AbortSignal | undefined,
   timeoutSignal: AbortSignal,
-  operation: "inspection" | "resource read" | "prompt get",
+  operation: "inspection" | "resource read" | "prompt get" | "tool call",
   use: (client: Client, requestOptions: McpRequestOptions) => Promise<T>,
 ): Promise<T> {
   assertMcpActive(signal, timeoutSignal, operation);
@@ -333,6 +341,57 @@ export async function readMcpStdioResource(
   });
 }
 
+type McpContentBlock = Awaited<ReturnType<Client["getPrompt"]>>["messages"][number]["content"];
+
+function normalizedMcpContent(content: McpContentBlock, includeBytes: (bytes: number) => number) {
+  if (content.type === "text") {
+    return {
+      kind: "text" as const,
+      text: content.text,
+      decodedBytes: includeBytes(new TextEncoder().encode(content.text).byteLength),
+    };
+  }
+  if (content.type === "image" || content.type === "audio") {
+    const decoded = decodeCanonicalBase64(content.data);
+    return {
+      kind: content.type,
+      mimeType: content.mimeType,
+      decodedBytes: includeBytes(decoded.byteLength),
+      sha256: createHash("sha256").update(decoded).digest("hex"),
+    };
+  }
+  if (content.type === "resource") {
+    const embedded = content.resource;
+    if ("text" in embedded) {
+      return {
+        kind: "embedded-text" as const,
+        uri: embedded.uri,
+        ...(embedded.mimeType === undefined ? {} : { mimeType: embedded.mimeType }),
+        text: embedded.text,
+        decodedBytes: includeBytes(new TextEncoder().encode(embedded.text).byteLength),
+      };
+    }
+    const decoded = decodeCanonicalBase64(embedded.blob);
+    return {
+      kind: "embedded-blob" as const,
+      uri: embedded.uri,
+      ...(embedded.mimeType === undefined ? {} : { mimeType: embedded.mimeType }),
+      decodedBytes: includeBytes(decoded.byteLength),
+      sha256: createHash("sha256").update(decoded).digest("hex"),
+    };
+  }
+  return {
+    kind: "resource-link" as const,
+    uri: content.uri,
+    name: content.name,
+    ...(content.title === undefined ? {} : { title: content.title }),
+    ...(content.description === undefined ? {} : { description: content.description }),
+    ...(content.mimeType === undefined ? {} : { mimeType: content.mimeType }),
+    ...(content.size === undefined ? {} : { size: content.size }),
+    decodedBytes: 0 as const,
+  };
+}
+
 export async function getMcpStdioPrompt(
   value: McpPromptGetInvocation,
   signal?: AbortSignal,
@@ -381,75 +440,93 @@ export async function getMcpStdioPrompt(
       }
       return bytes;
     };
-    const messages = response.messages.map(({ role, content }) => {
-      if (content.type === "text") {
-        return {
-          role,
-          content: {
-            kind: "text" as const,
-            text: content.text,
-            decodedBytes: includeBytes(new TextEncoder().encode(content.text).byteLength),
-          },
-        };
-      }
-      if (content.type === "image" || content.type === "audio") {
-        const decoded = decodeCanonicalBase64(content.data);
-        return {
-          role,
-          content: {
-            kind: content.type,
-            mimeType: content.mimeType,
-            decodedBytes: includeBytes(decoded.byteLength),
-            sha256: createHash("sha256").update(decoded).digest("hex"),
-          },
-        };
-      }
-      if (content.type === "resource") {
-        const embedded = content.resource;
-        if ("text" in embedded) {
-          return {
-            role,
-            content: {
-              kind: "embedded-text" as const,
-              uri: embedded.uri,
-              ...(embedded.mimeType === undefined ? {} : { mimeType: embedded.mimeType }),
-              text: embedded.text,
-              decodedBytes: includeBytes(new TextEncoder().encode(embedded.text).byteLength),
-            },
-          };
-        }
-        const decoded = decodeCanonicalBase64(embedded.blob);
-        return {
-          role,
-          content: {
-            kind: "embedded-blob" as const,
-            uri: embedded.uri,
-            ...(embedded.mimeType === undefined ? {} : { mimeType: embedded.mimeType }),
-            decodedBytes: includeBytes(decoded.byteLength),
-            sha256: createHash("sha256").update(decoded).digest("hex"),
-          },
-        };
-      }
-      return {
-        role,
-        content: {
-          kind: "resource-link" as const,
-          uri: content.uri,
-          name: content.name,
-          ...(content.title === undefined ? {} : { title: content.title }),
-          ...(content.description === undefined ? {} : { description: content.description }),
-          ...(content.mimeType === undefined ? {} : { mimeType: content.mimeType }),
-          ...(content.size === undefined ? {} : { size: content.size }),
-          decodedBytes: 0 as const,
-        },
-      };
-    });
+    const messages = response.messages.map(({ role, content }) => ({
+      role,
+      content: normalizedMcpContent(content, includeBytes),
+    }));
     return parseMcpPromptGetResult({
       schemaVersion: 1,
       connectionId: invocation.connectionId,
       promptName: invocation.promptName,
       ...(response.description === undefined ? {} : { description: response.description }),
       messages,
+      decodedBytes,
+      localOnly: true,
+      untrustedContent: true,
+    });
+  });
+}
+
+export async function callMcpStdioTool(
+  value: McpToolCallInvocation,
+  signal?: AbortSignal,
+  timeoutSignal: AbortSignal = AbortSignal.timeout(mcpToolCallBudget.maxDurationMs),
+): Promise<McpToolCallResult> {
+  const invocation = parseMcpToolCallInvocation(value);
+  return withMcpClient(invocation, signal, timeoutSignal, "tool call", async (client, requestOptions) => {
+    const hasTools = client.getServerCapabilities()?.tools !== undefined;
+    if (!hasTools) throw new Error("MCP server does not advertise tools");
+    const discovered = await collectPages(
+      true,
+      invocation.budget.maxDiscoveryPages,
+      invocation.budget.maxDiscoveredTools,
+      async (cursor) => {
+        const page = await client.listTools(cursor === undefined ? undefined : { cursor }, requestOptions);
+        return { items: page.tools, ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }) };
+      },
+    );
+    const tool = discovered.items.find(({ name }) => name === invocation.toolName);
+    if (!tool) throw new Error("Approved MCP tool is not present in bounded discovery");
+    const inputSchemaJson = canonicalMcpJson(tool.inputSchema);
+    const inputSchemaSha256 = createHash("sha256").update(inputSchemaJson, "utf8").digest("hex");
+    if (inputSchemaSha256 !== invocation.inputSchemaSha256) {
+      throw new Error("Approved MCP tool input schema changed after review");
+    }
+    const taskSupport = tool.execution?.taskSupport ?? "forbidden";
+    if (taskSupport !== invocation.taskSupport) {
+      throw new Error("Approved MCP tool task support changed after review");
+    }
+    if (taskSupport === "required") {
+      throw new Error("MCP task-required tools are not supported by this bounded call path");
+    }
+    validateMcpToolArguments(inputSchemaJson, invocation.arguments);
+    const response = await client.callTool({
+      name: invocation.toolName,
+      arguments: invocation.arguments,
+    }, CallToolResultSchema, requestOptions);
+    const normalResponse = CallToolResultSchema.parse(response);
+    if (normalResponse.content.length > invocation.budget.maxContentParts) {
+      throw new Error("MCP tool returned too many content parts");
+    }
+    let decodedBytes = 0;
+    const includeBytes = (bytes: number): number => {
+      decodedBytes += bytes;
+      if (decodedBytes > invocation.budget.maxDecodedBytes) {
+        throw new Error("MCP tool exceeds its decoded-content budget");
+      }
+      return bytes;
+    };
+    const contents = normalResponse.content.map((content) => normalizedMcpContent(content, includeBytes));
+    let structuredContent: { readonly json: string; readonly decodedBytes: number } | null = null;
+    if (normalResponse.structuredContent !== undefined) {
+      if (tool.outputSchema !== undefined) {
+        validateMcpToolStructuredContent(tool.outputSchema, normalResponse.structuredContent);
+      }
+      const json = canonicalMcpJson(normalResponse.structuredContent);
+      structuredContent = {
+        json,
+        decodedBytes: includeBytes(new TextEncoder().encode(json).byteLength),
+      };
+    } else if (tool.outputSchema !== undefined) {
+      throw new Error("MCP tool omitted structured content required by its output schema");
+    }
+    return parseMcpToolCallResult({
+      schemaVersion: 1,
+      connectionId: invocation.connectionId,
+      toolName: invocation.toolName,
+      isError: normalResponse.isError ?? false,
+      contents,
+      structuredContent,
       decodedBytes,
       localOnly: true,
       untrustedContent: true,

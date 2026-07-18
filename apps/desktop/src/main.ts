@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { mkdir, writeFile } from "node:fs/promises";
 import {
   app,
   BrowserWindow,
@@ -93,7 +94,21 @@ async function createMainWindow(showWhenReady = true): Promise<BrowserWindow> {
   return window;
 }
 
-async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
+async function captureSmokeStep(
+  window: BrowserWindow,
+  screenshotDirectory: string | undefined,
+  fileName: string,
+): Promise<void> {
+  if (!screenshotDirectory) return;
+  await mkdir(screenshotDirectory, { recursive: true });
+  const image = await window.webContents.capturePage();
+  await writeFile(join(screenshotDirectory, fileName), image.toPNG(), { mode: 0o600 });
+}
+
+async function verifySmokeRenderer(
+  window: BrowserWindow,
+  screenshotDirectory?: string,
+): Promise<void> {
   const result = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const expected = [
@@ -114,10 +129,23 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
         "历史结果"
       ];
       const deadline = Date.now() + 5000;
+      let selectedSales = false;
       const inspect = () => {
+        if (!selectedSales) {
+          const salesButton = Array.from(document.querySelectorAll("button.contact-card"))
+            .find((button) => button.textContent?.includes("synthetic-sales"));
+          if (salesButton instanceof HTMLButtonElement) {
+            selectedSales = true;
+            salesButton.click();
+            setTimeout(inspect, 50);
+            return;
+          }
+        }
         const contents = document.body.innerText;
         const missing = expected.filter((value) => !contents.includes(value));
-        if (missing.length === 0) return resolve({ ok: true, missing: [] });
+        const loading = ["正在读取本地预览与列画像…", "正在生成本地质量报告…"]
+          .filter((value) => contents.includes(value));
+        if (missing.length === 0 && loading.length === 0) return resolve({ ok: true, missing: [] });
         if (Date.now() >= deadline) return resolve({ ok: false, missing });
         setTimeout(inspect, 50);
       };
@@ -127,6 +155,19 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
   if (!result.ok) {
     throw new Error(`Packaged renderer is missing imported data: ${result.missing.join(", ")}`);
   }
+  await captureSmokeStep(window, screenshotDirectory, "01-datasets.png");
+  await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const composer = document.querySelector(".analysis-composer");
+      const conversation = document.querySelector(".conversation");
+      window.scrollTo({ top: 0 });
+      if (composer instanceof HTMLElement && conversation instanceof HTMLElement) {
+        conversation.scrollTop = composer.offsetTop - (conversation.clientHeight - composer.clientHeight) / 2;
+      }
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })
+  `);
+  await captureSmokeStep(window, screenshotDirectory, "02-chat.png");
   const groupResult = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const groupButton = document.querySelector('button[title="数据群组"]');
@@ -149,9 +190,10 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
   if (!groupResult.ok) {
     throw new Error(`Packaged renderer is missing dataset groups: ${groupResult.missing.join(", ")}`);
   }
+  await captureSmokeStep(window, screenshotDirectory, "02-groups.png");
   const settingsResult = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
-      const settingsButton = document.querySelector('button[title="模型设置"]');
+      const settingsButton = document.querySelector('button[title="设置"]');
       if (!(settingsButton instanceof HTMLButtonElement)) {
         return resolve({ ok: false, missing: ["模型设置按钮"] });
       }
@@ -171,6 +213,7 @@ async function verifySmokeRenderer(window: BrowserWindow): Promise<void> {
   if (!settingsResult.ok) {
     throw new Error(`Packaged renderer is missing provider settings: ${settingsResult.missing.join(", ")}`);
   }
+  await captureSmokeStep(window, screenshotDirectory, "03-settings.png");
 }
 
 void app
@@ -205,7 +248,7 @@ void app
       developmentServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
     });
     if (launchMode.kind === "smoke") {
-      const imported = await sidecars.importFiles([launchMode.sourcePath, launchMode.sourcePath]);
+      const imported = await sidecars.importFiles([launchMode.sourcePath, launchMode.secondSourcePath]);
       await sidecars.saveGroup({
         name: "synthetic-group",
         datasetIds: imported.datasets.map(({ id }) => id),
@@ -251,7 +294,7 @@ void app
       if (readiness.status !== "ready" || window.webContents.getURL() !== "bubu://app/index.html") {
         throw new Error(`Packaged smoke check failed: ${JSON.stringify(readiness)}`);
       }
-      await verifySmokeRenderer(window);
+      await verifySmokeRenderer(window, launchMode.screenshotDirectory);
       console.log("BUBU_PACKAGED_IMPORT_UI_OK");
       console.log("BUBU_PACKAGED_SMOKE_OK");
       app.quit();

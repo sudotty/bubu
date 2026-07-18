@@ -18,14 +18,18 @@ describe("desktop launch mode", () => {
     });
   });
 
-  it("requires both isolated absolute paths in smoke mode", () => {
+  it("requires isolated absolute paths in smoke mode", () => {
     expect(() => parseLaunchMode(["--bubu-smoke-test"], {}, "/unused")).toThrow(
-      "requires isolated data and source paths",
+      "requires isolated data and two source paths",
     );
     expect(() =>
       parseLaunchMode(
         ["--bubu-smoke-test"],
-        { BUBU_SMOKE_DATA_DIR: "relative", BUBU_SMOKE_SOURCE: "/tmp/source.csv" },
+        {
+          BUBU_SMOKE_DATA_DIR: "relative",
+          BUBU_SMOKE_SOURCE: "/tmp/source.csv",
+          BUBU_SMOKE_SECOND_SOURCE: "/tmp/second.csv",
+        },
         "/unused",
       ),
     ).toThrow("must be absolute");
@@ -35,9 +39,52 @@ describe("desktop launch mode", () => {
     expect(
       parseLaunchMode(
         ["--bubu-smoke-test"],
-        { BUBU_SMOKE_DATA_DIR: "/tmp/data", BUBU_SMOKE_SOURCE: "/tmp/source.csv" },
+        {
+          BUBU_SMOKE_DATA_DIR: "/tmp/data",
+          BUBU_SMOKE_SOURCE: "/tmp/source.csv",
+          BUBU_SMOKE_SECOND_SOURCE: "/tmp/second.csv",
+        },
         "/unused",
       ),
-    ).toEqual({ kind: "smoke", dataDirectory: "/tmp/data", sourcePath: "/tmp/source.csv" });
+    ).toEqual({
+      kind: "smoke",
+      dataDirectory: "/tmp/data",
+      sourcePath: "/tmp/source.csv",
+      secondSourcePath: "/tmp/second.csv",
+    });
+  });
+
+  it("accepts only an absolute optional screenshot directory", () => {
+    expect(() =>
+      parseLaunchMode(
+        ["--bubu-smoke-test"],
+        {
+          BUBU_SMOKE_DATA_DIR: "/tmp/data",
+          BUBU_SMOKE_SOURCE: "/tmp/source.csv",
+          BUBU_SMOKE_SECOND_SOURCE: "/tmp/second.csv",
+          BUBU_SMOKE_SCREENSHOT_DIR: "relative",
+        },
+        "/unused",
+      ),
+    ).toThrow("Packaged smoke screenshot path must be absolute");
+
+    expect(
+      parseLaunchMode(
+        ["--bubu-smoke-test"],
+        {
+          BUBU_SMOKE_DATA_DIR: "/tmp/data",
+          BUBU_SMOKE_SOURCE: "/tmp/source.csv",
+          BUBU_SMOKE_SECOND_SOURCE: "/tmp/second.csv",
+          BUBU_SMOKE_SCREENSHOT_DIR: "/tmp/screenshots",
+        },
+        "/unused",
+      ),
+    ).toEqual({
+      kind: "smoke",
+      dataDirectory: "/tmp/data",
+      sourcePath: "/tmp/source.csv",
+      secondSourcePath: "/tmp/second.csv",
+      screenshotDirectory: "/tmp/screenshots",
+    });
   });
 });
