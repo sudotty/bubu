@@ -144,6 +144,37 @@ const boundedUriSchema = z.string().min(1).max(2_000).refine(
   (value) => !/[\0\r\n]/u.test(value),
   "MCP URI contains forbidden control characters",
 );
+
+function normalizedCanonicalJson(value: unknown, seen: Set<object>): unknown {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("MCP JSON numbers must be finite");
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (seen.has(value)) throw new Error("MCP JSON must not contain cycles");
+    seen.add(value);
+    const normalized = value.map((entry) => normalizedCanonicalJson(entry, seen));
+    seen.delete(value);
+    return normalized;
+  }
+  if (typeof value === "object") {
+    if (seen.has(value)) throw new Error("MCP JSON must not contain cycles");
+    seen.add(value);
+    const record = value as Record<string, unknown>;
+    const normalized = Object.fromEntries(
+      Object.keys(record).sort().map((key) => [key, normalizedCanonicalJson(record[key], seen)]),
+    );
+    seen.delete(value);
+    return normalized;
+  }
+  throw new Error("MCP values must be JSON-compatible");
+}
+
+export function canonicalMcpJson(value: unknown): string {
+  return JSON.stringify(normalizedCanonicalJson(value, new Set()));
+}
+
 const inputSchemaJsonSchema = z.string().min(2).max(maximumMcpInputSchemaBytes).superRefine((value, context) => {
   if (new TextEncoder().encode(value).byteLength > maximumMcpInputSchemaBytes) {
     context.addIssue({ code: "custom", message: "MCP input schema exceeds its byte budget" });
@@ -152,6 +183,8 @@ const inputSchemaJsonSchema = z.string().min(2).max(maximumMcpInputSchemaBytes).
     const parsed = JSON.parse(value) as unknown;
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       context.addIssue({ code: "custom", message: "MCP input schema must encode a JSON object" });
+    } else if (canonicalMcpJson(parsed) !== value) {
+      context.addIssue({ code: "custom", message: "MCP input schema must use canonical JSON" });
     }
   } catch {
     context.addIssue({ code: "custom", message: "MCP input schema must be valid JSON" });
@@ -163,6 +196,7 @@ const mcpToolSummarySchema = z.object({
   title: boundedOptionalText,
   description: boundedOptionalText,
   inputSchemaJson: inputSchemaJsonSchema,
+  taskSupport: z.enum(["forbidden", "optional", "required"]),
   annotations: z.object({
     readOnlyHint: z.boolean().optional(),
     destructiveHint: z.boolean().optional(),
@@ -458,6 +492,169 @@ export const mcpPromptGetResultSchema = z.object({
   }
 });
 
+const maximumMcpToolInputBytes = 32_768;
+const maximumMcpToolTopLevelKeys = 100;
+const maximumMcpToolJsonNodes = 1_000;
+const maximumMcpToolJsonDepth = 16;
+const maximumMcpToolJsonStringBytes = 8_192;
+const mcpToolTaskSupportSchema = z.enum(["forbidden", "optional", "required"]);
+
+interface JsonLimitState {
+  nodes: number;
+}
+
+function inspectBoundedMcpJson(
+  value: unknown,
+  context: z.RefinementCtx,
+  state: JsonLimitState,
+  depth: number,
+  path: readonly PropertyKey[],
+): void {
+  state.nodes += 1;
+  if (state.nodes > maximumMcpToolJsonNodes) {
+    context.addIssue({ code: "custom", path: [...path], message: "MCP tool input exceeds its JSON node budget" });
+    return;
+  }
+  if (depth > maximumMcpToolJsonDepth) {
+    context.addIssue({ code: "custom", path: [...path], message: "MCP tool input exceeds its JSON depth budget" });
+    return;
+  }
+  if (typeof value === "string") {
+    if (new TextEncoder().encode(value).byteLength > maximumMcpToolJsonStringBytes) {
+      context.addIssue({ code: "custom", path: [...path], message: "MCP tool input string exceeds its byte budget" });
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => inspectBoundedMcpJson(entry, context, state, depth + 1, [...path, index]));
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, entry] of Object.entries(value)) {
+      if (new TextEncoder().encode(key).byteLength > maximumMcpToolJsonStringBytes || /[\0\r\n]/u.test(key)) {
+        context.addIssue({ code: "custom", path: [...path, key], message: "MCP tool input key is invalid" });
+      }
+      inspectBoundedMcpJson(entry, context, state, depth + 1, [...path, key]);
+    }
+  }
+}
+
+const mcpToolArgumentsSchema = z.record(z.string().min(1).max(256), z.json()).superRefine((value, context) => {
+  if (Object.keys(value).length > maximumMcpToolTopLevelKeys) {
+    context.addIssue({ code: "custom", message: "MCP tool input exceeds its top-level key budget" });
+  }
+  inspectBoundedMcpJson(value, context, { nodes: 0 }, 0, []);
+  if (new TextEncoder().encode(canonicalMcpJson(value)).byteLength > maximumMcpToolInputBytes) {
+    context.addIssue({ code: "custom", message: "MCP tool input exceeds its canonical byte budget" });
+  }
+});
+
+export const mcpToolCallBudget = Object.freeze({
+  maxDurationMs: 30_000 as const,
+  maxDiscoveryPages: 5 as const,
+  maxDiscoveredTools: 100 as const,
+  maxInputBytes: 32_768 as const,
+  maxContentParts: 20 as const,
+  maxDecodedBytes: 262_144 as const,
+  maxResultBytes: 393_216 as const,
+});
+
+export const mcpToolCallBudgetSchema = z.object({
+  maxDurationMs: z.literal(mcpToolCallBudget.maxDurationMs),
+  maxDiscoveryPages: z.literal(mcpToolCallBudget.maxDiscoveryPages),
+  maxDiscoveredTools: z.literal(mcpToolCallBudget.maxDiscoveredTools),
+  maxInputBytes: z.literal(mcpToolCallBudget.maxInputBytes),
+  maxContentParts: z.literal(mcpToolCallBudget.maxContentParts),
+  maxDecodedBytes: z.literal(mcpToolCallBudget.maxDecodedBytes),
+  maxResultBytes: z.literal(mcpToolCallBudget.maxResultBytes),
+}).strict();
+
+export const mcpToolCallRequestSchema = z.object({
+  connectionId: mcpConnectionIdSchema,
+  toolName: protocolNameSchema,
+  inputSchemaJson: inputSchemaJsonSchema,
+  taskSupport: mcpToolTaskSupportSchema,
+  arguments: mcpToolArgumentsSchema,
+}).strict();
+
+export const mcpToolCallProposalSchema = z.object({
+  approvalToken: approvalTokenSchema,
+  expiresAt: z.string().datetime({ offset: true }),
+  connection: approvedMcpConnectionSchema,
+  toolName: protocolNameSchema,
+  inputSchemaJson: inputSchemaJsonSchema,
+  inputSchemaSha256: sha256Schema,
+  taskSupport: mcpToolTaskSupportSchema,
+  arguments: mcpToolArgumentsSchema,
+  budget: mcpToolCallBudgetSchema,
+  warning: z.literal("untrusted-local-code-arguments-content-and-side-effects"),
+}).strict();
+
+export const mcpToolCallApprovalSchema = z.object({
+  approvalToken: approvalTokenSchema,
+  request: mcpToolCallRequestSchema,
+}).strict();
+
+export const mcpToolCallInvocationSchema = z.object({
+  connectionId: mcpConnectionIdSchema,
+  command: mcpDirectExecutableSchema,
+  args: z.array(mcpArgumentSchema).max(maximumMcpArguments),
+  environment: mcpResolvedEnvironmentSchema,
+  workingDirectory: absolutePathSchema,
+  toolName: protocolNameSchema,
+  inputSchemaSha256: sha256Schema,
+  taskSupport: mcpToolTaskSupportSchema,
+  arguments: mcpToolArgumentsSchema,
+  budget: mcpToolCallBudgetSchema,
+}).strict();
+
+const mcpLocalContentSchema = z.discriminatedUnion("kind", [
+  promptTextContentSchema,
+  promptImageMetadataSchema,
+  promptAudioMetadataSchema,
+  promptEmbeddedTextSchema,
+  promptEmbeddedBlobSchema,
+  promptResourceLinkSchema,
+]);
+const mcpStructuredContentSchema = z.object({
+  json: z.string().max(mcpToolCallBudget.maxDecodedBytes),
+  decodedBytes: z.number().int().nonnegative().max(mcpToolCallBudget.maxDecodedBytes),
+}).strict().superRefine((value, context) => {
+  const bytes = new TextEncoder().encode(value.json).byteLength;
+  if (bytes !== value.decodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP structured JSON decoded-byte count is invalid" });
+  }
+  try {
+    const parsed = JSON.parse(value.json) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || canonicalMcpJson(parsed) !== value.json) {
+      context.addIssue({ code: "custom", path: ["json"], message: "MCP structured content must be a canonical JSON object" });
+    }
+  } catch {
+    context.addIssue({ code: "custom", path: ["json"], message: "MCP structured content must be valid JSON" });
+  }
+});
+
+export const mcpToolCallResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  connectionId: mcpConnectionIdSchema,
+  toolName: protocolNameSchema,
+  isError: z.boolean(),
+  contents: z.array(mcpLocalContentSchema).max(mcpToolCallBudget.maxContentParts),
+  structuredContent: mcpStructuredContentSchema.nullable(),
+  decodedBytes: z.number().int().nonnegative().max(mcpToolCallBudget.maxDecodedBytes),
+  localOnly: z.literal(true),
+  untrustedContent: z.literal(true),
+}).strict().superRefine((value, context) => {
+  const contentBytes = value.contents.reduce((total, content) => total + content.decodedBytes, 0);
+  const decodedBytes = contentBytes + (value.structuredContent?.decodedBytes ?? 0);
+  if (decodedBytes !== value.decodedBytes || decodedBytes > mcpToolCallBudget.maxDecodedBytes) {
+    context.addIssue({ code: "custom", path: ["decodedBytes"], message: "MCP tool result exceeds its decoded-content budget" });
+  }
+  if (new TextEncoder().encode(JSON.stringify(value)).byteLength > mcpToolCallBudget.maxResultBytes) {
+    context.addIssue({ code: "custom", message: "MCP tool result exceeds its serialized-byte budget" });
+  }
+});
+
 const mcpAuditIdSchema = z.string().uuid();
 const mcpAuditErrorCodeSchema = z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/u);
 
@@ -480,9 +677,21 @@ const mcpPromptAuditStartSchema = mcpAuditStartBaseSchema.extend({
   }),
   argumentBytes: z.number().int().nonnegative().max(maximumMcpPromptArgumentsBytes),
 }).strict();
+const mcpToolAuditStartSchema = mcpAuditStartBaseSchema.extend({
+  operation: z.literal("tool-call"),
+  toolName: protocolNameSchema,
+  inputSchemaSha256: sha256Schema,
+  inputKeys: z.array(z.string().min(1).max(256)).max(maximumMcpToolTopLevelKeys).superRefine((values, context) => {
+    if (new Set(values).size !== values.length || values.some((value, index) => index > 0 && values[index - 1]! >= value)) {
+      context.addIssue({ code: "custom", message: "MCP audit input keys must be unique and sorted" });
+    }
+  }),
+  inputBytes: z.number().int().nonnegative().max(maximumMcpToolInputBytes),
+}).strict();
 export const mcpAuditStartSchema = z.discriminatedUnion("operation", [
   mcpResourceAuditStartSchema,
   mcpPromptAuditStartSchema,
+  mcpToolAuditStartSchema,
 ]);
 
 const mcpAuditSuccessOutcomeSchema = z.object({
@@ -525,6 +734,10 @@ export const mcpAuditEventSchema = z.union([
   mcpPromptAuditStartSchema.extend(auditFailedFields).strict(),
   mcpPromptAuditStartSchema.extend(auditInterruptedFields).strict(),
   mcpPromptAuditStartSchema.extend(auditInProgressFields).strict(),
+  mcpToolAuditStartSchema.extend(auditSucceededFields).strict(),
+  mcpToolAuditStartSchema.extend(auditFailedFields).strict(),
+  mcpToolAuditStartSchema.extend(auditInterruptedFields).strict(),
+  mcpToolAuditStartSchema.extend(auditInProgressFields).strict(),
 ]);
 export const mcpAuditEventsSchema = z.array(mcpAuditEventSchema).max(100).superRefine((events, context) => {
   if (new Set(events.map(({ auditId }) => auditId)).size !== events.length) {
@@ -551,6 +764,11 @@ export type McpPromptGetProposal = z.infer<typeof mcpPromptGetProposalSchema>;
 export type McpPromptGetApproval = z.infer<typeof mcpPromptGetApprovalSchema>;
 export type McpPromptGetInvocation = z.infer<typeof mcpPromptGetInvocationSchema>;
 export type McpPromptGetResult = z.infer<typeof mcpPromptGetResultSchema>;
+export type McpToolCallRequest = z.infer<typeof mcpToolCallRequestSchema>;
+export type McpToolCallProposal = z.infer<typeof mcpToolCallProposalSchema>;
+export type McpToolCallApproval = z.infer<typeof mcpToolCallApprovalSchema>;
+export type McpToolCallInvocation = z.infer<typeof mcpToolCallInvocationSchema>;
+export type McpToolCallResult = z.infer<typeof mcpToolCallResultSchema>;
 export type McpAuditStart = z.infer<typeof mcpAuditStartSchema>;
 export type McpAuditOutcome = z.infer<typeof mcpAuditOutcomeSchema>;
 export type McpAuditEvent = z.infer<typeof mcpAuditEventSchema>;
@@ -601,6 +819,26 @@ export function parseMcpPromptGetInvocation(value: unknown): McpPromptGetInvocat
 
 export function parseMcpPromptGetResult(value: unknown): McpPromptGetResult {
   return mcpPromptGetResultSchema.parse(value);
+}
+
+export function parseMcpToolCallRequest(value: unknown): McpToolCallRequest {
+  return mcpToolCallRequestSchema.parse(value);
+}
+
+export function parseMcpToolCallProposal(value: unknown): McpToolCallProposal {
+  return mcpToolCallProposalSchema.parse(value);
+}
+
+export function parseMcpToolCallApproval(value: unknown): McpToolCallApproval {
+  return mcpToolCallApprovalSchema.parse(value);
+}
+
+export function parseMcpToolCallInvocation(value: unknown): McpToolCallInvocation {
+  return mcpToolCallInvocationSchema.parse(value);
+}
+
+export function parseMcpToolCallResult(value: unknown): McpToolCallResult {
+  return mcpToolCallResultSchema.parse(value);
 }
 
 export function parseMcpAuditStart(value: unknown): McpAuditStart {

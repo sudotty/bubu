@@ -1,8 +1,8 @@
 # Approved MCP Tool Call Implementation Plan
 
-> **Execution:** Test-drive every boundary on `main`. A discovered MCP tool is untrusted local code with potentially irreversible side effects; annotations never reduce approval requirements.
+> **Execution:** Test-drive every boundary on the delivery branch. A discovered MCP tool is untrusted local code with potentially irreversible side effects; annotations never reduce approval requirements.
 
-**Status:** Active.
+**Status:** Complete and verified on 2026-07-18.
 
 **Goal:** Let a user choose one tool discovered during an approved local stdio MCP inspection, enter a bounded JSON object that validates against the exact discovered input schema, review every process detail and exact value, approve one bounded `tools/call`, and inspect a normalized result locally without automatically exposing the tool or result to a model, conversation, Agent, or workflow.
 
@@ -52,4 +52,10 @@
 - Extend real MCP smoke, architecture/repository gates, manifest, README, security contract, migration plan, and this plan.
 - Require exactly one policy-bound `callTool`, `readResource`, and `getPrompt` site; no task/subscription/sampling/elicitation authority; exact schema-bound input validation; no input/result persistence; named APIs; safe UI; and docs/status agreement.
 - Mark only `mcp-tool-call` implemented. Keep model/Agent/workflow tool registration, remembered permissions, task-augmented calls, remote MCP/OAuth, and automatic retries planned.
-- Run `volta run npm run verify`, record evidence, stage only this slice, commit directly to `main`, push, and confirm remote alignment without touching legacy Wails work.
+- Run `npm run verify`, record evidence, stage only this slice, and publish through a reviewed delivery branch without touching unrelated legacy Wails work.
+
+## Implementation evidence
+
+Tasks 1–6 are implemented across strict contracts, bounded schema validation, the official SDK client, named authenticated RPC/IPC, one-use approval sessions, content-free append-only audit, the exact JSON review UI, local-only result rendering, smoke coverage, manifest, and executable repository/architecture gates.
+
+Fresh root `npm run verify` evidence on 2026-07-18: 69 contract, 34 AI-runtime, and 84 desktop tests passed; all Go packages passed; dependency audit reported zero vulnerabilities; repository, documentation, GitHub, architecture, build, data-core/MCP/desktop smoke, and performance gates passed. The MCP smoke discovered without invocation and then performed exactly one separately approved resource read, prompt get, and tool call. The 100 MiB / 183,246-row benchmark completed import/profile in 4,056.94 ms, query p95 in 162.96 ms, and peak data-core RSS at 36.09 MiB.

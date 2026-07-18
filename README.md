@@ -1,96 +1,94 @@
 # BuBu
 
-BuBu is a local-first AI data workspace for conversational Excel and CSV analysis. It imports data into a local analytical database, lets deterministic code profile and query it, and gives models only the schema, locally generated synthetic examples, or explicitly approved aggregates by default.
+BuBu is a local-first AI data workspace for people who need to understand recurring Excel and CSV data without surrendering control of the underlying rows. Files are imported into a local analytical database; deterministic code profiles, validates, joins, queries, visualizes, and automates them; a remote model receives only the disclosure the user can see and approve.
 
-The product interaction treats a dataset as a contact and a dataset group as a group chat. Users can ask questions, validate formats, join files, create charts and reports, replace recurring data, and save repeatable work as workflows.
+![BuBu dataset workspace with synthetic data](docs/assets/product/01-datasets.png)
 
-## Current status
+The interaction model is deliberately familiar: a dataset behaves like a contact, a related dataset collection behaves like a group chat, and every question leaves a typed local history of the reviewed plan and bounded result.
 
-The repository is migrating from the historical Wails prototype to a hardened Electron product:
+## What works now
 
-- Implemented: Electron 43 secure shell, sandboxed React renderer, typed preload API, supervised Node AI utility process, Go data-core sidecar, authenticated versioned RPC, packaging, and packaged smoke verification.
-- Implemented: atomic CSV/TSV/XLSX batch import, local SQLite catalog, immutable replacement versions, schema-drift blocking and interactive one-to-one column mapping, bounded previews, type inference, and baseline column profiles.
-- Implemented: schema-only/synthetic model context, a local provider registry, OS-encrypted write-only credentials, active-model selection, connection tests, and bounded OpenAI, Anthropic, Gemini, compatible, and Ollama adapters.
-- Implemented: single-dataset natural-language planning with an exact disclosure preview, explicit user approval, a no-raw-SQL typed plan, and bounded local execution in Go.
-- Implemented: local data groups with 2–8 current dataset contacts, create/edit/delete UI, stable member order, and no raw-data copying.
-- Implemented: natural-language group lookup/join plans, connected-tree enforcement, unique right-side lookup keys, disclosure review, explicit approval, and bounded local multi-table execution.
-- Implemented: deterministic local bar/time-series visualizations for numeric query results, with no result round-trip to a model and a 20-point readability bound.
-- Implemented: append-only local dataset/group conversation history for typed questions, disclosure-bound plans, bounded results, and errors, restored after restart.
-- Implemented: local quality scoring and profiles plus persistent required/unique/range/pattern/allowed-value rules, with only bounded failure row numbers shown.
-- Implemented: deterministic same-name relationship discovery, manually defined directional lookup relations, current-version validity checks, and schema-only model hints.
-- Implemented: native-path-private streaming CSV export with UTF-8/Excel formula hardening, plus confirmed permanent deletion of all versions and dependent local state with automatic group repair.
-- Implemented: path-private consistent local data backups and destructive restore with strict container/hash/schema/privacy validation, rollback, and interrupted-swap startup recovery.
-- Implemented: on-demand local-only column exploration with 10-bin numeric histograms, means/ranges, and bounded categorical Top values that never enter model context.
-- Implemented: named cancellation for imports, replacements, exports, backup/restore, local scans, model planning, and single/group queries, propagated through authenticated RPC into Go contexts and provider fetch signals.
-- Implemented: an executable 100 MiB/183,246-row reference-device gate; the recorded M1 Max run imported and profiled in 3.77s at 33.11 MiB peak data-core RSS, while the safe aggregation query measured 164.36ms p95 against a 3s budget.
-- Implemented: reviewed single/group plans can be saved as versioned manual workflows with current-version rebinding, UUID idempotency, bounded retries/deadlines, cancellable runs, typed step checkpoints, local audit, and backup/restore coverage.
-- Implemented: saved workflows can run every 24 hours, every 7 days, or after a dataset/group member version changes; a persistent deduplicated queue survives restarts, trigger terminal state plus the result/error chat message commit atomically, and an open chat refreshes from local state within 30 seconds.
-- Implemented: every data-planning and provider-test request fails closed unless Go first records a local disclosure summary; terminal status, endpoint origin, prompt fingerprint/size, estimated and provider-reported token usage are auditable without storing prompts, credentials, model text, or raw rows.
-- Implemented: an already executed aggregate result can be explained by the selected model only after an exact destination/payload preview and one-use approval; disclosure requires `COUNT(*)`, k>=5, forbids extrema, caps at 50 rows, records its row count in the local ledger, and returns cell-cited structured findings.
-- Implemented: a user-approved aggregate can run a provider-neutral bounded Agent for at most four audited model turns, three pure local arithmetic tools, 60 seconds, and 8,192 output tokens; tools can only rank, compare, or summarize already approved numeric cells, and the final cited report plus audit IDs stays in local history.
-- Implemented: Settings can persist local stdio MCP connections with OS-encrypted write-only environment values, then show the canonical executable and every argument before a one-use launch approval; the isolated AI utility negotiates MCP 2025-11-25 and discovers bounded tools/resources/prompts without invoking or exposing them to a model.
-- Implemented: one discovered MCP resource can be read only after a second exact executable/arguments/URI/limit review and one-use approval; the server is re-discovered before one read, text remains escaped/local-only, blobs become size/hash metadata, and append-only private audit records no content or secret-derived fingerprint.
-- Implemented: one discovered MCP prompt can be materialized only after declared arguments are filled and a second exact executable/process-arguments/prompt-arguments/limit review; the server is re-discovered before one `prompts/get`, returned text stays escaped and local-only, binary becomes size/hash metadata, and no result is inserted into a model, chat, Agent, or workflow.
-- Not complete yet: explicit-row disclosure, reusable Agent definitions and workflow Agent steps, richer charts and reports, wall-clock/OS notifications, approval/side-effect workflow nodes, resumable partial runs, remote MCP/OAuth, MCP tool execution or prompt-to-model/Agent/workflow use, RAG, Hub/RBAC/sync, signing, and updates.
+- Atomic CSV, TSV, and XLSX import; local SQLite catalog; immutable replacement versions; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
+- Single-dataset and multi-table lookup analysis through typed plans. The user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
+- Deterministic local bar and time-series charts, local conversation history, reusable manual workflows, interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion.
+- OS-encrypted provider and stdio MCP configuration. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
+- A packaged Electron desktop with a sandboxed React renderer, typed preload, supervised Node AI runtime, authoritative Go data core, synthetic UI smoke capture, and a 100 MiB reference performance gate.
 
-`PRODUCT_MANIFEST.yaml` is the machine-readable source for capability status. A disabled or planned feature must not be presented as shipped.
+Still planned or incomplete: explicit-row disclosure, reusable Agent definitions, richer reports, remote MCP/OAuth, model-driven MCP use, Hub/RBAC/sync, signed installers, and updates. [PRODUCT_MANIFEST.yaml](PRODUCT_MANIFEST.yaml) is the machine-readable status authority; UI and documentation must never present `planned` or `in-progress` behavior as shipped.
+
+## Product flow and privacy
+
+1. Import files locally and inspect their shape and quality.
+2. Ask a question against one dataset or a 2–8 member group.
+3. Review the typed query plan and the exact schema, synthetic context, or aggregate that may leave the device.
+4. Approve once; Go validates and executes the bounded plan locally.
+5. Keep the result, chart, and audit trail in the local conversation, or save the reviewed plan as a workflow.
+
+| Boundary | Default | Authority |
+| --- | --- | --- |
+| Raw spreadsheet rows | Stay local | Go data core |
+| Remote model input | Schema plus local synthetic examples | Visible disclosure review |
+| Query execution | Typed plans only; no model SQL | Deterministic Go validation |
+| Credentials | Write-only from the renderer; OS-encrypted | Electron main |
+| Local MCP code | Untrusted; never auto-started | One-use user approval |
+| MCP content/tool output | Local-only and untrusted | Never auto-inserted into model/Agent/workflow |
+
+A prompt, provider response, workflow, or MCP server cannot raise its own disclosure level.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    R["Sandboxed React renderer"] --> P["Typed preload"]
-    P --> M["Electron main supervisor"]
-    M --> A["Node AI utility process"]
-    M --> D["Go data core"]
-    D --> S["Local SQLite"]
-    A --> L["Configured LLM or MCP"]
-    D --> H["Optional explicit sync"]
-    H --> B["BuBu Hub / PostgreSQL"]
+    UI["Sandboxed React renderer"] --> PRE["Typed preload"]
+    PRE --> MAIN["Electron main supervisor"]
+    MAIN --> DATA["Go data core"]
+    MAIN --> AI["Node AI runtime"]
+    DATA --> DB["Local SQLite"]
+    AI --> MODEL["Configured model provider"]
+    AI --> MCP["Approved local stdio MCP"]
+    DATA -. "future explicit sync" .-> HUB["Optional Hub"]
 ```
 
-The renderer has no Node access. Electron main owns lifecycle, OS permissions, credentials, updates, and process supervision but not data policy. The Go data core is the final authority for raw-data disclosure and SQL execution. The optional Hub is never required for local mode and never shares a SQLite file between users.
+The renderer has no Node, filesystem, credential, provider, sidecar, or generic IPC access. Electron main owns lifecycle and OS integration, not business policy. Go is the final authority for raw-data disclosure and database execution. The optional Hub must never be required for local mode.
 
-See [the accepted product design](docs/plans/2026-07-17-bubu-product-platform-design.md), [the executable migration plan](docs/plans/2026-07-17-electron-migration-implementation.md), [the bounded aggregate Agent plan](docs/plans/2026-07-17-bounded-aggregate-agent-implementation.md), [the local MCP inspection plan](docs/plans/2026-07-17-local-mcp-inspection-implementation.md), [the approved MCP resource-read plan](docs/plans/2026-07-17-approved-mcp-resource-read-implementation.md), [the approved MCP prompt-get plan](docs/plans/2026-07-17-approved-mcp-prompt-get-implementation.md), [the local data-kernel contract](docs/architecture/local-data-kernel.md), [the MCP host security contract](docs/architecture/mcp-host-security.md), [the cancellation and budget contract](docs/architecture/cancellation-and-operation-budgets.md), [the reference performance evidence](docs/performance/reference-desktop-2026-07-17.md), [the privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), [the local conversation contract](docs/architecture/local-conversations.md), [the repeatable-workflow guide](docs/product/repeatable-workflows.md), [the import guide](docs/product/importing-data.md), [the export/deletion guide](docs/product/exporting-and-deleting.md), [the backup/recovery guide](docs/product/backup-and-recovery.md), and [the query/visualization guide](docs/product/querying-and-visualizations.md).
+## Repository map
 
-## Development
+| Path | Responsibility | Guide |
+| --- | --- | --- |
+| `apps/desktop` | Electron lifecycle, secure preload, React product UI | [desktop README](apps/desktop/README.md) |
+| `services/data-core` | Go file, SQLite, privacy, SQL, workflow, and audit authority | [data-core README](services/data-core/README.md) |
+| `services/ai-runtime` | Provider, streaming, MCP, and bounded model adapters | [AI runtime README](services/ai-runtime/README.md) |
+| `packages/contracts` | Versioned process-boundary schemas and parsers | [contracts README](packages/contracts/README.md) |
+| `docs` | Architecture decisions, product guides, plans, and evidence | [documentation index](docs/README.md) |
+| `scripts` | Executable repository, architecture, smoke, and performance contracts | [scripts README](scripts/README.md) |
+| `bubu-bi` | Historical Wails migration source only | [legacy notice](bubu-bi/README.md) |
 
-Prerequisites:
+`packages/product-core`, `services/hub`, remote sync, and installer signing are architectural destinations, not current directories. New code must not create placeholder implementations or imply they already exist.
 
-- Node 22.18+ or Node 24 LTS. Non-LTS releases are outside the reproducible build contract; Node 26 is also rejected because it prematurely exits Electron Packager 18.4.4 during asynchronous extraction.
-- npm 10.9.3.
-- Go 1.25+.
+## Develop and verify
 
-Use `.nvmrc` or the checked-in Volta configuration, then run:
+Prerequisites are Node 22.18, npm 10.9.3, and Go 1.25; `.nvmrc`, Volta, package engines, and the Go module are executable constraints.
 
 ```bash
-npm install
+npm ci
+npm run dev
+```
+
+Before review:
+
+```bash
 npm run verify
 ```
 
-Useful commands:
+The root verification contract checks secrets and repository hygiene, documentation and GitHub contracts, architecture boundaries, dependencies, TypeScript and Go tests, production packaging, data-core/MCP/desktop smoke flows, and the reference performance budget. Generate synthetic packaged UI evidence with `npm run capture:ui`; generated screenshots contain no user data.
 
-```bash
-npm run dev                 # build sidecars and start Electron in development
-npm test                    # TypeScript unit and contract tests
-npm run test:data-core      # Go tests
-npm run lint                # repository, architecture, and type gates
-npm run build               # package the host platform application
-npm run smoke:data-core     # import/list/preview against the built Go sidecar
-npm run smoke:mcp           # prove zero-call discovery plus exact approved resource-read and prompt-get
-npm run smoke:desktop       # launch the packaged app and verify both sidecars
-npm run verify:performance  # generate 100 MiB locally and enforce import/query/RSS budgets
-```
+## Documentation
 
-Build output and user data are ignored. Credentials belong in OS-backed secure storage; databases, uploaded files, API keys, and local configuration must never be committed.
+- [Product and UI/UX constraints](docs/product/ui-ux-guidelines.md)
+- [Importing data](docs/product/importing-data.md), [data quality](docs/product/data-quality-and-validation.md), and [groups/relationships](docs/product/dataset-groups-and-relationships.md)
+- [Querying and visualization](docs/product/querying-and-visualizations.md), [repeatable workflows](docs/product/repeatable-workflows.md), and [backup/recovery](docs/product/backup-and-recovery.md)
+- [Local data kernel](docs/architecture/local-data-kernel.md), [privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), and [MCP host security](docs/architecture/mcp-host-security.md)
+- [Accepted product platform design](docs/plans/2026-07-17-bubu-product-platform-design.md) and [Electron migration plan](docs/plans/2026-07-17-electron-migration-implementation.md)
+- [Contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md)
 
-## Privacy defaults
-
-Remote models receive no raw spreadsheet rows by default. The planned disclosure levels are:
-
-1. schema only;
-2. schema plus local non-reversible synthetic examples;
-3. approved aggregates;
-4. explicitly selected rows after visible confirmation.
-
-A prompt, model response, workflow, or MCP server cannot raise its own disclosure level.
+This repository is private and does not currently declare an open-source license. Do not redistribute or assume usage rights beyond the repository owner's authorization.

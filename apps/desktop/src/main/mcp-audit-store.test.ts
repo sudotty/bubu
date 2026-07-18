@@ -109,4 +109,39 @@ describe("MCP append-only audit store", () => {
     expect(persisted).not.toContain("gross margin");
     expect(persisted).not.toContain("prompt result");
   });
+
+  it("persists only tool name, schema, keys, and byte count for approved tool calls", () => {
+    const directory = mkdtempSync(join(tmpdir(), "bubu-mcp-audit-tool-"));
+    const store = createMcpAuditStore({ directory });
+    const toolAuditId = "423e4567-e89b-42d3-a456-426614174000";
+    store.start({
+      auditId: toolAuditId,
+      connectionId: "a".repeat(32),
+      connectionName: "Dictionary",
+      operation: "tool-call",
+      toolName: "lookup_term",
+      inputSchemaSha256: "d".repeat(64),
+      inputKeys: ["term"],
+      inputBytes: 23,
+      requestFingerprint: "e".repeat(64),
+      startedAt: "2026-07-17T12:00:00Z",
+    });
+    store.finish({
+      auditId: toolAuditId,
+      status: "succeeded",
+      completedAt: "2026-07-17T12:00:01Z",
+      contentParts: 1,
+      decodedBytes: 37,
+    });
+    expect(store.list()[0]).toMatchObject({
+      operation: "tool-call",
+      toolName: "lookup_term",
+      inputKeys: ["term"],
+      inputBytes: 23,
+      status: "succeeded",
+    });
+    const persisted = `${readFileSync(join(directory, "starts", `${toolAuditId}.json`), "utf8")}${readFileSync(join(directory, "outcomes", `${toolAuditId}.json`), "utf8")}`;
+    expect(persisted).not.toContain("gross margin");
+    expect(persisted).not.toContain("Revenue minus cost");
+  });
 });

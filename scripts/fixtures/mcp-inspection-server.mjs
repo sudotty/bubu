@@ -26,9 +26,15 @@ server.registerTool("lookup_term", {
     idempotentHint: true,
     openWorldHint: false,
   },
+  execution: { taskSupport: "forbidden" },
+  outputSchema: { definition: z.string() },
 }, async ({ term }) => {
   recordInvocation("tool");
-  return { content: [{ type: "text", text: `Definition for ${term}` }] };
+  const definition = `Definition for ${term}`;
+  return {
+    content: [{ type: "text", text: definition }],
+    structuredContent: { definition },
+  };
 });
 
 server.registerResource(

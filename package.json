@@ -15,10 +15,12 @@
     "verify:toolchain": "node scripts/verify-toolchain.mjs",
     "verify:repository": "node scripts/verify-repository.mjs",
     "verify:architecture": "node scripts/verify-architecture.mjs",
+    "verify:documentation": "node scripts/verify-documentation.mjs",
+    "verify:github": "node scripts/verify-github.mjs",
     "verify:dependencies": "npm audit --audit-level=low",
     "dev": "npm run verify:toolchain && npm run build:data-core && npm run build -w @bubu/contracts && npm run build -w @bubu/ai-runtime && npm run start -w @bubu/desktop",
     "test": "npm run build -w @bubu/contracts && npm run test --workspaces --if-present",
-    "lint": "npm run verify:repository && npm run verify:architecture && npm run build -w @bubu/contracts && npm run lint --workspaces --if-present",
+    "lint": "npm run verify:repository && npm run verify:documentation && npm run verify:github && npm run verify:architecture && npm run build -w @bubu/contracts && npm run lint --workspaces --if-present",
     "build": "npm run build:data-core && npm run build -w @bubu/contracts && npm run build -w @bubu/ai-runtime && npm run build -w @bubu/desktop",
     "build:data-core": "cd services/data-core && go build -o bin/bubu-data-core ./cmd/bubu-data-core",
     "test:data-core": "cd services/data-core && go test ./...",
@@ -27,6 +29,7 @@
     "benchmark:data-core": "node scripts/benchmark-data-core.mjs --size-mib=100 --minimum-rows=100000 --max-import-ms=120000 --max-query-p95-ms=3000 --max-rss-mib=256",
     "verify:performance": "npm run build:data-core && npm run build -w @bubu/contracts && npm run benchmark:data-core",
     "smoke:desktop": "node scripts/smoke-packaged-desktop.mjs",
+    "capture:ui": "npm run build && node scripts/smoke-packaged-desktop.mjs --screenshots=docs/assets/product",
     "verify": "npm run verify:toolchain && npm run verify:repository && npm run verify:architecture && npm run verify:dependencies && npm test && npm run test:data-core && npm run lint && npm run build && npm run smoke:data-core && npm run smoke:mcp && npm run smoke:desktop && npm run verify:performance"
   },
   "engines": {

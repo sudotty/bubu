@@ -125,7 +125,8 @@ capabilities:
   bounded-mcp-capability-discovery: implemented
   mcp-resource-read: implemented
   append-only-mcp-operation-audit: implemented
-  mcp-tool-execution: planned
+  mcp-tool-call: implemented
+  model-driven-mcp-tool-execution: planned
   mcp-prompt-get: implemented
   mcp-prompt-to-model: planned
   mcp-streamable-http: planned

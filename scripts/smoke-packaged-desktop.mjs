@@ -23,10 +23,20 @@ if (!existsSync(executable)) {
 
 const smokeRoot = mkdtempSync(resolve(tmpdir(), "bubu-desktop-smoke-"));
 const sourcePath = resolve(smokeRoot, "synthetic-sales.csv");
+const secondSourcePath = resolve(smokeRoot, "synthetic-targets.csv");
 const dataDirectory = resolve(smokeRoot, "data");
+const screenshotArgument = process.argv.find((argument) => argument.startsWith("--screenshots="));
+const screenshotDirectory = screenshotArgument
+  ? resolve(screenshotArgument.slice("--screenshots=".length))
+  : undefined;
 writeFileSync(
   sourcePath,
   "Order ID,Region,Amount,Date\n001,North,128.50,2026-07-15\n002,South,256.00,2026-07-16\n003,North,64.25,2026-07-17\n",
+  { mode: 0o600 },
+);
+writeFileSync(
+  secondSourcePath,
+  "Order ID,Region,Amount,Date\nT-001,North,300.00,2026-07-15\nT-002,South,400.00,2026-07-16\nT-003,West,250.00,2026-07-17\n",
   { mode: 0o600 },
 );
 
@@ -37,6 +47,8 @@ const result = spawnSync(executable, ["--bubu-smoke-test"], {
     ...process.env,
     BUBU_SMOKE_DATA_DIR: dataDirectory,
     BUBU_SMOKE_SOURCE: sourcePath,
+    BUBU_SMOKE_SECOND_SOURCE: secondSourcePath,
+    ...(screenshotDirectory ? { BUBU_SMOKE_SCREENSHOT_DIR: screenshotDirectory } : {}),
   },
 });
 rmSync(smokeRoot, { recursive: true, force: true });
@@ -55,3 +67,4 @@ if (
 }
 
 console.log(`Packaged desktop smoke passed: ${executable}`);
+if (screenshotDirectory) console.log(`Product screenshots written to: ${screenshotDirectory}`);

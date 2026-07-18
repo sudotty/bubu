@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,11 +7,13 @@ import {
   mcpInspectionBudget,
   mcpResourceReadBudget,
   mcpPromptGetBudget,
+  mcpToolCallBudget,
   type McpInspectionInvocation,
   type McpResourceReadInvocation,
   type McpPromptGetInvocation,
+  type McpToolCallInvocation,
 } from "@bubu/contracts";
-import { getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./client.js";
+import { callMcpStdioTool, getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./client.js";
 
 function fixtureInvocation(root: string): McpInspectionInvocation {
   return {
@@ -50,6 +53,22 @@ function promptInvocation(root: string, promptName = "explain_term"): McpPromptG
   };
 }
 
+function toolInvocation(root: string, inputSchemaJson: string, toolName = "lookup_term"): McpToolCallInvocation {
+  const inspected = fixtureInvocation(root);
+  return {
+    connectionId: inspected.connectionId,
+    command: inspected.command,
+    args: inspected.args,
+    environment: inspected.environment,
+    workingDirectory: inspected.workingDirectory,
+    toolName,
+    inputSchemaSha256: createHash("sha256").update(inputSchemaJson, "utf8").digest("hex"),
+    taskSupport: "forbidden",
+    arguments: { term: "gross margin" },
+    budget: mcpToolCallBudget,
+  };
+}
+
 describe("MCP stdio inspection client", () => {
   it("negotiates and discovers bounded primitives without invoking any of them", async () => {
     const root = mkdtempSync(resolve(tmpdir(), "bubu-mcp-client-"));
@@ -65,6 +84,7 @@ describe("MCP stdio inspection client", () => {
     expect(snapshot.instructions).toContain("UNTRUSTED FIXTURE INSTRUCTIONS");
     expect(snapshot.tools).toEqual([expect.objectContaining({
       name: "lookup_term",
+      taskSupport: "forbidden",
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     })]);
     expect(snapshot.resources).toEqual([expect.objectContaining({ uri: "bubu-dictionary://definitions" })]);
@@ -153,6 +173,47 @@ describe("MCP stdio inspection client", () => {
       promptInvocation(mkdtempSync(resolve(tmpdir(), "bubu-mcp-prompt-")), "not_listed"),
     ]) {
       await expect(getMcpStdioPrompt(invocation)).rejects.toThrow();
+      expect(existsSync(invocation.environment.FIXTURE_SENTINEL!)).toBe(false);
+    }
+  });
+
+  it("re-discovers, schema-validates, and invokes one approved tool with local-only output", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "bubu-mcp-tool-"));
+    const snapshot = await inspectMcpStdioServer(fixtureInvocation(root));
+    const schema = snapshot.tools[0]?.inputSchemaJson;
+    if (!schema) throw new Error("fixture tool schema missing");
+    const invocation = toolInvocation(root, schema);
+    const result = await callMcpStdioTool(invocation);
+    expect(result).toEqual({
+      schemaVersion: 1,
+      connectionId: invocation.connectionId,
+      toolName: invocation.toolName,
+      isError: false,
+      contents: [{ kind: "text", text: "Definition for gross margin", decodedBytes: 27 }],
+      structuredContent: {
+        json: "{\"definition\":\"Definition for gross margin\"}",
+        decodedBytes: 44,
+      },
+      decodedBytes: 71,
+      localOnly: true,
+      untrustedContent: true,
+    });
+    expect(readFileSync(invocation.environment.FIXTURE_SENTINEL!, "utf8")).toBe("tool\n");
+  });
+
+  it("rejects schema, task, name, or input drift before calling a tool", async () => {
+    for (const mutate of [
+      (value: McpToolCallInvocation): McpToolCallInvocation => ({ ...value, inputSchemaSha256: "f".repeat(64) }),
+      (value: McpToolCallInvocation): McpToolCallInvocation => ({ ...value, taskSupport: "required" }),
+      (value: McpToolCallInvocation): McpToolCallInvocation => ({ ...value, toolName: "not_listed" }),
+      (value: McpToolCallInvocation): McpToolCallInvocation => ({ ...value, arguments: { term: 7 } }),
+    ]) {
+      const root = mkdtempSync(resolve(tmpdir(), "bubu-mcp-tool-"));
+      const snapshot = await inspectMcpStdioServer(fixtureInvocation(root));
+      const schema = snapshot.tools[0]?.inputSchemaJson;
+      if (!schema) throw new Error("fixture tool schema missing");
+      const invocation = mutate(toolInvocation(root, schema));
+      await expect(callMcpStdioTool(invocation)).rejects.toThrow();
       expect(existsSync(invocation.environment.FIXTURE_SENTINEL!)).toBe(false);
     }
   });

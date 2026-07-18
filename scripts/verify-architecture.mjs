@@ -598,6 +598,11 @@ for (const invariant of [
   "MCP prompt arguments exceed their combined byte budget",
   "MCP prompt exceeds its decoded-content budget",
   'warning: z.literal("untrusted-local-code-argument-disclosure-and-content")',
+  "maxDiscoveredTools: 100 as const",
+  "maxInputBytes: 32_768 as const",
+  "maxContentParts: 20 as const",
+  "MCP tool result exceeds its decoded-content budget",
+  'warning: z.literal("untrusted-local-code-arguments-content-and-side-effects")',
   "localOnly: z.literal(true)",
   "untrustedContent: z.literal(true)",
 ]) {
@@ -656,6 +661,24 @@ for (const invariant of [
 for (const forbidden of ["argumentValues:", "environmentValues:"]) {
   if (mcpPromptApprovals.includes(forbidden)) failures.push(`MCP prompt approval retains forbidden plaintext field: ${forbidden}`);
 }
+const mcpToolApprovals = read("apps/desktop/src/main/mcp-tool-approval-sessions.ts");
+for (const invariant of [
+  "10 * 60 * 1_000",
+  "maximumMcpToolApprovalSessions = 20",
+  "session.expiresAt <= options.now()",
+  "requestSchemaSha256 = hash(request.inputSchemaJson)",
+  "requestFingerprint: requestFingerprint(proposal.connection.name, invocation)",
+  "launchFingerprint: launchFingerprint(proposal.connection.name, invocation)",
+  "inputKeys: inputKeys(invocation)",
+  "inputBytes: inputBytes(invocation)",
+  "Buffer.from(approved.launchFingerprint, \"hex\")",
+  'warning: "untrusted-local-code-arguments-content-and-side-effects"',
+]) {
+  if (!mcpToolApprovals.includes(invariant)) failures.push(`MCP tool approval boundary missing: ${invariant}`);
+}
+for (const forbidden of ["argumentValues:", "environmentValues:", "resultContent:"]) {
+  if (mcpToolApprovals.includes(forbidden)) failures.push(`MCP tool approval retains forbidden plaintext field: ${forbidden}`);
+}
 const mcpAuditStore = read("apps/desktop/src/main/mcp-audit-store.ts");
 for (const invariant of [
   "maximumMcpAuditStarts = 10_000",
@@ -704,6 +727,9 @@ for (const invariant of [
   "MCP prompt argument",
   "decodeCanonicalBase64(content.data)",
   "parseMcpPromptGetResult({",
+  "validateMcpToolArguments(inputSchemaJson, invocation.arguments)",
+  "validateMcpToolStructuredContent(tool.outputSchema, normalResponse.structuredContent)",
+  "parseMcpToolCallResult({",
 ]) {
   if (!mcpClient.includes(invariant)) failures.push(`MCP inspection lifecycle invariant missing: ${invariant}`);
 }
@@ -713,8 +739,21 @@ if ((mcpClient.match(/client\.readResource\(/gu) ?? []).length !== 1) {
 if ((mcpClient.match(/client\.getPrompt\(/gu) ?? []).length !== 1) {
   failures.push("MCP client must contain exactly one policy-bound prompt get site");
 }
-for (const forbidden of ["client.callTool(", "client.subscribeResource(", "client.unsubscribeResource("]) {
+if ((mcpClient.match(/client\.callTool\(/gu) ?? []).length !== 1) {
+  failures.push("MCP client must contain exactly one policy-bound tool call site");
+}
+for (const forbidden of ["client.subscribeResource(", "client.unsubscribeResource("]) {
   if (mcpClient.includes(forbidden)) failures.push(`MCP client gained an unapproved primitive authority: ${forbidden}`);
+}
+const mcpSchemaValidator = read("packages/contracts/src/mcp-tool-schema-validator.ts");
+for (const invariant of [
+  "coerceTypes: false",
+  "useDefaults: false",
+  'key === "$ref" || key === "$dynamicRef" || key === "$recursiveRef"',
+  "MCP tool schemas cannot load remote references",
+  "MCP tool schema uses an unsupported JSON Schema dialect",
+]) {
+  if (!mcpSchemaValidator.includes(invariant)) failures.push(`MCP no-network schema boundary missing: ${invariant}`);
 }
 const aiRuntimePackage = JSON.parse(read("services/ai-runtime/package.json"));
 if (aiRuntimePackage.dependencies?.["@modelcontextprotocol/sdk"] !== "1.29.0") {
@@ -731,7 +770,7 @@ if (
   failures.push("reviewed MCP SDK version, MIT license, and integrity are not locked");
 }
 const aiHandler = read("services/ai-runtime/src/handler.ts");
-for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"', 'request.method === "mcp.resource.read"', '"mcp-resource-read"', 'request.method === "mcp.prompt.get"', '"mcp-prompt-get"']) {
+for (const invariant of ['request.method === "mcp.inspect"', '"mcp-stdio-inspection"', 'request.method === "mcp.resource.read"', '"mcp-resource-read"', 'request.method === "mcp.prompt.get"', '"mcp-prompt-get"', 'request.method === "mcp.tool.call"', '"mcp-tool-call"']) {
   if (!aiHandler.includes(invariant)) failures.push(`named MCP utility RPC missing: ${invariant}`);
 }
 for (const invariant of [
@@ -747,6 +786,9 @@ for (const invariant of [
   "prepareMcpPromptGet",
   "approveMcpPromptGet",
   "dismissMcpPromptGet",
+  "prepareMcpToolCall",
+  "approveMcpToolCall",
+  "dismissMcpToolCall",
 ]) {
   if (!preload.includes(invariant)) failures.push(`named MCP preload capability missing: ${invariant}`);
 }
@@ -769,6 +811,10 @@ for (const invariant of [
   "promptProposal.arguments.map",
   "批准启动一次并获取此提示",
   "未发送给模型或聊天",
+  "校验模式并审查调用",
+  "toolProposal.inputSchemaSha256",
+  "批准启动一次并调用此工具",
+  "未发送给模型、Agent 或工作流",
 ]) {
   if (!mcpSettings.includes(invariant)) failures.push(`exact MCP consent UI missing: ${invariant}`);
 }
@@ -803,6 +849,26 @@ for (const invariant of [
 ]) {
   if (!mcpPromptApi.includes(invariant)) failures.push(`approved MCP prompt orchestration missing: ${invariant}`);
 }
+const mcpToolApi = read("apps/desktop/src/main/mcp-tool-api.ts");
+for (const invariant of [
+  "approvals.consume(approvalToken)",
+  "parseMcpToolCallRequest(requestValue)",
+  "validateMcpToolArguments(request.inputSchemaJson, request.arguments)",
+  "approvals.matches(approved, resolved.profile.name, invocation)",
+  "dependencies.audits.start({",
+  'operation: "tool-call"',
+  "inputKeys: [...approved.inputKeys]",
+  "inputBytes: approved.inputBytes",
+  "result = await dependencies.call(invocation, signal)",
+  'status: "failed"',
+  'status: "succeeded"',
+  "sidecars.callMcpTool(invocation, callSignal)",
+]) {
+  if (!mcpToolApi.includes(invariant)) failures.push(`approved MCP tool orchestration missing: ${invariant}`);
+}
+for (const forbidden of ["argument.value", "resultContent:", "structuredContentJson:"]) {
+  if (mcpToolApi.includes(forbidden)) failures.push(`MCP tool audit boundary persists content: ${forbidden}`);
+}
 for (const forbidden of ["argument.value", "result.messages", "result.description"]) {
   if (mcpPromptApi.includes(forbidden) && forbidden !== "result.messages") failures.push(`MCP prompt audit boundary persists content: ${forbidden}`);
 }
@@ -815,6 +881,9 @@ for (const invariant of [
   'requestRuntime("mcp.prompt.get"',
   'readFileSync(sentinel, "utf8") !== "prompt\\n"',
   'JSON.stringify(prompt).includes("YmluYXJ5IGZpeHR1cmU=")',
+  'requestRuntime("mcp.tool.call"',
+  'readFileSync(sentinel, "utf8") !== "tool\\n"',
+  "tool.structuredContent?.json",
 ]) {
   if (!mcpSmoke.includes(invariant)) failures.push(`real MCP resource smoke invariant missing: ${invariant}`);
 }

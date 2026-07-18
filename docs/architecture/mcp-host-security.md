@@ -1,10 +1,10 @@
 # MCP host security contract
 
-Status: Local stdio connection persistence, explicit process-launch consent, lifecycle negotiation, bounded tools/resources/prompts discovery, one exact approved local-only resource read, and one exact approved local-only prompt get are implemented. MCP tool execution, prompt-to-model/Agent/workflow use, remote Streamable HTTP, OAuth, roots, templates, subscriptions, sampling, and elicitation are not enabled.
+Status: Local stdio connection persistence, explicit process-launch consent, lifecycle negotiation, bounded tools/resources/prompts discovery, one exact approved local-only resource read, one exact approved local-only prompt get, and one exact approved local-only tool call are implemented. Model/Agent/workflow-driven MCP use, remembered permissions, tasks, remote Streamable HTTP, OAuth, roots, templates, subscriptions, sampling, and elicitation are not enabled.
 
 ## Host and process boundary
 
-BuBu is the MCP host. Each approved inspection, resource read, or prompt get receives one short-lived official-SDK client connection in the Node AI utility process. The renderer cannot address the utility process, create JSON-RPC messages, choose an MCP method, run a command, or invoke an arbitrary primitive. Electron main alone resolves the stored connection, owns encrypted secrets, issues one-use capabilities, writes local audit records, and routes named operations through authenticated local RPC.
+BuBu is the MCP host. Each approved inspection, resource read, prompt get, or tool call receives one short-lived official-SDK client connection in the Node AI utility process. The renderer cannot address the utility process, create JSON-RPC messages, choose an MCP method, run a command, or invoke an arbitrary primitive. Electron main alone resolves the stored connection, owns encrypted secrets, issues one-use capabilities, writes local audit records, and routes named operations through authenticated local RPC.
 
 The production dependency is the pinned official `@modelcontextprotocol/sdk` v1.29.0. The v2 SDK remains pre-release, so BuBu targets MCP 2025-11-25 through the supported v1 client rather than generating a private protocol implementation.
 
@@ -40,7 +40,7 @@ The user can choose only a resource shown by the current bounded inspection UI; 
 
 After approval, the utility starts a fresh connection, re-lists at most five pages and 100 resources, requires an exact URI match, and calls `resources/read` once. It accepts at most 20 returned parts and 256 KiB decoded total within 30 seconds. Text crosses into the renderer only as escaped text. Canonical base64 blobs are decoded and hashed inside the utility, then only URI, MIME type, decoded size, and SHA-256 cross the boundary. Server `_meta`, stderr, frames, blob bytes, and content above budget are rejected or discarded; nothing enters a model, conversation, Agent, workflow, or file write.
 
-Electron stores each operation start and at most one success/failure outcome as separate immutable `0600` files below `0700` directories. Resource-read audit starts contain the URI; prompt-get starts contain the prompt name, argument keys, and combined byte count. Both contain only a secret/value-free request fingerprint, timestamps, terminal code, part count, and byte count—never environment values, request argument values, or returned content. A start without an outcome is surfaced as interrupted after restart.
+Electron stores each operation start and at most one success/failure outcome as separate immutable `0600` files below `0700` directories. Resource-read audit starts contain the URI; prompt-get starts contain the prompt name, argument keys, and combined byte count; tool-call starts contain the tool name, input-schema hash, sorted top-level input keys, and canonical input byte count. All contain only a secret/value-free request fingerprint, timestamps, terminal code, part count, and byte count—never environment values, request values, or returned content. A start without an outcome is surfaced as interrupted after restart.
 
 ## Approved local prompt get
 
@@ -50,6 +50,14 @@ After approval, the utility starts a fresh connection, re-lists at most five pag
 
 The prompt result is displayed locally as untrusted data and is never inserted into a model request, conversation, Agent, workflow, or persisted result store. Its append-only audit contains the prompt name, ordered argument keys, combined argument byte count, value-free request fingerprint, timestamps, terminal code, message count, and decoded byte count—never argument values or returned content.
 
+## Approved local tool call
+
+The user can choose only a tool from the current bounded inspection and enter a top-level JSON object. The UI shows the untrusted discovered schema, annotations, and task-support state, then performs local strict-schema validation and presents a second review containing the canonical executable, every process argument, environment key names, exact tool name, schema SHA-256, exact JSON values, expiry, and fixed budgets. Task-required tools are disabled; annotations never reduce the review requirement or imply that cancellation can undo a side effect.
+
+The one-use approval binds the connection, canonical launch, decrypted environment values, tool, exact schema, task state, exact arguments, and budgets without retaining plaintext input in the pending capability. After approval, the utility starts a fresh connection, re-lists at most five pages and 100 tools, requires exact name/schema/task equality, validates the input against the discovered JSON Schema using pinned no-network validators, and calls `tools/call` exactly once within 30 seconds. There is no retry, remembered permission, parallel call, task polling, or resource-link follow.
+
+Text and embedded text cross as escaped local-only content. Image, audio, and embedded binary become only type/URI/MIME/size/SHA-256 metadata. Structured content is canonicalized and, when an output schema exists, validated before it crosses. `_meta`, annotations, stderr, SDK objects, raw binary, and over-budget content are discarded or rejected. `isError` remains untrusted server status rather than host policy. Neither input nor result content is persisted, inserted into a conversation, disclosed to a provider, or registered as Agent/workflow authority.
+
 ## Deliberately unavailable authority
 
-No MCP capability is registered with the aggregate Agent, model providers, conversations, or workflows. A completed resource read or prompt get remains local display data and does not authorize later disclosure. The presence of a discovered tool does not authorize execution, data disclosure, file access, network access, or side effects. Every future tool or prompt-to-model/Agent/workflow slice must add its own typed invocation contract, policy classification, exact input/output disclosure preview, one-use approval, audit trail, timeout, result budget, and server/profile drift check.
+No MCP capability is registered with the aggregate Agent, model providers, conversations, or workflows. A completed resource read, prompt get, or manually approved tool call remains local display data and does not authorize later disclosure or invocation. Discovery alone never authorizes execution, data disclosure, file access, network access, or side effects. Future model/Agent/workflow registration must add a separate typed policy and disclosure contract; the current manual approval cannot be reused.

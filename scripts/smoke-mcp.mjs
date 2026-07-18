@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createInterface } from "node:readline";
@@ -9,9 +9,11 @@ import {
   mcpInspectionBudget,
   mcpPromptGetBudget,
   mcpResourceReadBudget,
+  mcpToolCallBudget,
   parseMcpInspectionSnapshot,
   parseMcpPromptGetResult,
   parseMcpResourceReadResult,
+  parseMcpToolCallResult,
   parseRpcResponse,
 } from "@bubu/contracts";
 
@@ -137,7 +139,28 @@ try {
   ) {
     throw new Error(`MCP smoke violated approved local prompt policy: ${JSON.stringify(prompt)}`);
   }
-  console.log("MCP smoke passed: discovery invoked nothing; separately approved exact resource and prompt requests each invoked one primitive, returned bounded local-only normalized content, exposed no binary body, and cleaned up every child tree.");
+  rmSync(sentinel, { force: true });
+  const inputSchemaJson = snapshot.tools[0]?.inputSchemaJson;
+  if (!inputSchemaJson) throw new Error("MCP smoke fixture did not expose its tool input schema");
+  const tool = parseMcpToolCallResult(await requestRuntime("mcp.tool.call", {
+    ...launch,
+    toolName: "lookup_term",
+    inputSchemaSha256: createHash("sha256").update(inputSchemaJson, "utf8").digest("hex"),
+    taskSupport: "forbidden",
+    arguments: { term: "gross margin" },
+    budget: mcpToolCallBudget,
+  }));
+  if (
+    tool.toolName !== "lookup_term" ||
+    tool.isError ||
+    tool.contents[0]?.kind !== "text" ||
+    tool.structuredContent?.json !== "{\"definition\":\"Definition for gross margin\"}" ||
+    tool.decodedBytes !== 71 ||
+    readFileSync(sentinel, "utf8") !== "tool\n"
+  ) {
+    throw new Error(`MCP smoke violated approved local tool policy: ${JSON.stringify(tool)}`);
+  }
+  console.log("MCP smoke passed: discovery invoked nothing; separately approved exact resource, prompt, and tool requests each invoked one primitive, returned bounded local-only normalized content, exposed no binary body, and cleaned up every child tree.");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

@@ -21,6 +21,13 @@ import {
   parseMcpPromptGetProposal,
   parseMcpPromptGetRequest,
   parseMcpPromptGetResult,
+  canonicalMcpJson,
+  mcpToolCallBudget,
+  parseMcpToolCallApproval,
+  parseMcpToolCallInvocation,
+  parseMcpToolCallProposal,
+  parseMcpToolCallRequest,
+  parseMcpToolCallResult,
 } from "./mcp.js";
 
 const connectionId = "a".repeat(32);
@@ -124,7 +131,8 @@ describe("local MCP connection contracts", () => {
         name: "lookup_term",
         title: "Lookup term",
         description: "Returns one business definition.",
-        inputSchemaJson: "{\"type\":\"object\",\"properties\":{}}",
+        inputSchemaJson: "{\"properties\":{},\"type\":\"object\"}",
+        taskSupport: "forbidden" as const,
         annotations: { readOnlyHint: true },
       }],
       resources: [{
@@ -366,5 +374,111 @@ describe("local MCP connection contracts", () => {
     expect(JSON.stringify(start)).not.toContain("gross margin");
     expect(parseMcpAuditEvents([{ ...start, status: "interrupted" }])).toHaveLength(1);
     expect(() => parseMcpAuditStart({ ...start, resourceUri: "bubu://illegal" })).toThrow();
+  });
+
+  it("binds one discovered tool schema and bounded canonical JSON input to explicit approval", () => {
+    const argumentsValue = {
+      term: "gross margin",
+      options: { includeExamples: true, levels: [2, 1] },
+    };
+    const inputSchemaJson = canonicalMcpJson({
+      required: ["term"],
+      properties: { term: { type: "string" } },
+      type: "object",
+    });
+    expect(inputSchemaJson).toBe("{\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"],\"type\":\"object\"}");
+    const request = {
+      connectionId,
+      toolName: "lookup_term",
+      inputSchemaJson,
+      taskSupport: "forbidden" as const,
+      arguments: argumentsValue,
+    };
+    expect(parseMcpToolCallRequest(request)).toEqual(request);
+    expect(() => parseMcpToolCallRequest({ ...request, arguments: [] })).toThrow();
+    expect(() => parseMcpToolCallRequest({
+      ...request,
+      arguments: { term: "汉".repeat(11_000) },
+    })).toThrow();
+
+    const proposal = {
+      approvalToken: "9".repeat(64),
+      expiresAt: "2026-07-17T12:10:00Z",
+      connection: {
+        id: connectionId,
+        name: configuration.name,
+        command: "/private/opt/bubu-mcp/bin/dictionary-server",
+        args: configuration.args,
+        environmentKeys: ["DICTIONARY_TOKEN"],
+      },
+      toolName: request.toolName,
+      inputSchemaJson,
+      inputSchemaSha256: "a".repeat(64),
+      taskSupport: request.taskSupport,
+      arguments: argumentsValue,
+      budget: mcpToolCallBudget,
+      warning: "untrusted-local-code-arguments-content-and-side-effects" as const,
+    };
+    expect(parseMcpToolCallProposal(proposal)).toEqual(proposal);
+    expect(parseMcpToolCallApproval({ approvalToken: proposal.approvalToken, request })).toEqual({
+      approvalToken: proposal.approvalToken,
+      request,
+    });
+    const invocation = {
+      connectionId,
+      command: configuration.command,
+      args: configuration.args,
+      environment: { DICTIONARY_TOKEN: "secret" },
+      workingDirectory: "/tmp/bubu-mcp/runtime-a",
+      toolName: request.toolName,
+      inputSchemaSha256: proposal.inputSchemaSha256,
+      taskSupport: request.taskSupport,
+      arguments: argumentsValue,
+      budget: mcpToolCallBudget,
+    };
+    expect(parseMcpToolCallInvocation(invocation)).toEqual(invocation);
+  });
+
+  it("normalizes tool content and structured JSON under one local-only byte budget", () => {
+    const result = {
+      schemaVersion: 1,
+      connectionId,
+      toolName: "lookup_term",
+      isError: false,
+      contents: [
+        { kind: "text" as const, text: "Definition", decodedBytes: 10 },
+        { kind: "image" as const, mimeType: "image/png", decodedBytes: 14, sha256: "b".repeat(64) },
+      ],
+      structuredContent: {
+        json: "{\"definition\":\"Revenue minus cost\"}",
+        decodedBytes: 35,
+      },
+      decodedBytes: 59,
+      localOnly: true,
+      untrustedContent: true,
+    };
+    expect(parseMcpToolCallResult(result)).toEqual(result);
+    expect(() => parseMcpToolCallResult({
+      ...result,
+      contents: [{ ...result.contents[1], data: "raw-base64" }],
+    })).toThrow();
+    expect(() => parseMcpToolCallResult({ ...result, decodedBytes: 58 })).toThrow("decoded-content budget");
+  });
+
+  it("adds value-free tool-call audit starts without persisting arguments", () => {
+    const start = {
+      auditId: "423e4567-e89b-42d3-a456-426614174000",
+      connectionId,
+      connectionName: "Dictionary",
+      operation: "tool-call" as const,
+      toolName: "lookup_term",
+      inputSchemaSha256: "a".repeat(64),
+      inputKeys: ["options", "term"],
+      inputBytes: 76,
+      requestFingerprint: "f".repeat(64),
+      startedAt: "2026-07-17T12:00:00Z",
+    };
+    expect(parseMcpAuditStart(start)).toEqual(start);
+    expect(() => parseMcpAuditStart({ ...start, arguments: { term: "gross margin" } })).toThrow();
   });
 });
