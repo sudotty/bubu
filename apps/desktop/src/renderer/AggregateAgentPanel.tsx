@@ -14,8 +14,10 @@ const toolLabels = ["聚合列排序", "两个数值单元格比较", "数值聚
 
 export function AggregateAgentPanel({
   plan,
+  threadId,
 }: {
   readonly plan: SafeQueryPlan | SafeGroupQueryPlan;
+  readonly threadId: string;
 }) {
   const [goal, setGoal] = useState("");
   const [proposal, setProposal] = useState<AggregateAgentProposal>();
@@ -29,7 +31,7 @@ export function AggregateAgentPanel({
     setNotice(undefined);
     setRun(undefined);
     try {
-      setProposal(await window.bubu.analysis.prepareAggregateAgent({ plan, goal: normalizedGoal }));
+      setProposal(await window.bubu.analysis.prepareAggregateAgent({ plan, threadId, goal: normalizedGoal }));
     } catch (error) {
       setNotice(operationErrorMessage(error, "这个结果不符合受限 Agent 的安全聚合条件"));
     }

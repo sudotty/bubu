@@ -29,12 +29,13 @@ describe("aggregate agent approval sessions", () => {
       now: () => Date.parse("2026-07-17T08:00:00Z"),
       newToken: () => "c".repeat(64),
     });
-    const proposal = store.issue(disclosure, destination);
+    const proposal = store.issue(disclosure, destination, "a".repeat(32));
     expect(proposal).toMatchObject({ disclosure, destination, budget: aggregateAgentBudget });
     expect(store.consume(proposal.approvalToken)).toEqual({
       disclosure,
       destination,
       budget: aggregateAgentBudget,
+      threadId: "a".repeat(32),
     });
     expect(() => store.consume(proposal.approvalToken)).toThrow("expired or has already been used");
   });
@@ -46,14 +47,14 @@ describe("aggregate agent approval sessions", () => {
       now: () => now,
       newToken: () => "e".repeat(64),
     });
-    const proposal = store.issue(disclosure, destination);
-    const explanationProposal = explanationStore.issue(disclosure, destination);
+    const proposal = store.issue(disclosure, destination, "a".repeat(32));
+    const explanationProposal = explanationStore.issue(disclosure, destination, "a".repeat(32));
     expect(() => explanationStore.consume(proposal.approvalToken)).toThrow("expired or has already been used");
     expect(() => store.consume(explanationProposal.approvalToken)).toThrow("expired or has already been used");
     store.revoke(proposal.approvalToken);
     expect(() => store.consume(proposal.approvalToken)).toThrow("expired or has already been used");
 
-    const expiring = store.issue(disclosure, destination);
+    const expiring = store.issue(disclosure, destination, "a".repeat(32));
     now += 10 * 60 * 1_000 + 1;
     expect(() => store.consume(expiring.approvalToken)).toThrow("expired or has already been used");
   });

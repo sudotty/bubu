@@ -69,6 +69,7 @@ export const aggregateExplanationApprovalSchema = z.object({
 
 export const aggregateExplanationPreparationSchema = z.object({
   plan: z.union([safeQueryPlanSchema, safeGroupQueryPlanSchema]),
+  threadId: z.string().regex(/^[0-9a-f]{32}$/u),
 }).strict();
 
 export const aggregateCellReferenceSchema = z.object({

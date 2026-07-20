@@ -9,7 +9,7 @@ const aggregateAgentApprovalLifetimeMilliseconds = 10 * 60 * 1_000;
 const maximumAggregateAgentApprovalSessions = 20;
 
 type ModelDestination = AggregateAgentProposal["destination"];
-type ApprovedAggregateAgent = Pick<AggregateAgentProposal, "disclosure" | "destination" | "budget">;
+type ApprovedAggregateAgent = Pick<AggregateAgentProposal, "disclosure" | "destination" | "budget"> & { readonly threadId: string };
 
 interface AggregateAgentApprovalSessionOptions {
   readonly now: () => number;
@@ -21,7 +21,7 @@ interface PendingAggregateAgentApproval extends ApprovedAggregateAgent {
 }
 
 export interface AggregateAgentApprovalSessionStore {
-  issue(disclosure: AggregateDisclosure, destination: ModelDestination): AggregateAgentProposal;
+  issue(disclosure: AggregateDisclosure, destination: ModelDestination, threadId: string): AggregateAgentProposal;
   consume(token: string): ApprovedAggregateAgent;
   revoke(token: string): void;
 }
@@ -39,7 +39,7 @@ export function createAggregateAgentApprovalSessionStore(
   }
 
   return {
-    issue(disclosure, destination) {
+    issue(disclosure, destination, threadId) {
       removeExpired();
       while (pending.size >= maximumAggregateAgentApprovalSessions) {
         const oldest = pending.keys().next().value as string | undefined;
@@ -60,6 +60,7 @@ export function createAggregateAgentApprovalSessionStore(
         disclosure: proposal.disclosure,
         destination: proposal.destination,
         budget: proposal.budget,
+        threadId,
         expiresAt,
       });
       return proposal;
@@ -74,6 +75,7 @@ export function createAggregateAgentApprovalSessionStore(
         disclosure: session.disclosure,
         destination: session.destination,
         budget: session.budget,
+        threadId: session.threadId,
       };
     },
     revoke(token) {

@@ -58,7 +58,7 @@ describe("bounded aggregate agent contracts", () => {
       ],
       filters: [], sort: [], limit: 50,
     };
-    expect(parseAggregateAgentPreparation({ plan, goal: disclosure.question })).toEqual({ plan, goal: disclosure.question });
+    expect(parseAggregateAgentPreparation({ plan, threadId: "a".repeat(32), goal: disclosure.question })).toEqual({ plan, threadId: "a".repeat(32), goal: disclosure.question });
     expect(() => parseAggregateAgentPreparation({
       plan, goal: disclosure.question, rows: disclosure.rows, tools: ["execute-sql"], maxTurns: 99,
     })).toThrow();

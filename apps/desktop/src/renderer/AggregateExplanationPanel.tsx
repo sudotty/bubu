@@ -12,8 +12,10 @@ import { AggregateDisclosurePreview } from "./AggregateDisclosurePreview.js";
 
 export function AggregateExplanationPanel({
   plan,
+  threadId,
 }: {
   readonly plan: SafeQueryPlan | SafeGroupQueryPlan;
+  readonly threadId: string;
 }) {
   const [proposal, setProposal] = useState<AggregateExplanationProposal>();
   const [explanation, setExplanation] = useState<AggregateExplanation>();
@@ -24,7 +26,7 @@ export function AggregateExplanationPanel({
     setNotice(undefined);
     setExplanation(undefined);
     try {
-      setProposal(await window.bubu.analysis.prepareAggregateExplanation({ plan }));
+      setProposal(await window.bubu.analysis.prepareAggregateExplanation({ plan, threadId }));
     } catch (error) {
       setNotice(operationErrorMessage(error, "这个结果不符合安全聚合披露条件"));
     }
