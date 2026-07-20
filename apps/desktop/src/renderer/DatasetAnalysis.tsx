@@ -47,7 +47,7 @@ function filterLabel(filter: QueryPlanProposal["plan"]["filters"][number]): stri
     : `${filter.column} ${operators[filter.operator]}`;
 }
 
-export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly datasetId: string; readonly datasetName: string; readonly threadId?: string | undefined }) {
+export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThread }: { readonly datasetId: string; readonly datasetName: string; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void> }) {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<QueryPlanProposal>();
@@ -222,7 +222,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
       {result && proposal && threadId && <AggregateAgentPanel plan={proposal.plan} threadId={threadId} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
-        {!threadId && <p className="composer-thread-note">请先在左侧开始一个新任务，再发送问题。</p>}
+        {!threadId && <div className="composer-thread-note"><span>先创建一个独立任务，再提出问题。</span><button type="button" onClick={() => void onCreateThread()}>开始新任务</button></div>}
         <details className="composer-trust"><summary><ShieldCheck size={13} />当前上下文：结构与合成示例</summary><p>你的问题文本会原样发送给当前模型；请不要粘贴敏感原始行或值。表格内容只自动发送列结构与本地合成示例。</p></details>
         <label className="sr-only" htmlFor={`question-${datasetId}`}>向这个数据联系人提问</label>
         <textarea

@@ -19,7 +19,7 @@ export function ConversationWorkbench({
   readonly title: string;
   readonly subtitle: string;
   readonly inspector?: (threadId: string | undefined) => ReactNode;
-  readonly children: (threadId: string | undefined) => ReactNode;
+  readonly children: (threadId: string | undefined, createThread: () => Promise<void>) => ReactNode;
 }) {
   const [threads, setThreads] = useState<readonly ConversationThreadSummary[]>([]);
   const [archivedThreads, setArchivedThreads] = useState<readonly ConversationThreadSummary[]>([]);
@@ -109,7 +109,8 @@ export function ConversationWorkbench({
   }
 
   return <section className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`}>
-    <nav className="workbench-compact-nav" aria-label="任务工作区面板"><button type="button" aria-pressed={compactPane === "threads"} onClick={() => setCompactPane((current) => current === "threads" ? undefined : "threads")}><List size={16} />任务</button><button type="button" aria-pressed={compactPane === "artifacts"} onClick={() => setCompactPane((current) => current === "artifacts" ? undefined : "artifacts")}><PanelRight size={16} />结果</button>{compactPane && <button type="button" aria-label="关闭侧面板" onClick={() => setCompactPane(undefined)}><X size={16} /></button>}</nav>
+    <nav className="workbench-compact-nav" aria-label="任务工作区面板"><button type="button" className="workbench-task-toggle" aria-pressed={compactPane === "threads"} onClick={() => setCompactPane((current) => current === "threads" ? undefined : "threads")}><List size={16} />任务</button><button type="button" aria-pressed={compactPane === "artifacts"} onClick={() => setCompactPane((current) => current === "artifacts" ? undefined : "artifacts")}><PanelRight size={16} />结果</button>{compactPane && <button type="button" aria-label="关闭侧面板" onClick={() => setCompactPane(undefined)}><X size={16} /></button>}</nav>
+    <div className="conversation-workbench-layout">
     <aside className="thread-sidebar" aria-label="对话线程">
       <header>
         <div><p className="hero-kicker">CONVERSATIONS</p><h3>{title}</h3></div>
@@ -129,7 +130,8 @@ export function ConversationWorkbench({
       </div>
       {archivedThreads.length > 0 && <details className="archived-threads"><summary><ArchiveRestore size={14} />已归档（{archivedThreads.length}）</summary><div>{archivedThreads.map((thread) => <button type="button" key={thread.id} onClick={() => void restoreThread(thread.id)} disabled={busy}><span><strong>{thread.title}</strong><small>{timeLabel(thread.updatedAt)}</small></span><ArchiveRestore size={14} /></button>)}</div></details>}
     </aside>
-    <div className="conversation-stage">{children(activeThreadId)}</div>
+    <div className="conversation-stage">{children(activeThreadId, createThread)}</div>
     {inspector && <aside className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
+    </div>
   </section>;
 }

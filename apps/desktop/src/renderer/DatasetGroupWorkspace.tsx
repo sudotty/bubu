@@ -75,7 +75,7 @@ export function DatasetGroupWorkspace({
     <section className="group-workspace">
       <header className="group-hero">
         <div>
-          <p className="hero-kicker">DATASET GROUP · LOCAL ONLY</p>
+          <p className="hero-kicker">本地数据群组</p>
           <h3>{group?.name ?? "创建数据群组"}</h3>
           <p>把 2–8 个数据联系人放进同一个群组，成员始终指向各自最新的不可变版本。群组本身不复制原始数据。</p>
         </div>
@@ -83,7 +83,7 @@ export function DatasetGroupWorkspace({
       </header>
       {notice && <div className="notice" role="status">{notice}</div>}
       {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。" inspector={(threadId) => <ArtifactInspector target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">GROUP INSPECTOR</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
-        {(threadId) => <DatasetGroupAnalysis group={group} threadId={threadId} />}
+        {(threadId, createThread) => <DatasetGroupAnalysis group={group} threadId={threadId} onCreateThread={createThread} />}
       </ConversationWorkbench>}
       <details className="group-editor" open={group === undefined}>
         <summary>{group ? "编辑群组成员与关联范围" : "配置新群组"}</summary>

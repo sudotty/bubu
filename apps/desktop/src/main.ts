@@ -73,10 +73,13 @@ function installSecurityPolicy(): void {
   });
 }
 
-async function createMainWindow(showWhenReady = true): Promise<BrowserWindow> {
+async function createMainWindow(
+  showWhenReady = true,
+  initialSize: { readonly width: number; readonly height: number } = { width: 1280, height: 820 },
+): Promise<BrowserWindow> {
   const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width: initialSize.width,
+    height: initialSize.height,
     minWidth: 920,
     minHeight: 640,
     backgroundColor: "#f4f2ed",
@@ -103,6 +106,39 @@ async function captureSmokeStep(
   await mkdir(screenshotDirectory, { recursive: true });
   const image = await window.webContents.capturePage();
   await writeFile(join(screenshotDirectory, fileName), image.toPNG(), { mode: 0o600 });
+}
+
+async function verifySmokeLayout(window: BrowserWindow, screen: string): Promise<void> {
+  const result = await window.webContents.executeJavaScript(`
+    (() => {
+      const selectors = ["html", "body", ".shell", ".workspace", ".conversation", ".conversation-workbench"];
+      const measurements = selectors.flatMap((selector) => {
+        const element = document.querySelector(selector);
+        if (!(element instanceof HTMLElement)) return [];
+        return [{
+          selector,
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+        }];
+      });
+      return {
+        viewportWidth: window.innerWidth,
+        overflowing: measurements.filter(({ clientWidth, scrollWidth }) => scrollWidth - clientWidth > 1),
+      };
+    })()
+  `) as {
+    readonly viewportWidth: number;
+    readonly overflowing: readonly {
+      readonly selector: string;
+      readonly clientWidth: number;
+      readonly scrollWidth: number;
+    }[];
+  };
+  if (result.viewportWidth !== 920 || result.overflowing.length > 0) {
+    throw new Error(
+      `Packaged renderer layout failed on ${screen}: ${JSON.stringify(result)}`,
+    );
+  }
 }
 
 async function verifySmokeRenderer(
@@ -150,6 +186,7 @@ async function verifySmokeRenderer(
   if (!result.ok) {
     throw new Error(`Packaged renderer is missing imported data: ${result.missing.join(", ")}`);
   }
+  await verifySmokeLayout(window, "dataset");
   await captureSmokeStep(window, screenshotDirectory, "01-datasets.png");
   const compactDrawerResult = await window.webContents.executeJavaScript(`
     new Promise(async (resolve) => {
@@ -214,6 +251,7 @@ async function verifySmokeRenderer(
   if (!groupResult.ok) {
     throw new Error(`Packaged renderer is missing dataset groups: ${groupResult.missing.join(", ")}`);
   }
+  await verifySmokeLayout(window, "group");
   await captureSmokeStep(window, screenshotDirectory, "02-groups.png");
   const settingsResult = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
@@ -237,6 +275,7 @@ async function verifySmokeRenderer(
   if (!settingsResult.ok) {
     throw new Error(`Packaged renderer is missing provider settings: ${settingsResult.missing.join(", ")}`);
   }
+  await verifySmokeLayout(window, "settings");
   await captureSmokeStep(window, screenshotDirectory, "03-settings.png");
 }
 
@@ -311,7 +350,10 @@ void app
         });
       }
     }
-    const window = await createMainWindow(launchMode.kind !== "smoke");
+    const window = await createMainWindow(
+      launchMode.kind !== "smoke",
+      launchMode.kind === "smoke" ? { width: 920, height: 640 } : undefined,
+    );
 
     if (launchMode.kind === "smoke") {
       const readiness = await sidecars.readiness();

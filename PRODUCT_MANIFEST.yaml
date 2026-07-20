@@ -112,6 +112,9 @@ capabilities:
   recoverable-conversation-errors: implemented
   keyboard-first-conversation-composer: implemented
   compact-conversation-drawers: implemented
+  adaptive-conversation-panes: implemented
+  compact-entity-context-bar: implemented
+  direct-empty-task-actions: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented
