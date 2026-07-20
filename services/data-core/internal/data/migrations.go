@@ -300,6 +300,10 @@ ON workflow_trigger_events(status, due_at, id);
 		version: 12,
 		sql:     modelAuditPurposeMigrationSQL,
 	},
+	{
+		version: 13,
+		sql:     conversationThreadsMigrationSQL,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

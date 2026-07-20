@@ -4,12 +4,12 @@ BuBu is a local-first AI data workspace for people who need to understand recurr
 
 ![BuBu dataset workspace with synthetic data](docs/assets/product/01-datasets.png)
 
-The interaction model is deliberately familiar: a dataset behaves like a contact, a related dataset collection behaves like a group chat, and every question leaves a typed local history of the reviewed plan and bounded result.
+The interaction model is conversation-first: a dataset or related dataset collection can hold multiple independent local task threads. The center stays readable as a chat; plans, results, charts, and audit evidence remain inspectable artifacts rather than getting lost in message text.
 
 ## What works now
 
 - Atomic CSV, TSV, and XLSX import; local SQLite catalog; immutable replacement versions; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
-- Single-dataset and multi-table lookup analysis through typed plans. The user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
+- Single-dataset and multi-table lookup analysis through typed plans. A conversation can be created, renamed, and archived locally; the user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
 - Deterministic local bar and time-series charts, local conversation history, reusable manual workflows, interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion.
 - OS-encrypted provider and stdio MCP configuration. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
 - A packaged Electron desktop with a sandboxed React renderer, typed preload, supervised Node AI runtime, authoritative Go data core, synthetic UI smoke capture, and a 100 MiB reference performance gate.
@@ -19,10 +19,10 @@ Still planned or incomplete: explicit-row disclosure, reusable Agent definitions
 ## Product flow and privacy
 
 1. Import files locally and inspect their shape and quality.
-2. Ask a question against one dataset or a 2–8 member group.
+2. Start or resume a local task thread, then ask a question against one dataset or a 2–8 member group.
 3. Review the typed query plan and the exact schema, synthetic context, or aggregate that may leave the device.
 4. Approve once; Go validates and executes the bounded plan locally.
-5. Keep the result, chart, and audit trail in the local conversation, or save the reviewed plan as a workflow.
+5. Keep the result, chart, and audit trail in the local conversation workbench, or save the reviewed plan as a workflow.
 
 | Boundary | Default | Authority |
 | --- | --- | --- |

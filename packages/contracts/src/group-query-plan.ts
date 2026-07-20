@@ -116,6 +116,7 @@ export const safeGroupQueryResultSchema = z
 
 export const groupQueryRequestSchema = z.object({
   groupId: datasetGroupIdSchema,
+  threadId: z.string().regex(/^[0-9a-f]{32}$/u).optional(),
   question: z.string().trim().min(1).max(20_000),
 }).strict();
 

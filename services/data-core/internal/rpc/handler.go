@@ -73,6 +73,11 @@ type DatasetService interface {
 	SaveRelationship(ctx context.Context, input data.DatasetRelationshipSaveInput) (data.DatasetRelationship, error)
 	DeleteRelationship(ctx context.Context, relationshipID string) error
 	GetConversation(ctx context.Context, target data.ConversationTarget) (*data.ConversationThread, error)
+	GetConversationByID(ctx context.Context, threadID string) (*data.ConversationThread, error)
+	ListConversations(ctx context.Context, target data.ConversationTarget) ([]data.ConversationThreadSummary, error)
+	CreateConversation(ctx context.Context, input data.ConversationCreateInput) (*data.ConversationThread, error)
+	RenameConversation(ctx context.Context, input data.ConversationRenameInput) (*data.ConversationThread, error)
+	ArchiveConversation(ctx context.Context, input data.ConversationArchiveInput) error
 	AppendConversationEntry(ctx context.Context, input data.ConversationAppendInput) (*data.ConversationThread, error)
 	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
 	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
@@ -94,6 +99,9 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
 	}
 	if response, handled := handleExtendedMethods(ctx, request, datasets); handled {
+		return response
+	}
+	if response, handled := handleConversationMethod(ctx, request, datasets); handled {
 		return response
 	}
 
@@ -246,26 +254,6 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ExecuteGroupQueryPlan(ctx, plan)
 		if err != nil {
 			return failure(request.ID, "GROUP_QUERY_REJECTED", err.Error(), false)
-		}
-		return success(request.ID, result)
-	case "conversation.get":
-		target, ok := objectParam[data.ConversationTarget](request.Params, "target")
-		if !ok {
-			return failure(request.ID, "INVALID_ARGUMENT", "target must be a strict conversation target", false)
-		}
-		result, err := datasets.GetConversation(ctx, target)
-		if err != nil {
-			return failure(request.ID, "CONVERSATION_ACCESS_FAILED", err.Error(), false)
-		}
-		return success(request.ID, result)
-	case "conversation.append":
-		input, ok := objectParam[data.ConversationAppendInput](request.Params, "input")
-		if !ok {
-			return failure(request.ID, "INVALID_ARGUMENT", "input must be a strict conversation entry", false)
-		}
-		result, err := datasets.AppendConversationEntry(ctx, input)
-		if err != nil {
-			return failure(request.ID, "CONVERSATION_APPEND_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.list":

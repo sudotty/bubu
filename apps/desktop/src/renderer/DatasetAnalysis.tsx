@@ -46,7 +46,7 @@ function filterLabel(filter: QueryPlanProposal["plan"]["filters"][number]): stri
     : `${filter.column} ${operators[filter.operator]}`;
 }
 
-export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId: string; readonly datasetName: string }) {
+export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly datasetId: string; readonly datasetName: string; readonly threadId?: string | undefined }) {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<QueryPlanProposal>();
@@ -54,7 +54,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
   const [state, setState] = useState<AnalysisState>("idle");
   const [error, setError] = useState<string>();
   const [operationId, setOperationId] = useState<OperationId>();
-  const history = useConversationThread({ kind: "dataset", id: datasetId });
+  const history = useConversationThread({ kind: "dataset", id: datasetId }, threadId);
 
   useEffect(() => {
     setQuestion("");
@@ -64,7 +64,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     setState("idle");
     setError(undefined);
     setOperationId(undefined);
-  }, [datasetId]);
+  }, [datasetId, threadId]);
 
   async function propose(): Promise<void> {
     const normalizedQuestion = question.trim();
@@ -78,7 +78,7 @@ export function DatasetAnalysis({ datasetId, datasetName }: { readonly datasetId
     setOperationId(nextOperationId);
     try {
       const next = await window.bubu.analysis.propose(
-        { datasetId, question: normalizedQuestion },
+        { datasetId, threadId, question: normalizedQuestion },
         nextOperationId,
       );
       setProposal(next);

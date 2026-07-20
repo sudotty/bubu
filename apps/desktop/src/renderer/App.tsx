@@ -27,6 +27,7 @@ function messageFrom(error: unknown): string {
 
 export function App() {
   const [view, setView] = useState<"datasets" | "groups" | "settings">("datasets");
+  const [settingsSection, setSettingsSection] = useState<"models" | "connectors" | "privacy">("models");
   const [readiness, setReadiness] = useState<ReadinessState>({ kind: "loading" });
   const [datasets, setDatasets] = useState<readonly DatasetSummary[]>([]);
   const [groups, setGroups] = useState<readonly DatasetGroup[]>([]);
@@ -378,13 +379,19 @@ export function App() {
         </header>
 
         <div ref={conversationRef} className={`conversation ${view === "settings" ? "conversation-settings" : ""}`}>
-          {view === "settings" && (
-            <>
-              <ProviderSettings />
-              <McpSettings />
-              <DataProtectionPanel onRestored={reloadCatalogAfterRestore} />
-            </>
-          )}
+          {view === "settings" && <section className="settings-workbench" aria-label="设置工作台">
+            <nav className="settings-nav" aria-label="设置分类">
+              <p className="hero-kicker">SETTINGS</p>
+              <button type="button" className={settingsSection === "models" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "models"} onClick={() => setSettingsSection("models")}>模型与提供商<small>连接与默认模型</small></button>
+              <button type="button" className={settingsSection === "connectors" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "connectors"} onClick={() => setSettingsSection("connectors")}>本地连接器<small>MCP 与单次授权</small></button>
+              <button type="button" className={settingsSection === "privacy" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "privacy"} onClick={() => setSettingsSection("privacy")}>隐私与恢复<small>审计、备份、恢复</small></button>
+            </nav>
+            <div className="settings-content">
+              {settingsSection === "models" && <ProviderSettings />}
+              {settingsSection === "connectors" && <McpSettings />}
+              {settingsSection === "privacy" && <DataProtectionPanel onRestored={reloadCatalogAfterRestore} />}
+            </div>
+          </section>}
           {view === "groups" && (
             <DatasetGroupWorkspace
               group={selectedGroup}

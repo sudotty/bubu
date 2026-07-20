@@ -34,7 +34,7 @@ function resultLabel(group: DatasetGroup, label: string): string {
   });
 }
 
-export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }) {
+export function DatasetGroupAnalysis({ group, threadId }: { readonly group: DatasetGroup; readonly threadId?: string | undefined }) {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<GroupQueryPlanProposal>();
@@ -42,7 +42,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
   const [state, setState] = useState<GroupAnalysisState>("idle");
   const [error, setError] = useState<string>();
   const [operationId, setOperationId] = useState<OperationId>();
-  const history = useConversationThread({ kind: "group", id: group.id });
+  const history = useConversationThread({ kind: "group", id: group.id }, threadId);
 
   useEffect(() => {
     setQuestion("");
@@ -52,7 +52,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     setState("idle");
     setError(undefined);
     setOperationId(undefined);
-  }, [group.id, group.updatedAt]);
+  }, [group.id, group.updatedAt, threadId]);
 
   async function propose(): Promise<void> {
     const normalized = question.trim();
@@ -66,7 +66,7 @@ export function DatasetGroupAnalysis({ group }: { readonly group: DatasetGroup }
     setOperationId(nextOperationId);
     try {
       setProposal(await window.bubu.analysis.proposeGroup(
-        { groupId: group.id, question: normalized },
+        { groupId: group.id, threadId, question: normalized },
         nextOperationId,
       ));
       setState("proposed");

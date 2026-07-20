@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ConversationThread, WorkflowTarget } from "../shared/product-api.js";
 import { AUTOMATION_POLL_INTERVAL_MILLISECONDS } from "../shared/automation.js";
 
-export function useConversationThread(target: WorkflowTarget): ConversationThread | null | undefined {
+export function useConversationThread(target: WorkflowTarget, threadId?: string): ConversationThread | null | undefined {
   const [thread, setThread] = useState<ConversationThread | null>();
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useConversationThread(target: WorkflowTarget): ConversationThrea
       if (inFlight) return;
       inFlight = true;
       try {
-        const next = await window.bubu.conversations.get(target);
+        const next = threadId ? await window.bubu.conversations.getById(threadId) : await window.bubu.conversations.get(target);
         if (active) {
           setThread(next);
           hasLoaded = true;
@@ -33,7 +33,7 @@ export function useConversationThread(target: WorkflowTarget): ConversationThrea
       active = false;
       window.clearInterval(timer);
     };
-  }, [target.id, target.kind]);
+  }, [target.id, target.kind, threadId]);
 
   return thread;
 }

@@ -8,11 +8,15 @@ import type {
   AggregateExplanationPreparation,
   AggregateExplanationProposal,
   ConversationTarget,
+  ConversationCreateInput,
+  ConversationRenameInput,
+  ConversationArchiveInput,
   ColumnDistribution,
   ColumnDistributionRequest,
   DataBackupSelectionResult,
   DataRestoreSelectionResult,
   ConversationThread,
+  ConversationThreadSummary,
   DatasetGroup,
   DatasetGroupId,
   DatasetGroupSaveInput,
@@ -121,6 +125,11 @@ export const desktopChannels = {
   approveAggregateAgent: "bubu:analysis:approve-aggregate-agent",
   dismissAggregateAgent: "bubu:analysis:dismiss-aggregate-agent",
   getConversation: "bubu:conversations:get",
+  getConversationById: "bubu:conversations:get-by-id",
+  listConversations: "bubu:conversations:list",
+  createConversation: "bubu:conversations:create",
+  renameConversation: "bubu:conversations:rename",
+  archiveConversation: "bubu:conversations:archive",
   getGroupRelationships: "bubu:relationships:group-overview",
   saveDatasetRelationship: "bubu:relationships:save",
   removeDatasetRelationship: "bubu:relationships:remove",
@@ -215,6 +224,11 @@ export interface BuBuDesktopApi {
   };
   readonly conversations: {
     get(target: ConversationTarget): Promise<ConversationThread | null>;
+    getById(threadId: string): Promise<ConversationThread | null>;
+    list(target: ConversationTarget): Promise<readonly ConversationThreadSummary[]>;
+    create(input: ConversationCreateInput): Promise<ConversationThread>;
+    rename(input: ConversationRenameInput): Promise<ConversationThread>;
+    archive(input: ConversationArchiveInput): Promise<void>;
   };
   readonly datasetRelationships: {
     overview(groupId: DatasetGroupId): Promise<GroupRelationshipOverview>;
@@ -252,7 +266,11 @@ export type {
   DataBackupSelectionResult,
   DataRestoreSelectionResult,
   ConversationTarget,
+  ConversationCreateInput,
+  ConversationRenameInput,
+  ConversationArchiveInput,
   ConversationThread,
+  ConversationThreadSummary,
   DatasetGroup,
   DatasetGroupId,
   DatasetGroupSaveInput,

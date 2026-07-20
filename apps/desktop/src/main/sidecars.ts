@@ -22,6 +22,7 @@ import {
   parseRelationshipDeletionResult,
   parseConversationThread,
   parseOptionalConversationThread,
+  parseConversationThreadSummaryList,
   parseModelCompletion,
   parseModelContext,
   parseSafeGroupQueryResult,
@@ -64,6 +65,10 @@ import {
   type ConversationAppendInput,
   type ConversationTarget,
   type ConversationThread,
+  type ConversationThreadSummary,
+  type ConversationCreateInput,
+  type ConversationRenameInput,
+  type ConversationArchiveInput,
   type ModelCompletion,
   type ModelContext,
   type DisclosureLevel,
@@ -269,6 +274,26 @@ class DataCoreClient implements RuntimeClient {
     );
   }
 
+  async getConversationByID(threadId: string): Promise<ConversationThread | null> {
+    return parseOptionalConversationThread(await this.#broker.request("conversation.get.byid", { threadId }));
+  }
+
+  async listConversations(target: ConversationTarget): Promise<readonly ConversationThreadSummary[]> {
+    return parseConversationThreadSummaryList(await this.#broker.request("conversation.list", { target }));
+  }
+
+  async createConversation(input: ConversationCreateInput): Promise<ConversationThread> {
+    return parseConversationThread(await this.#broker.request("conversation.create", { input }));
+  }
+
+  async renameConversation(input: ConversationRenameInput): Promise<ConversationThread> {
+    return parseConversationThread(await this.#broker.request("conversation.rename", { input }));
+  }
+
+  async archiveConversation(input: ConversationArchiveInput): Promise<void> {
+    await this.#broker.request("conversation.archive", { input });
+  }
+
   async appendConversation(input: ConversationAppendInput): Promise<ConversationThread> {
     return parseConversationThread(
       await this.#broker.request("conversation.append", { input }),
@@ -465,6 +490,11 @@ export interface SidecarSupervisor {
   executeQueryPlan(plan: SafeQueryPlan, signal?: AbortSignal): Promise<SafeQueryResult>;
   executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult>;
   getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
+  getConversationByID(threadId: string): Promise<ConversationThread | null>;
+  listConversations(target: ConversationTarget): Promise<readonly ConversationThreadSummary[]>;
+  createConversation(input: ConversationCreateInput): Promise<ConversationThread>;
+  renameConversation(input: ConversationRenameInput): Promise<ConversationThread>;
+  archiveConversation(input: ConversationArchiveInput): Promise<void>;
   appendConversation(input: ConversationAppendInput): Promise<ConversationThread>;
   saveWorkflow(input: WorkflowDefinitionInput): Promise<WorkflowDefinition>;
   listWorkflows(target: WorkflowTarget): Promise<readonly WorkflowDefinition[]>;
@@ -531,6 +561,11 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     executeQueryPlan: (plan, signal) => dataCore.executeQueryPlan(plan, signal),
     executeGroupQueryPlan: (plan, signal) => dataCore.executeGroupQueryPlan(plan, signal),
     getConversation: (target) => dataCore.getConversation(target),
+    getConversationByID: (threadId) => dataCore.getConversationByID(threadId),
+    listConversations: (target) => dataCore.listConversations(target),
+    createConversation: (input) => dataCore.createConversation(input),
+    renameConversation: (input) => dataCore.renameConversation(input),
+    archiveConversation: (input) => dataCore.archiveConversation(input),
     appendConversation: (input) => dataCore.appendConversation(input),
     saveWorkflow: (input) => dataCore.saveWorkflow(input),
     listWorkflows: (target) => dataCore.listWorkflows(target),

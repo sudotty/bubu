@@ -14,8 +14,24 @@ type ConversationEntryInput struct {
 }
 
 type ConversationAppendInput struct {
-	Target ConversationTarget     `json:"target"`
-	Entry  ConversationEntryInput `json:"entry"`
+	Target   ConversationTarget     `json:"target"`
+	ThreadID string                 `json:"threadId,omitempty"`
+	Entry    ConversationEntryInput `json:"entry"`
+}
+
+type ConversationCreateInput struct {
+	Target ConversationTarget `json:"target"`
+	Title  string             `json:"title"`
+}
+
+type ConversationRenameInput struct {
+	ThreadID string `json:"threadId"`
+	Title    string `json:"title"`
+}
+
+type ConversationArchiveInput struct {
+	ThreadID string `json:"threadId"`
+	Archived bool   `json:"archived"`
 }
 
 type ConversationEntry struct {
@@ -35,4 +51,12 @@ type ConversationThread struct {
 	Entries   []ConversationEntry `json:"entries"`
 	CreatedAt string              `json:"createdAt"`
 	UpdatedAt string              `json:"updatedAt"`
+}
+
+type ConversationThreadSummary struct {
+	ID        string             `json:"id"`
+	Target    ConversationTarget `json:"target"`
+	Title     string             `json:"title"`
+	CreatedAt string             `json:"createdAt"`
+	UpdatedAt string             `json:"updatedAt"`
 }

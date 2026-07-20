@@ -59,9 +59,11 @@ export function registerAnalysisApi({
   const persistError = async (
     target: { readonly kind: "dataset" | "group"; readonly id: string },
     error: unknown,
+    threadId?: string,
   ) => {
     await sidecars.appendConversation({
       target,
+      threadId,
       entry: { kind: "error", role: "system", payload: { message: errorMessage(error) } },
     }).catch(() => undefined);
   };
@@ -242,6 +244,7 @@ export function registerAnalysisApi({
     return operations.run(envelope.operationId, async (signal) => {
       await sidecars.appendConversation({
         target,
+        threadId: request.threadId,
         entry: { kind: "question", role: "user", payload: { question: request.question } },
       });
       try {
@@ -260,11 +263,12 @@ export function registerAnalysisApi({
         const proposal = createQueryPlanProposal(request.question, context, completion);
         await sidecars.appendConversation({
           target,
+          threadId: request.threadId,
           entry: { kind: "plan", role: "assistant", payload: { proposal } },
         });
         return proposal;
       } catch (error) {
-        await persistError(target, error);
+        await persistError(target, error, request.threadId);
         throw error;
       }
     });
@@ -301,6 +305,7 @@ export function registerAnalysisApi({
     return operations.run(envelope.operationId, async (signal) => {
       await sidecars.appendConversation({
         target,
+        threadId: request.threadId,
         entry: { kind: "question", role: "user", payload: { question: request.question } },
       });
       try {
@@ -339,13 +344,14 @@ export function registerAnalysisApi({
           relationshipHints,
           completion,
         );
-        await sidecars.appendConversation({
-          target,
+		await sidecars.appendConversation({
+			target,
+			threadId: request.threadId,
           entry: { kind: "plan", role: "assistant", payload: { proposal } },
         });
         return proposal;
       } catch (error) {
-        await persistError(target, error);
+        await persistError(target, error, request.threadId);
         throw error;
       }
     });

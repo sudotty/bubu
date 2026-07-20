@@ -94,7 +94,10 @@ capabilities:
   ollama-provider: implemented
   dataset-conversations: implemented
   group-conversations: implemented
+  multi-thread-conversations: implemented
+  conversation-thread-archive: implemented
   append-only-local-conversation-history: implemented
+  conversation-artifact-workbench: implemented
   typed-conversation-artifacts: implemented
   visualizations: in-progress
   local-result-visualizations: implemented
