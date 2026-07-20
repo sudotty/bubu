@@ -50,13 +50,24 @@ func validateBackupDatabase(
 }
 
 func openReadOnlyBackupDatabase(path string) (*sql.DB, error) {
-	location := &url.URL{Scheme: "file", Path: path, RawQuery: "mode=ro&immutable=1"}
-	database, err := sql.Open("sqlite", location.String())
+	database, err := sql.Open("sqlite", readOnlyBackupDatabaseURI(path))
 	if err != nil {
 		return nil, fmt.Errorf("open backup database read-only: %w", err)
 	}
 	database.SetMaxOpenConns(1)
 	return database, nil
+}
+
+func readOnlyBackupDatabaseURI(path string) string {
+	normalized := strings.ReplaceAll(path, `\`, "/")
+	if len(normalized) >= 2 && normalized[1] == ':' && !strings.HasPrefix(normalized, "/") {
+		normalized = "/" + normalized
+	}
+	return (&url.URL{
+		Scheme:   "file",
+		Path:     normalized,
+		RawQuery: "mode=ro&immutable=1",
+	}).String()
 }
 
 func validateBackupMigrations(ctx context.Context, database *sql.DB, expected int) error {

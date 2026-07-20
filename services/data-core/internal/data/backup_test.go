@@ -8,6 +8,14 @@ import (
 	"testing"
 )
 
+func TestReadOnlyBackupDatabaseURIHandlesWindowsDrivePaths(t *testing.T) {
+	got := readOnlyBackupDatabaseURI(`C:\Users\runner admin\AppData\Local\Temp\snapshot.db`)
+	want := "file:///C:/Users/runner%20admin/AppData/Local/Temp/snapshot.db?mode=ro&immutable=1"
+	if got != want {
+		t.Fatalf("Windows backup URI = %q, want %q", got, want)
+	}
+}
+
 func TestBackupAndRestoreRoundTripPrivateLocalState(t *testing.T) {
 	root := t.TempDir()
 	firstPath := filepath.Join(root, "first.csv")
