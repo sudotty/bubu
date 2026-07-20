@@ -32,7 +32,7 @@ for (const path of rendererFiles) {
 }
 
 const resultVisualization = read("apps/desktop/src/renderer/ResultVisualization.tsx");
-if (!resultVisualization.includes("deriveVisualizationSpec(result, title)")) {
+if (!resultVisualization.includes("recommendVisualization(result, title)") || !resultVisualization.includes("chart-data-alternative")) {
   failures.push("result visualization is not derived through the typed local contract");
 }
 if (/dangerouslySetInnerHTML|innerHTML/u.test(resultVisualization)) {

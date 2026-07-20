@@ -5,11 +5,18 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { resolve } from "node:path";
 
+const macSignIdentity = process.env.BUBU_MAC_SIGN_IDENTITY?.trim();
+const appleId = process.env.BUBU_APPLE_ID?.trim();
+const appleIdPassword = process.env.BUBU_APPLE_APP_PASSWORD?.trim();
+const appleTeamId = process.env.BUBU_APPLE_TEAM_ID?.trim();
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     executableName: "bubu",
     electronZipDir: resolve("..", "..", ".cache", "electron"),
+    ...(macSignIdentity ? { osxSign: { identity: macSignIdentity, optionsForFile: () => ({ hardenedRuntime: true, entitlements: "resources/entitlements.mac.plist" }) } } : {}),
+    ...(appleId && appleIdPassword && appleTeamId ? { osxNotarize: { appleId, appleIdPassword, teamId: appleTeamId } } : {}),
     extraResource: [
       "../../services/ai-runtime/dist",
       "../../services/data-core/bin/bubu-data-core",
