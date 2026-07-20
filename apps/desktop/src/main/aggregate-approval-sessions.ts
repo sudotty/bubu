@@ -8,7 +8,7 @@ const aggregateApprovalLifetimeMilliseconds = 10 * 60 * 1_000;
 const maximumAggregateApprovalSessions = 20;
 
 type ModelDestination = AggregateExplanationProposal["destination"];
-type ApprovedAggregate = Pick<AggregateExplanationProposal, "disclosure" | "destination">;
+type ApprovedAggregate = Pick<AggregateExplanationProposal, "disclosure" | "destination"> & { readonly threadId: string };
 
 interface AggregateApprovalSessionOptions {
   readonly now: () => number;
@@ -20,7 +20,7 @@ interface PendingAggregateApproval extends ApprovedAggregate {
 }
 
 export interface AggregateApprovalSessionStore {
-  issue(disclosure: AggregateDisclosure, destination: ModelDestination): AggregateExplanationProposal;
+  issue(disclosure: AggregateDisclosure, destination: ModelDestination, threadId: string): AggregateExplanationProposal;
   consume(token: string): ApprovedAggregate;
   revoke(token: string): void;
 }
@@ -38,7 +38,7 @@ export function createAggregateApprovalSessionStore(
   }
 
   return {
-    issue(disclosure, destination) {
+    issue(disclosure, destination, threadId) {
       removeExpired();
       while (pending.size >= maximumAggregateApprovalSessions) {
         const oldest = pending.keys().next().value as string | undefined;
@@ -57,6 +57,7 @@ export function createAggregateApprovalSessionStore(
       pending.set(approvalToken, {
         disclosure: proposal.disclosure,
         destination: proposal.destination,
+        threadId,
         expiresAt,
       });
       return proposal;
@@ -67,7 +68,7 @@ export function createAggregateApprovalSessionStore(
       if (!session || session.expiresAt < options.now()) {
         throw new Error("Aggregate approval expired or has already been used");
       }
-      return { disclosure: session.disclosure, destination: session.destination };
+      return { disclosure: session.disclosure, destination: session.destination, threadId: session.threadId };
     },
     revoke(token) {
       pending.delete(token);

@@ -66,7 +66,7 @@ describe("aggregate explanation contracts", () => {
       measures: [{ operation: "count" as const, column: null }],
       filters: [], sort: [], limit: 50,
     };
-    expect(parseAggregateExplanationPreparation({ plan })).toEqual({ plan });
+    expect(parseAggregateExplanationPreparation({ plan, threadId: "a".repeat(32) })).toEqual({ plan, threadId: "a".repeat(32) });
     expect(() => parseAggregateExplanationPreparation({ plan, result: disclosure })).toThrow();
   });
 

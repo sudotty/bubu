@@ -102,6 +102,7 @@ export const aggregateAgentDecisionSchema = z.discriminatedUnion("action", [
 
 export const aggregateAgentPreparationSchema = z.object({
   plan: z.union([safeQueryPlanSchema, safeGroupQueryPlanSchema]),
+  threadId: z.string().regex(/^[0-9a-f]{32}$/u),
   goal: z.string().trim().min(1).max(2_000),
 }).strict();
 

@@ -171,8 +171,8 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
       <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "群组查询结果"} />
       </>}
 
-      {result && proposal && <AggregateExplanationPanel plan={proposal.plan} />}
-      {result && proposal && <AggregateAgentPanel plan={proposal.plan} />}
+      {result && proposal && threadId && <AggregateExplanationPanel plan={proposal.plan} threadId={threadId} />}
+      {result && proposal && threadId && <AggregateAgentPanel plan={proposal.plan} threadId={threadId} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
         <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。群组数据只自动发送结构、合成示例和有效关系。</p>

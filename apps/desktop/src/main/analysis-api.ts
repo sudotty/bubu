@@ -70,11 +70,13 @@ export function registerAnalysisApi({
 
   ipcMain.handle(desktopChannels.prepareAggregateExplanation, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    const { plan } = parseAggregateExplanationPreparation(value);
+    const { plan, threadId } = parseAggregateExplanationPreparation(value);
     const target = "datasetId" in plan
       ? { kind: "dataset" as const, id: plan.datasetId }
       : { kind: "group" as const, id: plan.groupId };
-    const source = findReviewedAggregateSource(await sidecars.getConversation(target), plan);
+    const sourceThread = await sidecars.getConversationByID(threadId);
+    const source = sourceThread?.target.kind === target.kind && sourceThread.target.id === target.id
+      ? findReviewedAggregateSource(sourceThread, plan) : undefined;
     if (!source) throw new Error("只能解释已经审查、执行并保存的查询结果");
     const disclosure = "datasetId" in plan
       ? (() => {
@@ -94,7 +96,7 @@ export function registerAnalysisApi({
       providerName: resolved.profile.name,
       model: resolved.profile.model,
       endpointOrigin: new URL(resolved.profile.baseUrl).origin,
-    });
+    }, threadId);
   });
 
   ipcMain.handle(desktopChannels.approveAggregateExplanation, async (event, value: unknown) => {
@@ -133,11 +135,12 @@ export function registerAnalysisApi({
         const explanation = createAggregateExplanation(approved.disclosure, completion);
         await sidecars.appendConversation({
           target: approved.disclosure.target,
+          threadId: approved.threadId,
           entry: { kind: "insight", role: "assistant", payload: { explanation } },
         });
         return explanation;
       } catch (error) {
-        await persistError(approved.disclosure.target, error);
+        await persistError(approved.disclosure.target, error, approved.threadId);
         throw error;
       }
     });
@@ -150,11 +153,13 @@ export function registerAnalysisApi({
 
   ipcMain.handle(desktopChannels.prepareAggregateAgent, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    const { plan, goal } = parseAggregateAgentPreparation(value);
+    const { plan, goal, threadId } = parseAggregateAgentPreparation(value);
     const target = "datasetId" in plan
       ? { kind: "dataset" as const, id: plan.datasetId }
       : { kind: "group" as const, id: plan.groupId };
-    const source = findReviewedAggregateSource(await sidecars.getConversation(target), plan);
+    const sourceThread = await sidecars.getConversationByID(threadId);
+    const source = sourceThread?.target.kind === target.kind && sourceThread.target.id === target.id
+      ? findReviewedAggregateSource(sourceThread, plan) : undefined;
     if (!source) throw new Error("只能分析已经审查、执行并保存的聚合查询结果");
     const disclosure = "datasetId" in plan
       ? (() => {
@@ -174,7 +179,7 @@ export function registerAnalysisApi({
       providerName: resolved.profile.name,
       model: resolved.profile.model,
       endpointOrigin: new URL(resolved.profile.baseUrl).origin,
-    });
+    }, threadId);
   });
 
   ipcMain.handle(desktopChannels.approveAggregateAgent, async (event, value: unknown) => {
@@ -221,11 +226,12 @@ export function registerAnalysisApi({
         });
         await sidecars.appendConversation({
           target: approved.disclosure.target,
+          threadId: approved.threadId,
           entry: { kind: "insight", role: "assistant", payload: { agentRun } },
         });
         return agentRun;
       } catch (error) {
-        await persistError(approved.disclosure.target, error);
+        await persistError(approved.disclosure.target, error, approved.threadId);
         throw error;
       }
     });
