@@ -30,6 +30,16 @@ function findFile(root, name) {
   return undefined;
 }
 
+function waitForFile(root, name, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const file = findFile(root, name);
+    if (file) return file;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+  } while (Date.now() < deadline);
+  return undefined;
+}
+
 const artifact = resolve(argument("--artifact") ?? "");
 const previousArtifactValue = argument("--previous-artifact");
 const previousArtifact = previousArtifactValue ? resolve(previousArtifactValue) : undefined;
@@ -80,19 +90,26 @@ function verifyWindowsSignature(path) {
   if (!run("powershell", ["-NoProfile", "-Command", script]).includes("Valid")) throw new Error(`Windows Authenticode signature is not valid: ${path}`);
 }
 
-function installWindows(setup) {
+function windowsInstallRoot() {
+  const localAppData = process.env.LOCALAPPDATA;
+  if (!localAppData) throw new Error("Windows installer smoke requires LOCALAPPDATA");
+  return join(localAppData, "BuBu");
+}
+
+function installWindows(setup, installRoot) {
   run(setup, ["--silent"], { env: environment });
-  const executable = findFile(environment.LOCALAPPDATA, "bubu.exe");
-  if (!executable) throw new Error("Squirrel install completed without bubu.exe");
+  const executable = waitForFile(installRoot, "bubu.exe");
+  if (!executable) throw new Error(`Squirrel install completed without bubu.exe under ${installRoot}`);
   return executable;
 }
 
-function uninstallWindows() {
-  const updater = findFile(environment.LOCALAPPDATA, "Update.exe");
+function uninstallWindows(installRoot) {
+  const updater = findFile(installRoot, "Update.exe");
   if (!updater) throw new Error("Squirrel install completed without Update.exe");
   run(updater, ["--uninstall", "-s"], { env: environment });
 }
 
+let installedWindowsRoot;
 try {
   if (process.platform === "darwin") {
     const installedApp = join(workspace, "Applications", "BuBu.app");
@@ -110,13 +127,16 @@ try {
     if (existsSync(installedApp)) throw new Error("macOS temporary uninstall failed");
     passed.push("uninstall");
   } else {
-    environment.LOCALAPPDATA = join(workspace, "LocalAppData");
-    environment.USERPROFILE = join(workspace, "UserProfile");
+    const installRoot = windowsInstallRoot();
+    if (existsSync(installRoot)) {
+      throw new Error(`Refusing to replace an existing BuBu installation during smoke testing: ${installRoot}`);
+    }
+    installedWindowsRoot = installRoot;
     if (previousArtifact) {
-      smokeExecutable(installWindows(previousArtifact));
+      smokeExecutable(installWindows(previousArtifact, installRoot));
       passed.push("previous-version-install");
     }
-    const executable = installWindows(artifact);
+    const executable = installWindows(artifact, installRoot);
     passed.push("install");
     smokeExecutable(executable);
     if (previousArtifact) passed.push("upgrade");
@@ -125,7 +145,8 @@ try {
       verifyWindowsSignature(executable);
       passed.push("installer-and-application-signatures");
     }
-    uninstallWindows();
+    uninstallWindows(installRoot);
+    installedWindowsRoot = undefined;
     passed.push("uninstall");
   }
 
@@ -142,5 +163,12 @@ try {
   if (reportPath) writeFileSync(resolve(reportPath), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Native installer smoke passed: ${JSON.stringify(report)}`);
 } finally {
+  if (installedWindowsRoot && existsSync(installedWindowsRoot)) {
+    try {
+      uninstallWindows(installedWindowsRoot);
+    } catch (error) {
+      console.error(`Best-effort Windows smoke cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
   rmSync(workspace, { recursive: true, force: true });
 }

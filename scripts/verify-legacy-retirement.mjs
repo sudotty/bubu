@@ -1,8 +1,19 @@
-import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const activeFiles = execFileSync("rg", ["--files", "apps", "packages", "services"], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const ignoredDirectories = new Set([".vite", "bin", "dist", "node_modules", "out"]);
+const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
+function listFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) return ignoredDirectories.has(entry.name) ? [] : listFiles(path);
+      return entry.isFile() ? [relative(repositoryRoot, path)] : [];
+    });
+}
+const activeFiles = ["apps", "packages", "services"].flatMap((path) => listFiles(resolve(repositoryRoot, path)));
 const failures = [];
 for (const path of activeFiles) {
   const source = read(path);

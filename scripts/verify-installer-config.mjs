@@ -4,6 +4,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url));
 const forge = read("apps/desktop/forge.config.ts").toString("utf8");
 const desktop = JSON.parse(read("apps/desktop/package.json").toString("utf8"));
 const manifest = read("PRODUCT_MANIFEST.yaml").toString("utf8");
+const smoke = read("scripts/smoke-native-installer.mjs").toString("utf8");
 const failures = [];
 
 for (const value of ["appBundleId", "appCategoryType", "win32metadata", "MakerDMG", "MakerZIP", "MakerSquirrel", "setupIcon", "noMsi: true"]) {
@@ -14,6 +15,9 @@ for (const dependency of ["@electron-forge/maker-dmg", "@electron-forge/maker-sq
 }
 if (desktop.devDependencies?.["@electron/windows-sign"] !== "2.0.6") failures.push("desktop must pin @electron/windows-sign to 2.0.6");
 if (!desktop.author || !desktop.description || desktop.productName !== "BuBu") failures.push("desktop release metadata is incomplete");
+for (const value of ["waitForFile", 'join(localAppData, "BuBu")', "Refusing to replace an existing BuBu installation", "Best-effort Windows smoke cleanup failed"]) {
+  if (!smoke.includes(value)) failures.push(`native installer smoke is missing safe Windows lifecycle behavior: ${value}`);
+}
 
 const png = read("apps/desktop/resources/icons/bubu.png");
 const icns = read("apps/desktop/resources/icons/bubu.icns");

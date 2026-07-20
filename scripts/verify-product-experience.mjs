@@ -74,6 +74,7 @@ requireText(read("apps/desktop/src/renderer/ResultVisualization.tsx"), ["建议�
 
 const styles = read("apps/desktop/src/renderer/styles.css");
 requireText(styles, [
+  "body { margin: 0; min-width: 0; min-height: 640px; }",
   "container: workbench / inline-size",
   "@container workbench (max-width: 1180px)",
   "@container workbench (max-width: 760px)",
