@@ -100,6 +100,8 @@ capabilities:
   conversation-artifact-workbench: implemented
   visible-conversation-task-status: implemented
   thread-bound-aggregate-approvals: implemented
+  thread-bound-workflow-definitions: implemented
+  deterministic-workflow-thread-delivery: implemented
   typed-conversation-artifacts: implemented
   visualizations: in-progress
   local-result-visualizations: implemented

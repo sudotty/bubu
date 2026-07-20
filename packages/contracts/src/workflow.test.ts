@@ -20,11 +20,16 @@ describe("workflow contracts", () => {
     const input = {
       name: "Weekly regional totals",
       target: { kind: "dataset" as const, id: datasetId },
+      threadId: "e".repeat(32),
       trigger: { kind: "manual" as const },
       timeoutMs: 60_000,
       steps: [{ id: "regional-totals", kind: "dataset-query" as const, plan, maxAttempts: 2 }],
     };
     expect(parseWorkflowDefinitionInput(input)).toEqual(input);
+    expect(() => parseWorkflowDefinitionInput({
+      ...input,
+      threadId: undefined,
+    })).toThrow();
     expect(() => parseWorkflowDefinitionInput({
       ...input,
       target: { kind: "dataset", id: "c".repeat(32) },

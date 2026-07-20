@@ -44,6 +44,7 @@ export const workflowDefinitionInputSchema = z.object({
   id: workflowIdSchema.optional(),
   name: z.string().trim().min(1).max(100),
   target: workflowTargetSchema,
+  threadId: workflowIdSchema,
   trigger: workflowTriggerSchema,
   timeoutMs: z.number().int().min(1_000).max(10 * 60_000),
   steps: z.array(workflowStepDefinitionSchema).min(1).max(8),

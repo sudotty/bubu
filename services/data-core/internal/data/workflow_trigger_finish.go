@@ -25,12 +25,13 @@ func (service *Service) FinishWorkflowTrigger(
 	defer transaction.Rollback()
 	var workflowID string
 	var target ConversationTarget
+	var threadID string
 	if err := transaction.QueryRowContext(ctx, `
-SELECT events.workflow_id, definitions.target_kind, definitions.target_id
+SELECT events.workflow_id, definitions.target_kind, definitions.target_id, definitions.thread_id
 FROM workflow_trigger_events events
 JOIN workflow_definitions definitions ON definitions.id = events.workflow_id
 WHERE events.id = ? AND events.status = 'pending'`, input.ID).Scan(
-		&workflowID, &target.Kind, &target.ID,
+		&workflowID, &target.Kind, &target.ID, &threadID,
 	); errors.Is(err, sql.ErrNoRows) {
 		return WorkflowTriggerEvent{}, errors.New("workflow trigger was not pending")
 	} else if err != nil {
@@ -40,7 +41,7 @@ WHERE events.id = ? AND events.status = 'pending'`, input.ID).Scan(
 	if err != nil {
 		return WorkflowTriggerEvent{}, err
 	}
-	if err := appendExistingConversationEntry(ctx, transaction, target, entry, finishedAt); err != nil {
+	if err := appendConversationEntryToThread(ctx, transaction, target, threadID, entry, finishedAt); err != nil {
 		return WorkflowTriggerEvent{}, err
 	}
 	result, err := transaction.ExecContext(ctx, `

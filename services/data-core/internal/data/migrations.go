@@ -304,6 +304,10 @@ ON workflow_trigger_events(status, due_at, id);
 		version: 13,
 		sql:     conversationThreadsMigrationSQL,
 	},
+	{
+		version: 14,
+		sql:     workflowThreadBindingMigrationSQL,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

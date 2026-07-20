@@ -510,6 +510,10 @@ for (const invariant of [
 ]) {
   if (!workflowMigration.includes(invariant)) failures.push(`workflow persistence invariant missing: ${invariant}`);
 }
+const workflowThreadMigration = read("services/data-core/internal/data/workflow_thread_migration.go");
+for (const invariant of ["workflow_definitions_thread_idx", "thread_id TEXT REFERENCES conversation_threads", "WHERE thread_id IS NULL"]) {
+  if (!workflowThreadMigration.includes(invariant)) failures.push(`workflow thread migration invariant missing: ${invariant}`);
+}
 const workflowTrigger = read("services/data-core/internal/data/workflow_trigger.go");
 for (const invariant of [
   "maximumWorkflowTriggerEvents = 10_000",
@@ -522,7 +526,8 @@ for (const invariant of [
 }
 const workflowTriggerFinish = read("services/data-core/internal/data/workflow_trigger_finish.go");
 for (const invariant of [
-  "appendExistingConversationEntry",
+  "appendConversationEntryToThread",
+  "definitions.thread_id",
   "triggeredWorkflowConversationEntry",
   '"sourcePlan": json.RawMessage(rawInput)',
   "transaction.Commit()",
@@ -547,7 +552,7 @@ if (!workflowPanel.includes("AUTOMATION_POLL_INTERVAL_MILLISECONDS")) {
   failures.push("workflow due state does not refresh on the shared automation interval");
 }
 const workflowApi = read("apps/desktop/src/main/workflow-api.ts");
-for (const invariant of ["containsProposedPlan", "parseWorkflowDefinitionInput", "operations.run", "envelope.operationId"]) {
+for (const invariant of ["containsProposedPlan", "getConversationByID(input.threadId)", "parseWorkflowDefinitionInput", "operations.run", "envelope.operationId"]) {
   if (!workflowApi.includes(invariant)) failures.push(`workflow desktop boundary missing: ${invariant}`);
 }
 

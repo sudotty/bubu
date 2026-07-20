@@ -29,6 +29,9 @@ func (service *Service) SaveWorkflow(
 	if err := validateConversationTargetExists(ctx, transaction, ConversationTarget(input.Target)); err != nil {
 		return WorkflowDefinition{}, fmt.Errorf("validate workflow target: %w", err)
 	}
+	if err := validateWorkflowThread(ctx, transaction, input.Target, input.ThreadID); err != nil {
+		return WorkflowDefinition{}, err
+	}
 	nowTime := time.Now().UTC()
 	now := nowTime.Format(time.RFC3339Nano)
 	triggerJSON, nextDueAt, targetSignature, err := initialWorkflowTriggerState(
@@ -52,20 +55,20 @@ func (service *Service) SaveWorkflow(
 		}
 		_, err = transaction.ExecContext(ctx, `
 INSERT INTO workflow_definitions(
-  id, name, target_kind, target_id, version, trigger_kind,
+  id, name, target_kind, target_id, thread_id, version, trigger_kind,
   timeout_ms, steps_json, created_at, updated_at, trigger_json, next_due_at, target_signature
-) VALUES (?, ?, ?, ?, 1, 'manual', ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, 1, 'manual', ?, ?, ?, ?, ?, ?, ?)`,
 			workflowID, strings.TrimSpace(input.Name), input.Target.Kind, input.Target.ID,
-			input.TimeoutMS, string(stepsJSON), now, now, triggerJSON, nextDueAt, targetSignature)
+			input.ThreadID, input.TimeoutMS, string(stepsJSON), now, now, triggerJSON, nextDueAt, targetSignature)
 	} else {
 		result, updateErr := transaction.ExecContext(ctx, `
 UPDATE workflow_definitions
 SET name = ?, version = version + 1, timeout_ms = ?, steps_json = ?, updated_at = ?,
     trigger_json = ?, next_due_at = ?, target_signature = ?
-WHERE id = ? AND target_kind = ? AND target_id = ? AND deleted_at IS NULL`,
+WHERE id = ? AND target_kind = ? AND target_id = ? AND thread_id = ? AND deleted_at IS NULL`,
 			strings.TrimSpace(input.Name), input.TimeoutMS, string(stepsJSON), now,
 			triggerJSON, nextDueAt, targetSignature,
-			workflowID, input.Target.Kind, input.Target.ID)
+			workflowID, input.Target.Kind, input.Target.ID, input.ThreadID)
 		if updateErr != nil {
 			return WorkflowDefinition{}, fmt.Errorf("update workflow: %w", updateErr)
 		}
@@ -93,7 +96,7 @@ func (service *Service) GetWorkflow(ctx context.Context, workflowID string) (Wor
 		return WorkflowDefinition{}, errors.New("workflow id is invalid")
 	}
 	row := service.database.QueryRowContext(ctx, `
-SELECT id, name, target_kind, target_id, version, trigger_kind,
+SELECT id, name, target_kind, target_id, thread_id, version, trigger_kind,
        timeout_ms, steps_json, created_at, updated_at, trigger_json, next_due_at
 FROM workflow_definitions WHERE id = ? AND deleted_at IS NULL`, workflowID)
 	return scanWorkflowDefinition(row)
@@ -103,7 +106,7 @@ func (service *Service) ListWorkflows(
 	ctx context.Context,
 	target *WorkflowTarget,
 ) ([]WorkflowDefinition, error) {
-	query := `SELECT id, name, target_kind, target_id, version, trigger_kind,
+	query := `SELECT id, name, target_kind, target_id, thread_id, version, trigger_kind,
        timeout_ms, steps_json, created_at, updated_at, trigger_json, next_due_at
 FROM workflow_definitions WHERE deleted_at IS NULL`
 	args := make([]any, 0, 2)
@@ -196,7 +199,7 @@ func scanWorkflowDefinition(scanner workflowScanner) (WorkflowDefinition, error)
 	var nextDueAt sql.NullString
 	if err := scanner.Scan(
 		&definition.ID, &definition.Name, &definition.Target.Kind, &definition.Target.ID,
-		&definition.Version, &legacyTriggerKind, &definition.TimeoutMS, &stepsJSON,
+		&definition.ThreadID, &definition.Version, &legacyTriggerKind, &definition.TimeoutMS, &stepsJSON,
 		&definition.CreatedAt, &definition.UpdatedAt, &triggerJSON, &nextDueAt,
 	); errors.Is(err, sql.ErrNoRows) {
 		return WorkflowDefinition{}, errors.New("workflow not found")
@@ -215,10 +218,27 @@ func scanWorkflowDefinition(scanner workflowScanner) (WorkflowDefinition, error)
 	definition.NextDueAt = nullableString(nextDueAt)
 	input := WorkflowDefinitionInput{
 		ID: definition.ID, Name: definition.Name, Target: definition.Target,
-		Trigger: definition.Trigger, TimeoutMS: definition.TimeoutMS, Steps: definition.Steps,
+		ThreadID: definition.ThreadID, Trigger: definition.Trigger, TimeoutMS: definition.TimeoutMS, Steps: definition.Steps,
 	}
 	if err := validateWorkflowDefinitionInput(input); err != nil {
 		return WorkflowDefinition{}, fmt.Errorf("stored workflow failed validation: %w", err)
 	}
 	return definition, nil
+}
+
+func validateWorkflowThread(ctx context.Context, transaction *sql.Tx, target WorkflowTarget, threadID string) error {
+	var kind, id string
+	err := transaction.QueryRowContext(ctx, `
+SELECT target_kind, target_id FROM conversation_threads
+WHERE id = ? AND archived_at IS NULL`, threadID).Scan(&kind, &id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("workflow conversation thread was not found or is archived")
+	}
+	if err != nil {
+		return fmt.Errorf("validate workflow conversation thread: %w", err)
+	}
+	if kind != target.Kind || id != target.ID {
+		return errors.New("workflow conversation thread does not belong to target")
+	}
+	return nil
 }

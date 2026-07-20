@@ -24,7 +24,10 @@ export function registerWorkflowApi({
   ipcMain.handle(desktopChannels.saveWorkflow, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     const input = parseWorkflowDefinitionInput(value);
-    const thread = await sidecars.getConversation(input.target);
+    const thread = await sidecars.getConversationByID(input.threadId);
+    if (!thread || thread.target.kind !== input.target.kind || thread.target.id !== input.target.id) {
+      throw new Error("工作流必须绑定当前数据目标中的对话线程");
+    }
     const allStepsWereProposed = input.steps.every((step) =>
       containsProposedPlan(thread, step.kind === "dataset-query" ? step.plan : step.groupPlan));
     if (!allStepsWereProposed) {
