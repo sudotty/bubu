@@ -165,7 +165,7 @@ export function DatasetWorkspace({
         subtitle="每条对话都是一个可审查的数据任务。"
         inspector={(threadId) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} fallback={<DatasetContextInspector dataset={dataset} preview={preview} />} />}
       >
-        {(threadId, createThread) => <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} threadId={threadId} onCreateThread={createThread} />}
+        {(threadId, createThread, openArtifact) => <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} threadId={threadId} onCreateThread={createThread} onOpenArtifact={openArtifact} />}
       </ConversationWorkbench>
     </>
   );

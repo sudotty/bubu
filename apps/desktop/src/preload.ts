@@ -78,6 +78,9 @@ import {
   type McpToolCallProposal,
   type McpToolCallRequest,
   type McpToolCallResult,
+  type ArtifactTableActionInput,
+  type ArtifactCopyResult,
+  type ArtifactExportResult,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -161,6 +164,10 @@ const desktopApi: BuBuDesktopApi = {
   operations: {
     cancel: (operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.cancelOperation, operationId) as Promise<OperationCancellationResult>,
+  },
+  artifacts: {
+    copyTable: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.copyArtifactTable, value) as Promise<ArtifactCopyResult>,
+    exportTable: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.exportArtifactTable, value) as Promise<ArtifactExportResult>,
   },
   analysis: {
     propose: (value: QueryPlanRequest, operationId: OperationId) =>

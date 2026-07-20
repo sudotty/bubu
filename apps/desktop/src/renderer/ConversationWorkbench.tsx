@@ -19,7 +19,7 @@ export function ConversationWorkbench({
   readonly title: string;
   readonly subtitle: string;
   readonly inspector?: (threadId: string | undefined) => ReactNode;
-  readonly children: (threadId: string | undefined, createThread: () => Promise<void>) => ReactNode;
+  readonly children: (threadId: string | undefined, createThread: () => Promise<void>, openArtifact: () => void) => ReactNode;
 }) {
   const [threads, setThreads] = useState<readonly ConversationThreadSummary[]>([]);
   const [archivedThreads, setArchivedThreads] = useState<readonly ConversationThreadSummary[]>([]);
@@ -130,7 +130,7 @@ export function ConversationWorkbench({
       </div>
       {archivedThreads.length > 0 && <details className="archived-threads"><summary><ArchiveRestore size={14} />已归档（{archivedThreads.length}）</summary><div>{archivedThreads.map((thread) => <button type="button" key={thread.id} onClick={() => void restoreThread(thread.id)} disabled={busy}><span><strong>{thread.title}</strong><small>{timeLabel(thread.updatedAt)}</small></span><ArchiveRestore size={14} /></button>)}</div></details>}
     </aside>
-    <div className="conversation-stage">{children(activeThreadId, createThread)}</div>
+    <div className="conversation-stage">{children(activeThreadId, createThread, () => setCompactPane("artifacts"))}</div>
     {inspector && <aside className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
     </div>
   </section>;

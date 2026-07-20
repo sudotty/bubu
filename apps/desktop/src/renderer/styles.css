@@ -254,7 +254,12 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .artifact-metrics strong { font-size: 16px; color: #332f29; }
 .artifact-automation-action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .artifact-data-view { display: grid; gap: 10px; }
-.artifact-data-view > label { display: grid; gap: 5px; font-size: 10px; color: #716a60; }
+.artifact-data-toolbar { display: grid; gap: 8px; }
+.artifact-data-toolbar > label { display: grid; gap: 5px; font-size: 10px; color: #716a60; }
+.artifact-data-toolbar > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.artifact-data-toolbar button, .chat-artifact-link { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 7px 9px; border: 1px solid #d8d1c5; border-radius: 8px; font-weight: 700; color: #554d43; background: #fffdf9; cursor: pointer; }
+.artifact-data-toolbar button[aria-pressed="true"] { color: #76541f; border-color: #c8a66d; background: #f8ebd5; }
+.artifact-action-notice { margin: 0; padding: 7px 9px; border-radius: 8px; font-size: 11px; color: #37644b; background: #e7f1e8; }
 .artifact-data-view input { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d8d1c5; border-radius: 9px; background: #fffdf9; }
 .artifact-table th { padding: 0; }
 .artifact-table th button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 8px; width: 100%; padding: 10px; border: 0; text-align: left; color: inherit; background: transparent; cursor: pointer; }
@@ -292,6 +297,7 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .chat-assistant-mark { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #cbd9cc; border-radius: 9px; color: #3f6e50; background: #edf5ed; }
 .chat-message-assistant strong { display: block; padding-top: 3px; font-size: 13px; color: #3e483e; }
 .chat-assistant-copy p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; color: #626b60; }
+.chat-artifact-link { margin-top: 8px; color: #3e634b; border-color: #b8cdbd; background: #f4faf4; }
 .chat-message-recovery { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 9px; padding: 13px; border: 1px solid #e1b7aa; border-radius: 13px; color: #7f4032; background: #f9ebe7; }
 .chat-message-recovery > svg { margin-top: 1px; }
 .chat-message-recovery p { margin: 4px 0 0; line-height: 1.5; }

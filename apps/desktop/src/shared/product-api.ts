@@ -75,6 +75,9 @@ import type {
   McpToolCallProposal,
   McpToolCallRequest,
   McpToolCallResult,
+  ArtifactTableActionInput,
+  ArtifactCopyResult,
+  ArtifactExportResult,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -141,6 +144,8 @@ export const desktopChannels = {
   runWorkflow: "bubu:workflows:run",
   listWorkflowRuns: "bubu:workflows:runs-list",
   listModelAudits: "bubu:privacy:model-audits-list",
+  copyArtifactTable: "bubu:artifacts:copy-table",
+  exportArtifactTable: "bubu:artifacts:export-table",
 } as const;
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
@@ -206,6 +211,10 @@ export interface BuBuDesktopApi {
   };
   readonly operations: {
     cancel(operationId: OperationId): Promise<OperationCancellationResult>;
+  };
+  readonly artifacts: {
+    copyTable(value: ArtifactTableActionInput): Promise<ArtifactCopyResult>;
+    exportTable(value: ArtifactTableActionInput): Promise<ArtifactExportResult>;
   };
   readonly analysis: {
     propose(value: QueryPlanRequest, operationId: OperationId): Promise<QueryPlanProposal>;
@@ -341,4 +350,7 @@ export type {
   RelationshipCandidate,
   RelationshipEndpoint,
   RelationshipHint,
+  ArtifactTableActionInput,
+  ArtifactCopyResult,
+  ArtifactExportResult,
 } from "@bubu/contracts";

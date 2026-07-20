@@ -46,6 +46,7 @@ import { createMcpPromptApprovalSessionStore } from "./mcp-prompt-approval-sessi
 import { registerMcpPromptApi } from "./mcp-prompt-api.js";
 import { createMcpToolApprovalSessionStore } from "./mcp-tool-approval-sessions.js";
 import { registerMcpToolApi } from "./mcp-tool-api.js";
+import { registerArtifactApi } from "./artifact-api.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -100,6 +101,7 @@ export function registerDesktopApi({
   };
 
   registerDatasetLifecycleApi({ sidecars, assertTrustedSender, operations });
+  registerArtifactApi({ assertTrustedSender });
   registerBackupApi({ sidecars, assertTrustedSender, operations });
   registerAnalysisApi({
     sidecars, providerStore, operations, aggregateApprovals, aggregateAgentApprovals, assertTrustedSender,

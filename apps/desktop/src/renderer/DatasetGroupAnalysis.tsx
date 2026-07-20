@@ -35,7 +35,7 @@ function resultLabel(group: DatasetGroup, label: string): string {
   });
 }
 
-export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { readonly group: DatasetGroup; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void> }) {
+export function DatasetGroupAnalysis({ group, threadId, onCreateThread, onOpenArtifact }: { readonly group: DatasetGroup; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void>; readonly onOpenArtifact: () => void }) {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<GroupQueryPlanProposal>();
@@ -203,7 +203,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
         {result.rows.length === 0 && <p className="empty-copy">这个关联计划没有找到匹配的数据。</p>}
       </article>
       <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "群组查询结果"} />
-      <ChatAssistantMessage title="关联结果已准备好"><p>关联计划已在本地执行。完整数据、图表、计划与审计证据都在结果区。</p></ChatAssistantMessage>
+      <ChatAssistantMessage title="关联结果已准备好"><p>关联计划已在本地执行。完整数据、图表、计划与审计证据都在结果区。</p><button type="button" className="chat-artifact-link" onClick={onOpenArtifact}>打开结果区</button></ChatAssistantMessage>
       </>}
 
       {result && proposal && threadId && <AggregateExplanationPanel plan={proposal.plan} threadId={threadId} />}

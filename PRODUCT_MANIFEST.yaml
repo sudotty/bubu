@@ -117,6 +117,10 @@ capabilities:
   typed-conversation-task-lifecycle: implemented
   interrupted-task-recovery: implemented
   cancellation-aware-task-state: implemented
+  artifact-current-view-copy: implemented
+  artifact-current-view-csv-export: implemented
+  local-artifact-pinning: implemented
+  chat-to-artifact-navigation: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   reduced-motion-interface: implemented
