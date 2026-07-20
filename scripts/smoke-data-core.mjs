@@ -405,6 +405,7 @@ try {
       input: {
         name: "Synthetic regional totals",
         target: { kind: "dataset", id: dataset.id },
+        threadId: conversation.id,
         trigger: { kind: "dataset-version" },
         timeoutMs: 60_000,
         steps: [{ id: "regional-totals", kind: "dataset-query", plan: singlePlan, maxAttempts: 2 }],

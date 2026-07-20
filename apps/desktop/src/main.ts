@@ -151,6 +151,35 @@ async function verifySmokeRenderer(
     throw new Error(`Packaged renderer is missing imported data: ${result.missing.join(", ")}`);
   }
   await captureSmokeStep(window, screenshotDirectory, "01-datasets.png");
+  const compactDrawerResult = await window.webContents.executeJavaScript(`
+    new Promise(async (resolve) => {
+      const workbench = document.querySelector(".conversation-workbench");
+      const buttons = Array.from(document.querySelectorAll(".workbench-compact-nav button"));
+      const taskButton = buttons.find((button) => button.textContent?.includes("任务"));
+      const resultButton = buttons.find((button) => button.textContent?.includes("结果"));
+      if (!(workbench instanceof HTMLElement) || !(taskButton instanceof HTMLButtonElement) || !(resultButton instanceof HTMLButtonElement)) {
+        return resolve({ ok: false, missing: ["紧凑任务/结果导航"] });
+      }
+      taskButton.click();
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const taskOpened = workbench.classList.contains("compact-threads-open") && taskButton.getAttribute("aria-pressed") === "true";
+      taskButton.click();
+      resultButton.click();
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-pressed") === "true";
+      resultButton.click();
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open");
+      resolve({ ok: taskOpened && resultOpened && closed, missing: [
+        ...(!taskOpened ? ["任务抽屉状态"] : []),
+        ...(!resultOpened ? ["结果抽屉状态"] : []),
+        ...(!closed ? ["抽屉关闭状态"] : []),
+      ] });
+    })
+  `) as { readonly ok: boolean; readonly missing: readonly string[] };
+  if (!compactDrawerResult.ok) {
+    throw new Error(`Packaged renderer compact drawers failed: ${compactDrawerResult.missing.join(", ")}`);
+  }
   await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const composer = document.querySelector(".analysis-composer");

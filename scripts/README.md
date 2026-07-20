@@ -6,6 +6,7 @@ Root scripts are executable product contracts rather than informal utilities.
 - `verify-documentation.mjs` checks the README hierarchy and active/legacy routing.
 - `verify-github.mjs` checks community files, least-privilege CI, and immutable action pins.
 - `verify-architecture.mjs` checks process, privacy, SQL, MCP, preload, and migration boundaries.
+- `verify-product-experience.mjs` checks conversation-first hierarchy, thread/workflow ownership, Artifact semantics, settings health, keyboard behavior, and compact reflow contracts.
 - `smoke-*.mjs` exercise built sidecars and the packaged desktop with synthetic data.
 - `benchmark-data-core.mjs` generates local reference data and enforces import, query, and memory budgets.
 

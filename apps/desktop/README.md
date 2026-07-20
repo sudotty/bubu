@@ -1,6 +1,6 @@
 # BuBu desktop
 
-The desktop workspace packages the current product: Electron main supervises sidecars and OS integrations, preload exposes an explicit typed API, and the sandboxed React renderer presents a conversation-first data workbench. Each dataset or group can have independent local task threads; the center is the readable chat and approval flow, while the inspector owns result data, charts, plans, automation, and audit evidence.
+The desktop workspace packages the current product: Electron main supervises sidecars and OS integrations, preload exposes an explicit typed API, and the sandboxed React renderer presents a conversation-first data workbench. Each dataset or group can have independent local task threads; the center is the readable chat and approval flow, while the expandable inspector owns summaries, sortable/filterable result data, visualizations, evidence, and thread-bound automation. At compact widths, task and result drawers preserve the central chat instead of forcing horizontal overflow.
 
 ## Boundaries
 

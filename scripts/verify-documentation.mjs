@@ -11,6 +11,7 @@ const requiredReadmes = [
   "packages/README.md",
   "packages/contracts/README.md",
   "docs/README.md",
+  "docs/product/conversation-workbench.md",
   "scripts/README.md",
   "bubu-bi/README.md",
 ];
@@ -25,6 +26,7 @@ for (const marker of [
   "PRODUCT_MANIFEST.yaml",
   "docs/assets/product/01-datasets.png",
   "docs/product/ui-ux-guidelines.md",
+  "docs/product/conversation-workbench.md",
   "apps/desktop/README.md",
   "services/data-core/README.md",
   "services/ai-runtime/README.md",
