@@ -39,7 +39,7 @@ export function PrivacyLedgerPanel({ refreshKey }: { readonly refreshKey: number
   return (
     <section className="privacy-ledger-panel">
       <header className="settings-section-header">
-        <div><p className="hero-kicker">LOCAL DISCLOSURE LEDGER</p><h3>模型隐私账本</h3></div>
+        <div><p className="hero-kicker">本地披露账本</p><h3>模型隐私账本</h3></div>
         <small>最近 {events.length} 条</small>
       </header>
       <p className="settings-copy">账本只记录披露等级、计数、端点 origin、用量和请求指纹；不保存问题、Prompt、密钥、模型正文或原始数据行。</p>

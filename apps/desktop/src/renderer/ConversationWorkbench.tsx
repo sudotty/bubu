@@ -131,7 +131,7 @@ export function ConversationWorkbench({
   return <section ref={workbenchRef} className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`} onKeyDown={(event) => { if (event.key === "Escape" && compactPane) { event.preventDefault(); closeCompactPane(); } }}>
     <nav className="workbench-compact-nav" aria-label="任务工作区面板">
       <button type="button" className="workbench-task-toggle" aria-controls="conversation-thread-sidebar" aria-expanded={compactPane === "threads"} onClick={(event) => toggleCompactPane("threads", event.currentTarget)}><List size={16} />任务</button>
-      <button type="button" aria-controls="conversation-artifact-inspector" aria-expanded={compactPane === "artifacts"} onClick={(event) => toggleCompactPane("artifacts", event.currentTarget)}><PanelRight size={16} />{compactPane === "artifacts" ? "关闭结果" : "结果"}</button>
+      <button type="button" aria-controls="conversation-artifact-inspector" aria-expanded={compactPane === "artifacts"} onClick={(event) => toggleCompactPane("artifacts", event.currentTarget)}><PanelRight size={16} />结果</button>
       {compactPane && <button type="button" className="workbench-close-pane" aria-label={compactPane === "artifacts" ? "关闭结果区" : "关闭任务区"} onClick={closeCompactPane}><X size={16} /><span>关闭</span></button>}
     </nav>
     <div className="conversation-workbench-layout">

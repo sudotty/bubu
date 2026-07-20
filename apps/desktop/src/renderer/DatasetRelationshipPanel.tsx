@@ -109,7 +109,7 @@ export function DatasetRelationshipPanel({ group }: { readonly group: DatasetGro
   return (
     <section className="relationship-panel" aria-label="可复用数据关系">
       <header className="preview-header">
-        <div><p className="hero-kicker">REUSABLE LOOKUP RELATIONSHIPS</p><h3>数据关系</h3></div>
+        <div><p className="hero-kicker">可复用的等值关系</p><h3>数据关系</h3></div>
         <span>{overview.relationships.length} 条已保存</span>
       </header>
       <p className="quality-copy">左侧可以多行匹配，右侧必须是当前版本中的非空唯一键。每次替换数据后都会重新验证，不满足时会标记失效。</p>

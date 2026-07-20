@@ -6,13 +6,15 @@ BuBu is a local-first AI data workspace for people who need to understand recurr
 
 The interaction model is conversation-first: a dataset or related dataset collection can hold multiple independent local task threads. The center stays readable as a chat; plans, results, charts, and audit evidence remain inspectable artifacts rather than getting lost in message text.
 
+![BuBu local result Artifact workspace](docs/assets/product/04-artifact.png)
+
 ## What works now
 
 - Atomic CSV, TSV, and XLSX import; local SQLite catalog; immutable replacement versions; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
 - Single-dataset and multi-table lookup analysis through typed plans. Conversations can be created, named by their first question, renamed, archived, restored, and resumed locally; the user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
 - Deterministic local bar and time-series charts, persisted task state, recoverable execution errors, and an expandable Artifact workspace for summaries, sortable/filterable data, visualization, evidence, and thread-bound automation. Interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion are implemented.
 - OS-encrypted provider and stdio MCP configuration. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
-- A packaged Electron desktop with a sandboxed React renderer, typed preload, supervised Node AI runtime, authoritative Go data core, synthetic UI smoke capture, and a 100 MiB reference performance gate.
+- A packaged Electron desktop with a sandboxed React renderer, typed preload, supervised Node AI runtime, authoritative Go data core, native macOS/Windows sidecars and installers, synthetic UI smoke capture, and a 100 MiB reference performance gate. Pull requests exercise unsigned native packages; protected tags can assemble signed draft releases once owner credentials exist.
 
 Still planned or incomplete: explicit-row disclosure, reusable Agent definitions, richer reports, remote MCP/OAuth, model-driven MCP use, Hub/RBAC/sync, signed installers, and updates. [PRODUCT_MANIFEST.yaml](PRODUCT_MANIFEST.yaml) is the machine-readable status authority; UI and documentation must never present `planned` or `in-progress` behavior as shipped.
 
@@ -63,7 +65,18 @@ The renderer has no Node, filesystem, credential, provider, sidecar, or generic 
 | `scripts` | Executable repository, architecture, smoke, and performance contracts | [scripts README](scripts/README.md) |
 | `bubu-bi` | Historical Wails migration source only | [legacy notice](bubu-bi/README.md) |
 
-`packages/product-core`, `services/hub`, remote sync, and installer signing are architectural destinations, not current directories. New code must not create placeholder implementations or imply they already exist.
+`packages/product-core`, `services/hub`, and remote sync are architectural destinations, not current directories. New code must not create placeholder implementations or imply they already exist.
+
+## Desktop targets and release status
+
+| Target | Engineering artifact | Public status |
+| --- | --- | --- |
+| macOS 13+ arm64 | DMG and ZIP | signing/notarization workflow implemented; signed evidence still required |
+| macOS 13+ x64 | DMG and ZIP | signing/notarization workflow implemented; signed evidence still required |
+| Windows 10 22H2 / Windows 11 x64 | Squirrel `Setup.exe`, `.nupkg`, and `RELEASES` | Azure Artifact Signing workflow implemented; signed evidence still required |
+| Windows 11 arm64 | preview only | not part of a stable release |
+
+The GitHub release job creates a draft, never an automatic public release. It adds deterministic names, native lifecycle reports, npm/Go CycloneDX SBOMs, SHA-256 checksums, and optional GitHub build provenance after signing. Automatic updates remain disabled. See [the release documentation](docs/release/README.md), [operator runbook](docs/release/release-runbook.md), and [public-beta gate](docs/release/public-beta-readiness.md).
 
 ## Develop and verify
 
@@ -80,6 +93,13 @@ Before review:
 npm run verify
 ```
 
+For a release version change, use the repository-owned command rather than editing workspace versions independently:
+
+```bash
+npm run version:set -- --version=0.2.0
+npm run version:check
+```
+
 The root verification contract checks secrets and repository hygiene, documentation and GitHub contracts, architecture boundaries, dependencies, TypeScript and Go tests, production packaging, data-core/MCP/desktop smoke flows, and the reference performance budget. Generate synthetic packaged UI evidence with `npm run capture:ui`; generated screenshots contain no user data.
 
 ## Documentation
@@ -89,6 +109,7 @@ The root verification contract checks secrets and repository hygiene, documentat
 - [Querying and visualization](docs/product/querying-and-visualizations.md), [repeatable workflows](docs/product/repeatable-workflows.md), and [backup/recovery](docs/product/backup-and-recovery.md)
 - [Local data kernel](docs/architecture/local-data-kernel.md), [privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), and [MCP host security](docs/architecture/mcp-host-security.md)
 - [Accepted product platform design](docs/plans/2026-07-17-bubu-product-platform-design.md) and [Electron migration plan](docs/plans/2026-07-17-electron-migration-implementation.md)
+- [Platform support](docs/release/platform-support.md), [signed release runbook](docs/release/release-runbook.md), and [public-beta readiness](docs/release/public-beta-readiness.md)
 - [Contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md)
 
 This repository is private and does not currently declare an open-source license. Do not redistribute or assume usage rights beyond the repository owner's authorization.

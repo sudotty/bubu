@@ -38,7 +38,7 @@ const typeLabels = {
 function DatasetContextInspector({ dataset, preview }: { readonly dataset: DatasetSummary; readonly preview: PreviewState }) {
   return <div className="dataset-context-inspector">
     <header className="preview-header">
-      <div><p className="hero-kicker">DATA CONTEXT</p><h3>数据结构与健康</h3></div>
+      <div><p className="hero-kicker">数据上下文</p><h3>数据结构与健康</h3></div>
       <span>版本 {dataset.version}</span>
     </header>
     {preview.kind === "loading" && <p className="empty-copy">正在读取本地预览与列画像…</p>}
@@ -68,7 +68,7 @@ export function EmptyWorkspace({
   return (
     <>
       <div className="hero-card">
-        <p className="hero-kicker">LOCAL-FIRST WORKSPACE</p>
+        <p className="hero-kicker">本地优先工作区</p>
         <h3>导入表格，把数据变成可以聊天的联系人。</h3>
         <p>CSV 与 Excel 会在 Go 数据内核中事务化转换为本地表。这里只显示文件名、结构和本地画像，不会自动发送原始行。</p>
         <button type="button" className="primary-action" onClick={onImport} disabled={importing}>

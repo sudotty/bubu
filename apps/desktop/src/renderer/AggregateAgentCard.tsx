@@ -19,7 +19,7 @@ export function AggregateAgentCard({ run }: { readonly run: AggregateAgentRun })
   return <section className="aggregate-agent-card" aria-label="受限聚合 Agent 报告">
     <AggregateExplanationCard
       explanation={explanation}
-      kicker="BOUNDED AGENT REPORT"
+      kicker="受限 Agent 报告"
       title="受限 Agent 分析"
       metric={`${run.turns.length} 回合 · ${run.turns.filter(({ action }) => action === "tool").length} 次本地工具`}
     />

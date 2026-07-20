@@ -11,7 +11,7 @@ function evidenceLabel(
 
 export function AggregateExplanationCard({
   explanation,
-  kicker = "APPROVED AGGREGATE INSIGHT",
+  kicker = "已批准的聚合解读",
   title = "AI 聚合解读",
   metric,
 }: {

@@ -18,21 +18,23 @@ Status: implementation complete; product-owner decisions remain intentionally se
 ## Final engineering review
 
 - `npm run verify` passes across toolchain, repository hygiene, dependency audit, TypeScript tests, Go tests, architecture, documentation, product experience, lint, production packaging, data-core/MCP/desktop smoke, and the reference performance gate.
-- The test suites pass with 69 contract, 34 AI-runtime, and 84 desktop tests, plus all Go packages.
+- The test suites pass with 78 contract, 34 AI-runtime, and 101 desktop tests, plus all Go packages.
 - The packaged desktop smoke verifies both compact drawer state transitions and the imported-data, group, chat, and settings journeys.
 - Four synthetic product screenshots were regenerated and visually reviewed at the supported 920 × 640 viewport.
-- The 100 MiB reference fixture imported and profiled in 3.90 seconds; bounded-query p95 was 163.23 ms; data-core peak RSS was 37.70 MiB.
+- The 100 MiB / 100k+ row reference fixture remains inside the checked-in import, query p95, and peak-RSS budgets; closure uses the current verifier output rather than preserving one machine sample as a timeless claim.
 - The new `verify:product-experience` gate prevents drift in conversation hierarchy, workflow/thread ownership, Artifact semantics, settings health, keyboard behavior, and compact reflow.
 
-## Product-owner review queue
+## Product decisions now settled
 
-These items are not hidden engineering failures. They require an explicit product or release decision:
+The former second-review choices are resolved as product policy:
 
-1. Approve the compact-width rule that keeps chat permanently central and moves **任务** and **结果** into drawers at 1280 px and below.
-2. Decide whether Artifact needs copy/export/pinning actions beyond the current sortable and filterable local table.
-3. Choose whether the next visualization milestone expands the deterministic chart catalogue or prioritizes report composition; the manifest still marks visualizations in progress and reports planned.
-4. Schedule observed usability and assistive-technology sessions. Automated keyboard, focus, motion, and containment checks do not replace human screen-reader and comprehension review.
-5. Decide the release path for signed installers and updates. `signed-installers` remains planned and `signed-artifacts` remains a release gate.
-6. Decide when the legacy `bubu-bi` migration source is retired after remaining vertical slices move to Electron; this work intentionally did not alter unrelated local legacy changes.
+1. Chat remains the permanent primary surface. Wide mode shows tasks/chat/Artifact, medium mode preserves tasks/chat and treats Artifact as support, and compact mode moves **任务** and **结果** into focus-managed drawers based on available container width rather than a device label.
+2. Artifact owns full result use: current-view copy, formula-safe current-view CSV export, local pinning, deterministic chart/data alternative, evidence, and a bounded script-free HTML report. The chat keeps only a short result preview and direct navigation.
+3. Visualization remains deliberately deterministic and narrow. Bar and chronological time-series charts are implemented; unsupported/high-cardinality shapes remain tables with an explanation. BuBu does not become a free-form dashboard or WYSIWYG report editor.
+4. Release distribution is GitHub draft Releases with macOS DMG+ZIP and Windows Squirrel, protected Developer ID/API-key notarization and Azure OIDC signing, immutable action pins, no unsigned fallback, and no automatic updates until signed update/rollback proof exists.
+5. Windows x64 and macOS arm64/x64 are stable targets; Windows arm64 stays preview-only, while ia32 and Linux are outside this beta contract.
+6. `bubu-bi` remains read-only migration evidence until every inventory slice is explicitly migrated or retired; then the Wails runtime and generated bridge are deleted together from a clean reviewed tree.
+
+Observed usability, screen-reader/comprehension sessions, real signing identities, and clean-device Gatekeeper/SmartScreen acceptance remain external evidence requirements. They are not unresolved product-direction choices and cannot be honestly manufactured by repository code.
 
 The manifest remains the authority for capabilities outside this eight-stage conversation-workbench scope, including privacy gateway, workflows, bounded agents, MCP host, reminders, sync, RBAC, and hub work that is still in progress or planned.

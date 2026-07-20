@@ -14,3 +14,5 @@ Contracts are security boundaries, not convenience types:
 npm test -w @bubu/contracts
 npm run build -w @bubu/contracts
 ```
+
+Contracts share the one BuBu product version with the root, desktop, and AI runtime; they are not independently published. Use `npm run version:set -- --version=<x.y.z>` followed by `npm run version:check` so internal dependency ranges and lockfile workspace entries move together.

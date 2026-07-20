@@ -70,7 +70,7 @@ export function AggregateAgentPanel({
   }
 
   return <section className="aggregate-agent-panel" aria-label="受限聚合 Agent">
-    <header><div><p className="hero-kicker">BOUNDED PLAN · ACT · OBSERVE</p><h3>让受限 Agent 深挖聚合结果</h3></div></header>
+    <header><div><p className="hero-kicker">受限计划 · 行动 · 观察</p><h3>让受限 Agent 深挖聚合结果</h3></div></header>
     <p className="settings-copy">Agent 只能计算你逐项批准的聚合单元格；没有 SQL、文件、网络、MCP、代码、导出或写入工具，也不能查询新的本地数据。</p>
     {!proposal && !operationId && <form className="agent-goal-form" onSubmit={(event) => { event.preventDefault(); void prepare(); }}>
       <label htmlFor={`aggregate-agent-goal-${"datasetId" in plan ? plan.datasetId : plan.groupId}`}>分析目标</label>

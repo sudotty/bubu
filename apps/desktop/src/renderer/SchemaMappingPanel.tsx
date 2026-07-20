@@ -33,7 +33,7 @@ export function SchemaMappingPanel({
     <section className="mapping-panel" aria-label="替换列映射">
       <header className="preview-header">
         <div>
-          <p className="hero-kicker">SCHEMA DRIFT · LOCAL ONLY</p>
+          <p className="hero-kicker">结构变更 · 仅本地</p>
           <h3>确认新文件的列对应关系</h3>
         </div>
         <span>{request.drift.currentColumns.length} 个目标列</span>

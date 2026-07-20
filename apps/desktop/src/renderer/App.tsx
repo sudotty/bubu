@@ -300,7 +300,7 @@ export function App() {
       {view !== "settings" && <section className="contacts">
         <header className="contacts-header">
           <div>
-            <p className="eyebrow">{view === "groups" ? "DATA GROUPS" : "LOCAL DATA AGENT"}</p>
+            <p className="eyebrow">{view === "groups" ? "数据群组" : "本地数据助手"}</p>
             <h1>{view === "groups" ? "群组" : "BuBu"}</h1>
           </div>
           <button
@@ -371,7 +371,7 @@ export function App() {
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <p className="eyebrow">{view === "settings" ? "SECURE LOCAL CONFIG" : view === "groups" ? "LOCAL GROUP WORKSPACE" : "PRIVATE BY DEFAULT"}</p>
+            <p className="eyebrow">{view === "settings" ? "安全本地配置" : view === "groups" ? "本地群组工作区" : "默认保持私密"}</p>
             <h2>{view === "settings" ? "设置" : view === "groups" ? selectedGroup?.name ?? "创建数据群组" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
           </div>
           <span className="mode-pill">
@@ -383,7 +383,7 @@ export function App() {
           {view === "settings" && <section className="settings-workbench" aria-label="设置工作台">
             <SettingsHealthOverview onNavigate={setSettingsSection} />
             <nav className="settings-nav" aria-label="设置分类">
-              <p className="hero-kicker">SETTINGS</p>
+              <p className="hero-kicker">设置分类</p>
               <button type="button" className={settingsSection === "models" ? "settings-nav-active" : ""} aria-current={settingsSection === "models" ? "page" : undefined} onClick={() => setSettingsSection("models")}>模型与提供商<small>连接与默认模型</small></button>
               <button type="button" className={settingsSection === "connectors" ? "settings-nav-active" : ""} aria-current={settingsSection === "connectors" ? "page" : undefined} onClick={() => setSettingsSection("connectors")}>本地连接器<small>MCP 与单次授权</small></button>
               <button type="button" className={settingsSection === "privacy" ? "settings-nav-active" : ""} aria-current={settingsSection === "privacy" ? "page" : undefined} onClick={() => setSettingsSection("privacy")}>隐私与恢复<small>审计、备份、恢复</small></button>

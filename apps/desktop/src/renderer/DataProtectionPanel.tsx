@@ -63,7 +63,7 @@ export function DataProtectionPanel({
   return (
     <section className="data-protection-panel">
       <div>
-        <p className="hero-kicker">LOCAL DATA PROTECTION</p>
+        <p className="hero-kicker">本地数据保护</p>
         <h3>本地备份与恢复</h3>
         <p className="settings-copy">
           备份包含 SQLite 中的原始数据、版本、群组、校验规则、关系和对话，因此请像保护源表格一样保护它。模型密钥由操作系统加密存储，不进入备份。

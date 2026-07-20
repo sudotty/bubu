@@ -149,7 +149,7 @@ export function DatasetQualityPanel({
   return (
     <section className="quality-panel" aria-label="本地数据质量与校验">
       <header className="quality-header">
-        <div><p className="hero-kicker">LOCAL DATA QUALITY</p><h3>质量与格式校验</h3></div>
+        <div><p className="hero-kicker">本地数据质量</p><h3>质量与格式校验</h3></div>
         <strong className={`quality-score ${report.score < 70 ? "quality-score-low" : ""}`}>{report.score}</strong>
       </header>
       <p className="quality-copy">所有规则都由 Go 数据内核在本地执行。报告只显示统计与失败行号，不把失败值发送给模型。</p>

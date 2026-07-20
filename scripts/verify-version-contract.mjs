@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 const readJson = (path) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const root = readJson("package.json");
+const lockfile = readJson("package-lock.json");
 const workspaces = [
   ["apps/desktop/package.json", "@bubu/desktop"],
   ["packages/contracts/package.json", "@bubu/contracts"],
@@ -13,6 +14,9 @@ const semver = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]
 if (typeof root.version !== "string" || !semver.test(root.version)) {
   failures.push(`root version is not semantic versioning: ${String(root.version)}`);
 }
+if (lockfile.version !== root.version || lockfile.packages?.[""]?.version !== root.version) {
+  failures.push(`package-lock root version does not match product ${root.version}`);
+}
 
 for (const [path, expectedName] of workspaces) {
   const workspace = readJson(path);
@@ -23,7 +27,15 @@ for (const [path, expectedName] of workspaces) {
       failures.push(`${path} pins ${dependency} to ${String(version)} instead of ${root.version}`);
     }
   }
+  const lockPath = path.replace(/\/package\.json$/u, "");
+  const lockedWorkspace = lockfile.packages?.[lockPath];
+  if (lockedWorkspace?.version !== root.version) failures.push(`package-lock ${lockPath} version ${String(lockedWorkspace?.version)} differs from product ${root.version}`);
+  for (const [dependency, version] of Object.entries(lockedWorkspace?.dependencies ?? {})) {
+    if (dependency.startsWith("@bubu/") && version !== root.version) failures.push(`package-lock ${lockPath} pins ${dependency} to ${String(version)} instead of ${root.version}`);
+  }
 }
+
+if (root.scripts?.["version:set"] !== "node scripts/set-product-version.mjs") failures.push("root version:set command is missing or drifted");
 
 const tag = process.env.GITHUB_REF_TYPE === "tag" ? process.env.GITHUB_REF_NAME : undefined;
 if (tag && tag !== `v${root.version}`) failures.push(`release tag ${tag} must equal v${root.version}`);
