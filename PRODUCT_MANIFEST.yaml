@@ -152,6 +152,7 @@ capabilities:
   intentional-artifact-drawer: implemented
   single-product-version: implemented
   explicit-platform-support-matrix: implemented
+  platform-aware-data-core-sidecar: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented

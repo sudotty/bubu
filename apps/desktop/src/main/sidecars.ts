@@ -1,8 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
-import { join, resolve } from "node:path";
-import { app, utilityProcess, type UtilityProcess } from "electron";
+import { join } from "node:path";
+import { utilityProcess, type UtilityProcess } from "electron";
 import {
   parseDatasetImportResult,
   parseDatasetExportResult,
@@ -96,6 +96,7 @@ import {
   type McpToolCallInvocation,
   type McpToolCallResult,
 } from "@bubu/contracts";
+import { runtimePaths } from "./runtime-paths.js";
 import type {
   DesktopServiceHealth,
   ProductReadiness,
@@ -434,20 +435,6 @@ class AiRuntimeClient implements RuntimeClient {
     this.#broker.close(new Error("ai-runtime stopped by desktop"));
     this.#process.kill();
   }
-}
-
-function runtimePaths(): { readonly aiRuntime: string; readonly dataCore: string } {
-  if (app.isPackaged) {
-    return {
-      aiRuntime: join(process.resourcesPath, "dist", "index.cjs"),
-      dataCore: join(process.resourcesPath, "bubu-data-core"),
-    };
-  }
-  const repositoryRoot = resolve(app.getAppPath(), "..", "..");
-  return {
-    aiRuntime: join(repositoryRoot, "services", "ai-runtime", "dist", "index.cjs"),
-    dataCore: join(repositoryRoot, "services", "data-core", "bin", "bubu-data-core"),
-  };
 }
 
 function unavailable(name: DesktopServiceHealth["name"], error: unknown): DesktopServiceHealth {
