@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ShieldCheck } from "lucide-react";
 import type {
   QueryPlanProposal,
   SafeQueryResult,
@@ -54,6 +55,8 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
   const [state, setState] = useState<AnalysisState>("idle");
   const [error, setError] = useState<string>();
   const [operationId, setOperationId] = useState<OperationId>();
+  const [startedAt, setStartedAt] = useState<number>();
+  const [completedAt, setCompletedAt] = useState<number>();
   const history = useConversationThread({ kind: "dataset", id: datasetId }, threadId);
 
   useEffect(() => {
@@ -64,6 +67,8 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
     setState("idle");
     setError(undefined);
     setOperationId(undefined);
+    setStartedAt(undefined);
+    setCompletedAt(undefined);
   }, [datasetId, threadId]);
 
   useEffect(() => {
@@ -78,14 +83,16 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
     setState(persistedResult ? "complete" : persistedPlan ? "proposed" : persistedError ? "failed" : "idle");
   }, [history, operationId, submittedQuestion, threadId]);
 
-  async function propose(): Promise<void> {
-    const normalizedQuestion = question.trim();
+  async function propose(questionOverride?: string): Promise<void> {
+    const normalizedQuestion = (questionOverride ?? question).trim();
     if (!normalizedQuestion) return;
     setSubmittedQuestion(normalizedQuestion);
     setProposal(undefined);
     setResult(undefined);
     setError(undefined);
     setState("planning");
+    setStartedAt(Date.now());
+    setCompletedAt(undefined);
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
     try {
@@ -98,6 +105,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+      setCompletedAt(Date.now());
     } finally {
       setOperationId((current) => current === nextOperationId ? undefined : current);
     }
@@ -113,9 +121,11 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
       if (!threadId) throw new Error("请先创建或选择一个对话任务");
       setResult(await window.bubu.analysis.execute({ plan: proposal.plan, threadId }, nextOperationId));
       setState("complete");
+      setCompletedAt(Date.now());
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+      setCompletedAt(Date.now());
     } finally {
       setOperationId((current) => current === nextOperationId ? undefined : current);
     }
@@ -135,7 +145,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
         </div>
         <span className="mode-pill">计划批准后才查询</span>
       </header>
-      <TaskRunStatus state={state} />
+      <TaskRunStatus state={state} startedAt={startedAt} completedAt={completedAt} />
 
       <ConversationHistory thread={history} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
 
@@ -146,7 +156,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
         </div>
       )}
       {state === "planning" && <div className="analysis-progress">正在用结构和合成示例生成受限查询计划…</div>}
-      {error && <div className="notice error-text" role="alert">{error}</div>}
+      {error && <div className="task-error" role="alert"><strong>这一步没有完成</strong><p>{error}</p><div><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></div></div>}
 
       {proposal && (
         <article className="plan-card">
@@ -213,12 +223,13 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
         {!threadId && <p className="composer-thread-note">请先在左侧开始一个新任务，再发送问题。</p>}
-        <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。表格内容只自动发送列结构与本地合成示例。</p>
+        <details className="composer-trust"><summary><ShieldCheck size={13} />当前上下文：结构与合成示例</summary><p>你的问题文本会原样发送给当前模型；请不要粘贴敏感原始行或值。表格内容只自动发送列结构与本地合成示例。</p></details>
         <label className="sr-only" htmlFor={`question-${datasetId}`}>向这个数据联系人提问</label>
         <textarea
           id={`question-${datasetId}`}
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }}
           placeholder="例如：按区域统计已支付订单的金额，并按金额从高到低排序"
           maxLength={20_000}
           rows={2}
