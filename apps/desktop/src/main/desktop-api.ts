@@ -14,6 +14,7 @@ import {
   parseConversationCreateInput,
   parseConversationRenameInput,
   parseConversationArchiveInput,
+  parseConversationListInput,
   parseProviderConfigurationInput,
   parseProviderConnectionResult,
   parseProviderId,
@@ -298,7 +299,8 @@ export function registerDesktopApi({
   });
   ipcMain.handle(desktopChannels.listConversations, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    return sidecars.listConversations(parseConversationTarget(value));
+    const input = parseConversationListInput(value);
+    return sidecars.listConversations(input.target, input.archived);
   });
   ipcMain.handle(desktopChannels.createConversation, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

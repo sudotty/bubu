@@ -8,11 +8,15 @@ import (
 	"time"
 )
 
-func (service *Service) ListConversations(ctx context.Context, target ConversationTarget) ([]ConversationThreadSummary, error) {
+func (service *Service) ListConversations(ctx context.Context, target ConversationTarget, archived bool) ([]ConversationThreadSummary, error) {
 	if err := validateConversationTarget(target); err != nil {
 		return nil, err
 	}
-	rows, err := service.database.QueryContext(ctx, `SELECT id, title, created_at, updated_at FROM conversation_threads WHERE target_kind = ? AND target_id = ? AND archived_at IS NULL ORDER BY updated_at DESC, id DESC`, target.Kind, target.ID)
+	archivePredicate := "archived_at IS NULL"
+	if archived {
+		archivePredicate = "archived_at IS NOT NULL"
+	}
+	rows, err := service.database.QueryContext(ctx, `SELECT id, title, created_at, updated_at FROM conversation_threads WHERE target_kind = ? AND target_id = ? AND `+archivePredicate+` ORDER BY updated_at DESC, id DESC`, target.Kind, target.ID)
 	if err != nil {
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}

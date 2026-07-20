@@ -197,8 +197,8 @@ const desktopApi: BuBuDesktopApi = {
       ipcRenderer.invoke(desktopChannels.getConversation, target) as Promise<ConversationThread | null>,
     getById: (threadId: string) =>
       ipcRenderer.invoke(desktopChannels.getConversationById, threadId) as Promise<ConversationThread | null>,
-    list: (target: ConversationTarget) =>
-      ipcRenderer.invoke(desktopChannels.listConversations, target) as Promise<readonly ConversationThreadSummary[]>,
+    list: (target: ConversationTarget, archived = false) =>
+      ipcRenderer.invoke(desktopChannels.listConversations, { target, archived }) as Promise<readonly ConversationThreadSummary[]>,
     create: (input: ConversationCreateInput) =>
       ipcRenderer.invoke(desktopChannels.createConversation, input) as Promise<ConversationThread>,
     rename: (input: ConversationRenameInput) =>

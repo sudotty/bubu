@@ -54,6 +54,18 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
     setOperationId(undefined);
   }, [group.id, group.updatedAt, threadId]);
 
+  useEffect(() => {
+    if (!history || !threadId || operationId || submittedQuestion) return;
+    const persistedPlan = history.entries.findLast((entry) => entry.kind === "plan");
+    const persistedResult = history.entries.findLast((entry) => entry.kind === "result");
+    const persistedError = history.entries.findLast((entry) => entry.kind === "error");
+    const persistedProposal = persistedPlan?.kind === "plan" ? persistedPlan.payload.proposal : undefined;
+    setProposal(persistedProposal && "disclosedContexts" in persistedProposal ? persistedProposal : undefined);
+    setResult(persistedResult?.kind === "result" && "groupId" in persistedResult.payload.result ? persistedResult.payload.result : undefined);
+    setError(persistedError?.kind === "error" && (!persistedResult || persistedError.ordinal > persistedResult.ordinal) ? persistedError.payload.message : undefined);
+    setState(persistedResult ? "complete" : persistedPlan ? "proposed" : persistedError ? "failed" : "idle");
+  }, [history, operationId, submittedQuestion, threadId]);
+
   async function propose(): Promise<void> {
     const normalized = question.trim();
     if (!normalized) return;
@@ -175,10 +187,11 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
       {result && proposal && threadId && <AggregateAgentPanel plan={proposal.plan} threadId={threadId} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
+        {!threadId && <p className="composer-thread-note">请先在左侧开始一个新任务，再生成关联计划。</p>}
         <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。群组数据只自动发送结构、合成示例和有效关系。</p>
         <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>
-        <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} />
-        <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
+        <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} disabled={!threadId} />
+        <button type="submit" disabled={!threadId || state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
     </section>
