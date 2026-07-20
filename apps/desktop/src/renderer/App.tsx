@@ -18,6 +18,7 @@ import {
 } from "./DatasetWorkspace.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { McpSettings } from "./McpSettings.js";
+import { SettingsHealthOverview } from "./SettingsHealthOverview.js";
 
 const numberFormat = new Intl.NumberFormat("zh-CN");
 
@@ -380,6 +381,7 @@ export function App() {
 
         <div ref={conversationRef} className={`conversation ${view === "settings" ? "conversation-settings" : ""}`}>
           {view === "settings" && <section className="settings-workbench" aria-label="设置工作台">
+            <SettingsHealthOverview onNavigate={setSettingsSection} />
             <nav className="settings-nav" aria-label="设置分类">
               <p className="hero-kicker">SETTINGS</p>
               <button type="button" className={settingsSection === "models" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "models"} onClick={() => setSettingsSection("models")}>模型与提供商<small>连接与默认模型</small></button>

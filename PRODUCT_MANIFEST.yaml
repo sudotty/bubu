@@ -85,6 +85,8 @@ capabilities:
   local-bounded-query-execution: implemented
   model-provider-registry: implemented
   os-encrypted-provider-credentials: implemented
+  settings-configuration-health-overview: implemented
+  guided-backup-restore-flow: implemented
   provider-connection-test: implemented
   provider-request-adapters: implemented
   openai-provider: implemented
