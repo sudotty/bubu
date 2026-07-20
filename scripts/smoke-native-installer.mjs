@@ -74,6 +74,12 @@ function verifyMacSignature(appPath, dmg) {
   passed.push("signature-and-notarization");
 }
 
+function verifyWindowsSignature(path) {
+  const escaped = path.replaceAll("'", "''");
+  const script = `(Get-AuthenticodeSignature -FilePath '${escaped}').Status`;
+  if (!run("powershell", ["-NoProfile", "-Command", script]).includes("Valid")) throw new Error(`Windows Authenticode signature is not valid: ${path}`);
+}
+
 function installWindows(setup) {
   run(setup, ["--silent"], { env: environment });
   const executable = findFile(environment.LOCALAPPDATA, "bubu.exe");
@@ -115,9 +121,9 @@ try {
     smokeExecutable(executable);
     if (previousArtifact) passed.push("upgrade");
     if (requireSignature) {
-      const script = `(Get-AuthenticodeSignature -FilePath '${artifact.replaceAll("'", "''")}').Status`;
-      if (!run("powershell", ["-NoProfile", "-Command", script]).includes("Valid")) throw new Error("Windows Authenticode signature is not valid");
-      passed.push("signature");
+      verifyWindowsSignature(artifact);
+      verifyWindowsSignature(executable);
+      passed.push("installer-and-application-signatures");
     }
     uninstallWindows();
     passed.push("uninstall");

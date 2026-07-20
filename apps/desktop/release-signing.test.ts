@@ -32,6 +32,10 @@ describe("release signing configuration", () => {
     })).toMatchObject({ hashes: ["sha256"], timestampServer: "http://timestamp.acs.microsoft.com" });
   });
 
+  it("leaves signing to the official Azure GitHub Action when selected", () => {
+    expect(resolveWindowsSigning({ BUBU_WINDOWS_SIGN_BACKEND: "azure-action" })).toBeUndefined();
+  });
+
   it("rejects unknown or partially configured Windows backends", () => {
     expect(() => resolveWindowsSigning({ BUBU_WINDOWS_SIGNTOOL_PATH: "signtool.exe" })).toThrow(/BUBU_WINDOWS_SIGN_BACKEND/u);
     expect(() => resolveWindowsSigning({ BUBU_WINDOWS_SIGN_BACKEND: "pfx" })).toThrow(/Unsupported/u);

@@ -1,0 +1,330 @@
+name: Signed desktop release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v<semver> tag to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  BUBU_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  prepare:
+    name: Validate release contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ env.BUBU_RELEASE_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate tag and version
+        id: version
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          test "$BUBU_RELEASE_TAG" = "v$version"
+          npm run version:check
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  macos:
+    name: Signed ${{ matrix.target }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            target: macos-arm64
+          - runner: macos-15-intel
+            arch: x64
+            target: macos-x64
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ env.BUBU_RELEASE_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: services/data-core/go.mod
+          cache-dependency-path: services/data-core/go.sum
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Import Developer ID certificate and API key
+        id: signing
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.BUBU_MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.BUBU_MAC_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.BUBU_APPLE_API_KEY_P8_BASE64 }}
+        shell: bash
+        run: |
+          test -n "$MAC_CERTIFICATE_P12_BASE64"
+          test -n "$MAC_CERTIFICATE_PASSWORD"
+          test -n "$APPLE_API_KEY_P8_BASE64"
+          keychain="$RUNNER_TEMP/bubu-signing.keychain-db"
+          certificate="$RUNNER_TEMP/bubu-developer-id.p12"
+          api_key="$RUNNER_TEMP/AuthKey_${{ secrets.BUBU_APPLE_API_KEY_ID }}.p8"
+          keychain_password="$(openssl rand -hex 24)"
+          printf '%s' "$MAC_CERTIFICATE_P12_BASE64" | base64 -D > "$certificate"
+          printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 -D > "$api_key"
+          chmod 600 "$certificate" "$api_key"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -P "$MAC_CERTIFICATE_PASSWORD" -k "$keychain" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          printf 'keychain=%s\napi_key=%s\n' "$keychain" "$api_key" >> "$GITHUB_OUTPUT"
+      - name: Verify signed release environment
+        env:
+          BUBU_MAC_SIGN_IDENTITY: ${{ secrets.BUBU_MAC_SIGN_IDENTITY }}
+          BUBU_APPLE_API_KEY_PATH: ${{ steps.signing.outputs.api_key }}
+          BUBU_APPLE_API_KEY_ID: ${{ secrets.BUBU_APPLE_API_KEY_ID }}
+          BUBU_APPLE_API_ISSUER: ${{ secrets.BUBU_APPLE_API_ISSUER }}
+        run: npm run release:preflight -- --platform=darwin
+      - name: Build and make signed application
+        env:
+          BUBU_MAC_SIGN_IDENTITY: ${{ secrets.BUBU_MAC_SIGN_IDENTITY }}
+          BUBU_APPLE_API_KEY_PATH: ${{ steps.signing.outputs.api_key }}
+          BUBU_APPLE_API_KEY_ID: ${{ secrets.BUBU_APPLE_API_KEY_ID }}
+          BUBU_APPLE_API_ISSUER: ${{ secrets.BUBU_APPLE_API_ISSUER }}
+        run: |
+          npm run build
+          npm run make -w @bubu/desktop -- --platform=darwin --arch=${{ matrix.arch }} --skip-package
+      - name: Sign, notarize, and staple DMG
+        env:
+          BUBU_MAC_SIGN_IDENTITY: ${{ secrets.BUBU_MAC_SIGN_IDENTITY }}
+          BUBU_APPLE_API_KEY_ID: ${{ secrets.BUBU_APPLE_API_KEY_ID }}
+          BUBU_APPLE_API_ISSUER: ${{ secrets.BUBU_APPLE_API_ISSUER }}
+          BUBU_APPLE_API_KEY_PATH: ${{ steps.signing.outputs.api_key }}
+        shell: bash
+        run: |
+          dmg="apps/desktop/out/make/BuBu.dmg"
+          codesign --force --sign "$BUBU_MAC_SIGN_IDENTITY" --timestamp "$dmg"
+          xcrun notarytool submit "$dmg" --key "$BUBU_APPLE_API_KEY_PATH" --key-id "$BUBU_APPLE_API_KEY_ID" --issuer "$BUBU_APPLE_API_ISSUER" --wait
+          xcrun stapler staple "$dmg"
+          codesign --verify --strict --verbose=2 "$dmg"
+          xcrun stapler validate "$dmg"
+      - name: Resolve previous stable installer
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/resolve-previous-release.mjs --current-tag="$BUBU_RELEASE_TAG" --platform=darwin --arch=${{ matrix.arch }} --output="${{ runner.temp }}/previous"
+      - name: Exercise signed install and upgrade lifecycle
+        shell: bash
+        run: |
+          arguments=(--artifact="${{ github.workspace }}/apps/desktop/out/make/BuBu.dmg" --require-signature --report="${{ runner.temp }}/installer-smoke.json")
+          if [[ -n "${{ steps.previous.outputs.artifact }}" ]]; then
+            arguments+=(--previous-artifact="${{ steps.previous.outputs.artifact }}")
+          fi
+          node scripts/smoke-native-installer.mjs "${arguments[@]}"
+      - name: Stage signed release assets
+        run: node scripts/stage-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --platform=darwin --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+      - name: Upload signed release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-${{ matrix.target }}
+          path: ${{ runner.temp }}/release-stage
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          security delete-keychain "${{ steps.signing.outputs.keychain }}" 2>/dev/null || true
+          rm -f "${{ steps.signing.outputs.api_key }}" "$RUNNER_TEMP/bubu-developer-id.p12"
+
+  windows:
+    name: Signed windows-x64
+    needs: prepare
+    runs-on: windows-2025
+    timeout-minutes: 90
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ env.BUBU_RELEASE_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: services/data-core/go.mod
+          cache-dependency-path: services/data-core/go.sum
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify Azure release environment
+        env:
+          BUBU_WINDOWS_SIGN_BACKEND: azure-action
+          AZURE_CLIENT_ID: ${{ vars.BUBU_AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.BUBU_AZURE_TENANT_ID }}
+          BUBU_AZURE_SIGNING_ENDPOINT: ${{ vars.BUBU_AZURE_SIGNING_ENDPOINT }}
+          BUBU_AZURE_SIGNING_ACCOUNT: ${{ vars.BUBU_AZURE_SIGNING_ACCOUNT }}
+          BUBU_AZURE_SIGNING_PROFILE: ${{ vars.BUBU_AZURE_SIGNING_PROFILE }}
+        run: npm run release:preflight -- --platform=win32
+      - name: Sign in to Azure with GitHub OIDC
+        uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
+        with:
+          client-id: ${{ vars.BUBU_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.BUBU_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.BUBU_AZURE_SUBSCRIPTION_ID }}
+      - name: Build unsigned Windows application
+        env:
+          BUBU_WINDOWS_SIGN_BACKEND: azure-action
+        run: npm run build
+      - name: Sign packaged Windows executables
+        uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.BUBU_AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.BUBU_AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.BUBU_AZURE_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\apps\desktop\out\BuBu-win32-x64
+          files-folder-filter: exe,dll,node
+          files-folder-recurse: true
+          description: BuBu local-first AI data workspace
+          description-url: https://github.com/${{ github.repository }}
+      - name: Make installer from signed application
+        env:
+          BUBU_WINDOWS_SIGN_BACKEND: azure-action
+        run: npm run make -w @bubu/desktop -- --platform=win32 --arch=x64 --skip-package
+      - name: Sign Squirrel bootstrap installer
+        uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.BUBU_AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.BUBU_AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.BUBU_AZURE_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\apps\desktop\out\make\squirrel.windows\x64\BuBu-Setup.exe
+          description: BuBu local-first AI data workspace
+          description-url: https://github.com/${{ github.repository }}
+      - name: Resolve previous stable installer
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/resolve-previous-release.mjs --current-tag="$env:BUBU_RELEASE_TAG" --platform=win32 --arch=x64 --output="${{ runner.temp }}/previous"
+      - name: Exercise signed install and upgrade lifecycle
+        shell: pwsh
+        run: |
+          $arguments = @(
+            '--artifact=${{ github.workspace }}\apps\desktop\out\make\squirrel.windows\x64\BuBu-Setup.exe',
+            '--require-signature',
+            '--report=${{ runner.temp }}\installer-smoke.json'
+          )
+          if ('${{ steps.previous.outputs.artifact }}') { $arguments += '--previous-artifact=${{ steps.previous.outputs.artifact }}' }
+          node scripts/smoke-native-installer.mjs @arguments
+      - name: Stage signed release assets
+        run: node scripts/stage-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --platform=win32 --arch=x64 --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+      - name: Upload signed release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-windows-x64
+          path: ${{ runner.temp }}/release-stage
+          if-no-files-found: error
+          retention-days: 14
+      - name: Sign out of Azure
+        if: always()
+        run: az logout
+
+  draft-release:
+    name: Assemble evidence and draft release
+    needs: [prepare, macos, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ env.BUBU_RELEASE_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: services/data-core/go.mod
+          cache-dependency-path: services/data-core/go.sum
+      - name: Install lockfile for SBOM generation
+        run: npm ci --ignore-scripts
+      - name: Download signed target artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: signed-*
+          path: ${{ runner.temp }}/release-input
+      - name: Generate CycloneDX SBOM
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-input/metadata"
+          npm sbom --sbom-format=cyclonedx > "$RUNNER_TEMP/release-input/metadata/BuBu-${{ needs.prepare.outputs.version }}-npm-sbom.cdx.json"
+          go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0 mod -json -output "$RUNNER_TEMP/release-input/metadata/BuBu-${{ needs.prepare.outputs.version }}-go-sbom.cdx.json" services/data-core
+      - name: Finalize checksums and release manifest
+        run: node scripts/finalize-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=${{ vars.BUBU_ENABLE_ARTIFACT_ATTESTATIONS == 'true' && 'enabled' || 'disabled' }}
+      - name: Attest build provenance when enabled
+        if: vars.BUBU_ENABLE_ARTIFACT_ATTESTATIONS == 'true'
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: ${{ runner.temp }}/release-assets/*
+      - name: Upload complete release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ env.BUBU_RELEASE_TAG }}
+          path: ${{ runner.temp }}/release-assets
+          if-no-files-found: error
+          retention-days: 30
+      - name: Create or refresh draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mapfile -t assets < <(find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -print | sort)
+          if [[ "$(gh release view "$BUBU_RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)" == "true" ]]; then
+            gh release upload "$BUBU_RELEASE_TAG" "${assets[@]}" --clobber
+          elif gh release view "$BUBU_RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Refusing to overwrite an already published release" >&2
+            exit 1
+          else
+            gh release create "$BUBU_RELEASE_TAG" "${assets[@]}" --draft --verify-tag --title "BuBu $BUBU_RELEASE_TAG" --generate-notes
+          fi
