@@ -8,6 +8,7 @@ The Go data core is BuBu's final authority for local files, SQLite state, privac
 - Never execute model-authored SQL. Accept only typed plans and validate columns, relationships, limits, operations, and current dataset versions deterministically.
 - Raw rows stay local unless a future explicit-row flow is visibly approved. Model context is schema, synthetic examples, or approved bounded aggregates.
 - Imports, replacements, restores, workflow transitions, and audit changes must be atomic or recoverable after interruption.
+- Automated workflow results must be delivered only to the explicit active conversation thread that owns the reviewed plan; target-only fallback delivery is forbidden.
 
 ```bash
 go test ./...
