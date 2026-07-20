@@ -237,6 +237,10 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .task-run-status { padding: 11px 13px; border: 1px solid #ded8cc; border-radius: 13px; background: #fffdf9; }
 .task-run-status header { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 11px; }.task-run-status header span { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: #514a40; }.task-run-status header small { color: #817a70; }
 .task-run-status ol { display: flex; gap: 12px; margin: 10px 0 0; padding: 0; list-style: none; }.task-run-status li { display: inline-flex; align-items: center; gap: 5px; color: #9b9489; font-size: 11px; }.task-run-status li svg { flex: 0 0 auto; }.task-run-status .task-step-done { color: #397457; }.task-run-status .task-step-active { color: #9a6a2e; font-weight: 700; }.task-planning .task-step-active svg, .task-executing .task-step-active svg { animation: task-spin 1s linear infinite; }@keyframes task-spin { to { transform: rotate(360deg); } }
+.task-run-status > p { margin: 9px 0 0; font-size: 10px; line-height: 1.45; color: #817a70; }
+.task-error { display: grid; gap: 8px; padding: 14px; border: 1px solid #e1b7aa; border-radius: 12px; color: #7f4032; background: #f9ebe7; }
+.task-error p { margin: 0; line-height: 1.5; }
+.task-error > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .question-bubble { justify-self: end; max-width: 72%; padding: 12px 15px; border-radius: 15px 15px 4px 15px; color: #fff; background: #4b463e; }
 .question-bubble small { color: #d8d0c5; }
 .question-bubble p { margin: 4px 0 0; line-height: 1.5; }
@@ -384,6 +388,9 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .privacy-ledger-row small { overflow-wrap: anywhere; color: #777168; }
 .privacy-ledger-metrics { text-align: right; }
 .composer-privacy-note { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1.5; color: #856947; }
+.composer-trust { grid-column: 1 / -1; color: #785f3f; }
+.composer-trust summary { display: flex; align-items: center; gap: 5px; width: max-content; font-size: 11px; cursor: pointer; }
+.composer-trust p { margin: 7px 0 0; font-size: 10px; line-height: 1.5; color: #856947; }
 .composer-thread-note { grid-column: 1 / -1; margin: 0; padding: 7px 9px; border-radius: 8px; font-size: 11px; color: #715d3f; background: #f1e8d8; }
 .settings-copy { margin: 8px 0 0; line-height: 1.6; color: #756e64; }
 .security-warning { padding: 11px 13px; border: 1px solid #e6b9ae; border-radius: 11px; font-size: 12px; line-height: 1.5; color: #8f3e34; background: #f9e5e0; }

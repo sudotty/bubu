@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ShieldCheck } from "lucide-react";
 import type {
   DatasetGroup,
   GroupQueryPlanProposal,
@@ -42,6 +43,8 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
   const [state, setState] = useState<GroupAnalysisState>("idle");
   const [error, setError] = useState<string>();
   const [operationId, setOperationId] = useState<OperationId>();
+  const [startedAt, setStartedAt] = useState<number>();
+  const [completedAt, setCompletedAt] = useState<number>();
   const history = useConversationThread({ kind: "group", id: group.id }, threadId);
 
   useEffect(() => {
@@ -52,6 +55,8 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
     setState("idle");
     setError(undefined);
     setOperationId(undefined);
+    setStartedAt(undefined);
+    setCompletedAt(undefined);
   }, [group.id, group.updatedAt, threadId]);
 
   useEffect(() => {
@@ -66,14 +71,16 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
     setState(persistedResult ? "complete" : persistedPlan ? "proposed" : persistedError ? "failed" : "idle");
   }, [history, operationId, submittedQuestion, threadId]);
 
-  async function propose(): Promise<void> {
-    const normalized = question.trim();
+  async function propose(questionOverride?: string): Promise<void> {
+    const normalized = (questionOverride ?? question).trim();
     if (!normalized) return;
     setSubmittedQuestion(normalized);
     setProposal(undefined);
     setResult(undefined);
     setError(undefined);
     setState("planning");
+    setStartedAt(Date.now());
+    setCompletedAt(undefined);
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
     try {
@@ -85,6 +92,7 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+      setCompletedAt(Date.now());
     } finally {
       setOperationId((current) => current === nextOperationId ? undefined : current);
     }
@@ -100,9 +108,11 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
       if (!threadId) throw new Error("请先创建或选择一个对话任务");
       setResult(await window.bubu.analysis.executeGroup({ plan: proposal.plan, threadId }, nextOperationId));
       setState("complete");
+      setCompletedAt(Date.now());
     } catch (reason) {
       setError(messageFrom(reason));
       setState("failed");
+      setCompletedAt(Date.now());
     } finally {
       setOperationId((current) => current === nextOperationId ? undefined : current);
     }
@@ -119,14 +129,14 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
         <div><p className="hero-kicker">PRIVATE MULTI-TABLE CHAT</p><h3>和群组对话</h3></div>
         <span className="mode-pill">等值关联 · 禁止笛卡尔积</span>
       </header>
-      <TaskRunStatus state={state} />
+      <TaskRunStatus state={state} startedAt={startedAt} completedAt={completedAt} />
       <ConversationHistory thread={history} group={group} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
       <div className="group-source-order">
         {group.members.map((member, index) => <span key={member.id}><strong>{index + 1}</strong>{member.displayName}</span>)}
       </div>
       {submittedQuestion && <div className="question-bubble"><small>你</small><p>{submittedQuestion}</p></div>}
       {state === "planning" && <div className="analysis-progress">正在根据每个成员的结构和合成示例生成关联树…</div>}
-      {error && <div className="notice error-text" role="alert">{error}</div>}
+      {error && <div className="task-error" role="alert"><strong>这一步没有完成</strong><p>{error}</p><div><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></div></div>}
 
       {proposal && (
         <article className="plan-card">
@@ -188,9 +198,9 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
         {!threadId && <p className="composer-thread-note">请先在左侧开始一个新任务，再生成关联计划。</p>}
-        <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。群组数据只自动发送结构、合成示例和有效关系。</p>
+        <details className="composer-trust"><summary><ShieldCheck size={13} />当前上下文：结构、合成示例与有效关系</summary><p>你的问题文本会原样发送给当前模型；请不要粘贴敏感原始行或值。群组数据只自动发送结构、合成示例和有效关系。</p></details>
         <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>
-        <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} disabled={!threadId} />
+        <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} disabled={!threadId} />
         <button type="submit" disabled={!threadId || state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
