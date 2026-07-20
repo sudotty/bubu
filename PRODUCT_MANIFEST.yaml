@@ -5,6 +5,19 @@ product:
   definition: local-first AI data workspace for conversational spreadsheet analysis and automation
   defaultMode: local-private
   releaseStage: migration
+release:
+  versionSource: package.json
+  tagPattern: v<semver>
+  channel: stable
+  targets:
+    - darwin-arm64
+    - darwin-x64
+    - win32-x64
+  previewTargets:
+    - win32-arm64
+  minimumSystems:
+    macos: "13"
+    windows: "10-22H2"
 architecture:
   desktop: electron
   renderer: sandboxed-react
@@ -137,6 +150,8 @@ capabilities:
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   intentional-artifact-drawer: implemented
+  single-product-version: implemented
+  explicit-platform-support-matrix: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented
