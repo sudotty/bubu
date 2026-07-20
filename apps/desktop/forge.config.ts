@@ -1,4 +1,6 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
+import { MakerDMG } from "@electron-forge/maker-dmg";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
@@ -6,6 +8,7 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { resolve } from "node:path";
 
 const dataCoreBinary = process.platform === "win32" ? "bubu-data-core.exe" : "bubu-data-core";
+const appIcon = resolve("resources", "icons", process.platform === "win32" ? "bubu.ico" : "bubu.icns");
 
 const macSignIdentity = process.env.BUBU_MAC_SIGN_IDENTITY?.trim();
 const appleId = process.env.BUBU_APPLE_ID?.trim();
@@ -15,7 +18,18 @@ const appleTeamId = process.env.BUBU_APPLE_TEAM_ID?.trim();
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    appBundleId: "com.sudotty.bubu",
+    appCategoryType: "public.app-category.productivity",
     executableName: "bubu",
+    icon: appIcon,
+    name: "BuBu",
+    win32metadata: {
+      CompanyName: "sudotty",
+      FileDescription: "BuBu local-first AI data workspace",
+      InternalName: "BuBu",
+      OriginalFilename: "bubu.exe",
+      ProductName: "BuBu",
+    },
     electronZipDir: resolve("..", "..", ".cache", "electron"),
     ...(macSignIdentity ? { osxSign: { identity: macSignIdentity, optionsForFile: () => ({ hardenedRuntime: true, entitlements: "resources/entitlements.mac.plist" }) } } : {}),
     ...(appleId && appleIdPassword && appleTeamId ? { osxNotarize: { appleId, appleIdPassword, teamId: appleTeamId } } : {}),
@@ -25,7 +39,19 @@ const config: ForgeConfig = {
     ],
   },
   rebuildConfig: {},
-  makers: [new MakerZIP({}, ["darwin", "win32", "linux"])],
+  makers: [
+    new MakerDMG({ name: "BuBu", format: "ULFO" }, ["darwin"]),
+    new MakerZIP({}, ["darwin"]),
+    new MakerSquirrel({
+      name: "BuBu",
+      authors: "sudotty",
+      description: "Local-first AI data workspace",
+      exe: "bubu.exe",
+      setupExe: "BuBu-Setup.exe",
+      setupIcon: resolve("resources", "icons", "bubu.ico"),
+      noMsi: true,
+    }, ["win32"]),
+  ],
   plugins: [
     new VitePlugin({
       build: [

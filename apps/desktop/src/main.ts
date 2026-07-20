@@ -36,6 +36,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 if (started) app.quit();
+if (process.platform === "win32") app.setAppUserModelId("com.squirrel.BuBu.BuBu");
 
 let sidecars: SidecarSupervisor | undefined;
 let stopWorkflowTriggerScheduler: (() => void) | undefined;
