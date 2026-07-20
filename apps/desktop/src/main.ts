@@ -249,10 +249,37 @@ async function verifySmokeRenderer(
       if (composer instanceof HTMLElement && conversation instanceof HTMLElement) {
         conversation.scrollTop = composer.offsetTop - (conversation.clientHeight - composer.clientHeight) / 2;
       }
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
+      setTimeout(resolve, 220);
     })
   `);
   await captureSmokeStep(window, screenshotDirectory, "02-chat.png");
+  const artifactLayout = await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const workbench = document.querySelector(".conversation-workbench");
+      const resultButton = Array.from(document.querySelectorAll(".workbench-compact-nav button")).find((button) => button.textContent?.includes("结果"));
+      if (!(workbench instanceof HTMLElement) || !(resultButton instanceof HTMLButtonElement)) return resolve({ ok: false, missing: ["结果抽屉按钮"] });
+      resultButton.click();
+      setTimeout(() => {
+        const inspector = workbench.querySelector(".artifact-inspector");
+        const chart = inspector?.querySelector(".result-visualization");
+        if (!(inspector instanceof HTMLElement) || !(chart instanceof HTMLElement)) return resolve({ ok: false, missing: ["结果抽屉或可视化"] });
+        const workbenchRect = workbench.getBoundingClientRect();
+        const inspectorRect = inspector.getBoundingClientRect();
+        const chartRect = chart.getBoundingClientRect();
+        const contained = inspectorRect.left >= workbenchRect.left - 1 && inspectorRect.right <= workbenchRect.right + 1 && chartRect.left >= inspectorRect.left - 1 && chartRect.right <= inspectorRect.right + 1;
+        resolve({ ok: contained, missing: contained ? [] : ["结果抽屉或图表超出工作台"] });
+      }, 220);
+    })
+  `) as { readonly ok: boolean; readonly missing: readonly string[] };
+  if (!artifactLayout.ok) throw new Error(`Packaged renderer Artifact layout failed: ${artifactLayout.missing.join(", ")}`);
+  await captureSmokeStep(window, screenshotDirectory, "04-artifact.png");
+  await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const closeButton = document.querySelector(".workbench-close-pane");
+      if (closeButton instanceof HTMLButtonElement) closeButton.click();
+      setTimeout(resolve, 220);
+    })
+  `);
   const groupResult = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const groupButton = document.querySelector('button[title="数据群组"]');

@@ -1,6 +1,6 @@
 # Cross-platform release engineering execution contract
 
-Status: **IN PROGRESS**. This plan converts the productized local application into a reproducible macOS and Windows release. Each stage ends in one scoped Git commit; external certificates and clean-device evidence remain explicit release gates rather than simulated success.
+Status: **ENGINEERING COMPLETE**. This plan converted the productized local application into a reproducible macOS and Windows release pipeline. Each stage ended in one scoped Git commit; external certificates and clean-device evidence remain explicit public-release gates rather than simulated success.
 
 ## Decisions already made
 
@@ -13,15 +13,17 @@ Status: **IN PROGRESS**. This plan converts the productized local application in
 
 ## Eight commits and acceptance gates
 
-1. **Chat artifact workspace.** Make the result inspector a deliberate dock/drawer, prevent title/chart clipping, expose close/Escape/backdrop behavior, and preserve focus. Accept with desktop typecheck, product-experience verifier, packaged smoke, and current screenshots.
-2. **Version and support contract.** Add the single-version verifier, tag rule, support matrix, release/channel decisions, and executable manifest truth. Accept with `npm run version:check` and documentation verification.
-3. **Native sidecars.** Make Go output, resource copy, runtime lookup, smoke, and benchmark paths platform-aware (`.exe` on Windows) with unit/contract coverage. Accept on local macOS plus Windows CI.
-4. **Native installers and metadata.** Add identifiers, authorship, icons, DMG+ZIP and Squirrel makers, deterministic artifact names, and platform-only maker selection. Accept with native unsigned `make` jobs and artifact inventory checks.
-5. **Signing and notarization.** Fail closed for partial credential sets, prefer App Store Connect API keys, support Windows Azure/OV backends without secrets in Git, and verify signatures/notarization after make. Accept configuration tests locally; signed evidence remains an external release gate.
-6. **Lifecycle smoke.** Add install/launch/import/task/backup/upgrade/restore/uninstall evidence scripts and retention-safe reports. Accept only on native runners; no manual checklist can replace executable checks where automation is possible.
-7. **GitHub release automation.** Add unsigned PR packaging smoke, protected signed tag jobs, draft release aggregation, checksums, SBOM, conditional attestations, immutable actions, least permissions, and non-cancelling release concurrency. Accept with workflow verifier and a non-publishing manual dry run.
-8. **Documentation and closure.** Synchronize every relevant README, manifest capability, release runbook, legacy migration gate, and generated screenshot; run the full verifier and inspect the branch/remote. After this commit, perform one read-only overall audit and stop.
+| Stage | Delivered outcome | Commit |
+| --- | --- | --- |
+| 1 | Deliberate Artifact dock/drawer, readable result header, close/Escape/backdrop/focus behavior, and visible chat priority | `d98d36c` |
+| 2 | Single-version verifier, exact tag rule, stable/preview support matrix, and release/channel decisions | `e939e27` |
+| 3 | Platform-aware Go output/resource/runtime/smoke paths, including Windows `.exe` cross-build evidence | `eb48470` |
+| 4 | Native app metadata and generated icon assets plus DMG, ZIP, and Squirrel makers | `9055cbf` |
+| 5 | Fail-closed App Store Connect API-key notarization and Azure/cloud-HSM Windows signing configuration | `28bbe95` |
+| 6 | Native install/launch/import/task/backup/restore/upgrade/uninstall policy and executable DMG evidence | `2f7e8d9` |
+| 7 | Unsigned PR native matrix; protected signed tag jobs; deterministic assets, SBOMs, checksums, conditional attestations, and draft Release | `7aca25c` |
+| 8 | README hierarchy, operator runbook, version command, current screenshots, full verifier, and closure review | this commit |
 
 ## Final truth condition
 
-Engineering completion means source, tests, packaging configuration, CI, docs, and manifest agree. Public-beta completion additionally requires the owner-provided Apple and Windows signing identities and native clean-device evidence. Until those external facts exist, `signed-installers` remains planned and the readiness document remains blocked.
+Engineering completion means source, tests, packaging configuration, CI, docs, and manifest agree. Public-beta completion additionally requires the owner-provided Apple and Windows signing identities and native clean-device evidence. Until those external facts exist, `signed-installers` remains planned and the readiness document remains blocked. The settled operating procedure is [the signed release runbook](../release/release-runbook.md).

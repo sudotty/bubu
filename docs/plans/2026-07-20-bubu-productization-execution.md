@@ -1,6 +1,6 @@
 # BuBu productization execution contract
 
-Status: implemented on `codex/bubu-productization`; final whole-repository verification remains the closing evidence.
+Status: **COMPLETE** on `codex/bubu-productization`; whole-repository verification is the closing evidence for engineering scope, while public distribution remains separately gated by real identities and clean-device acceptance.
 
 ## Product decision
 
@@ -47,10 +47,10 @@ Guardrails remain exact: zero unapproved row disclosure, zero cross-thread workf
 
 ## Release decision
 
-The existing draft pull request is a frozen verified baseline and receives no more product scope. This branch becomes a separate review surface. Public beta remains blocked on signed and notarized macOS artifacts, signed update metadata, clean-device install/upgrade/recovery evidence, and an explicit disposition for every remaining `bubu-bi` migration slice.
+The release path is settled: protected exact-version tags build macOS arm64/x64 and Windows x64, sign through Developer ID/App Store Connect and Azure Artifact Signing OIDC, verify native lifecycle evidence, assemble checksums and npm/Go SBOMs, optionally attest provenance, and create a draft GitHub Release. The product does not self-update and the workflow never publishes automatically. Public beta remains blocked on real signed artifacts, clean-device install/upgrade/recovery evidence, update/rollback trust if updates are later enabled, and an explicit disposition for every remaining `bubu-bi` migration slice.
 
 ## Completion evidence
 
 Stages 0–7 are isolated in commits `50fb36f`, `07bfcbb`, `7154c0e`, `1b0631a`, `f56edc5`, `af47275`, `9a68218`, and `59e5f02`. Stage 8 adds release and retirement gates in its own commit.
 
-The closing `npm run verify` passed on 2026-07-20: 78 contract tests, 34 AI-runtime tests, 92 desktop tests, all Go tests, dependency audit, documentation/GitHub/architecture/product/metrics/release/legacy verifiers, production packaging, data-core/MCP/desktop smoke tests, and the deterministic 100 MiB performance gate. The measured data-core result was 3,976.13 ms import/profile, 162.55 ms query p95, and 36.39 MiB peak RSS, within the checked-in budgets.
+The closing `npm run verify` passed on 2026-07-20: 78 contract tests, 34 AI-runtime tests, 101 desktop tests, all Go tests, dependency audit, documentation/GitHub/architecture/product/metrics/release/legacy verifiers, production packaging, data-core/MCP/desktop smoke tests, and the deterministic 100 MiB performance gate. Current performance measurements are recorded by the final verifier run rather than treated as timeless product claims.

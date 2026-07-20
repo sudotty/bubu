@@ -66,7 +66,7 @@ export function AggregateExplanationPanel({
 
   return (
     <section className="aggregate-explanation-panel" aria-label="AI 聚合结果解释">
-      <header><div><p className="hero-kicker">EXPLICIT AGGREGATE DISCLOSURE</p><h3>让 AI 解读聚合结果</h3></div>{!proposal && !operationId && <button type="button" className="secondary-action" onClick={() => void prepare()}>检查并预览发送内容</button>}</header>
+      <header><div><p className="hero-kicker">明确的聚合披露</p><h3>让 AI 解读聚合结果</h3></div>{!proposal && !operationId && <button type="button" className="secondary-action" onClick={() => void prepare()}>检查并预览发送内容</button>}</header>
       <p className="settings-copy">只有包含 COUNT(*)、每组至少 5 条、没有最小值/最大值且最多 50 行的聚合结果可以进入这个流程。原始明细仍留在本地。</p>
       {notice && <div className="notice" role="status">{notice}</div>}
       {proposal && <AggregateDisclosurePreview proposal={proposal}>

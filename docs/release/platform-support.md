@@ -24,12 +24,21 @@ Windows ia32 is unsupported. Linux is outside the current public-beta release co
 
 ## Commands
 
+Set and validate one version before any release tag:
+
 ```bash
+npm run version:set -- --version=0.2.0
 npm run version:check
 npm run verify
-npm run make -w @bubu/desktop -- --platform=darwin --arch=arm64
-npm run make -w @bubu/desktop -- --platform=darwin --arch=x64
-npm run make -w @bubu/desktop -- --platform=win32 --arch=x64
 ```
 
-The native `make` commands must run on matching macOS or Windows runners. The release workflow owns signing material; local commands must not require or persist credentials.
+Build unsigned packages for engineering validation on a matching native runner:
+
+```bash
+npm run build
+npm run make -w @bubu/desktop -- --platform=darwin --arch=arm64 --skip-package
+npm run make -w @bubu/desktop -- --platform=darwin --arch=x64 --skip-package
+npm run make -w @bubu/desktop -- --platform=win32 --arch=x64 --skip-package
+```
+
+The native `make` commands must run on matching macOS or Windows runners. The release workflow owns signing material; local commands must not require or persist credentials. Follow [the signed release runbook](release-runbook.md) for protected environment setup, tags, reruns, evidence review, and failure recovery.

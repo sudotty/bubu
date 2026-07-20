@@ -65,6 +65,7 @@ requireText(artifacts, [
   "pinnedArtifactKey",
   "exportReport",
 ], "artifact workbench");
+requireText(read("apps/desktop/src/main.ts"), ["04-artifact.png", "结果抽屉或图表超出工作台", "setTimeout(resolve, 220)"], "settled packaged Artifact evidence");
 const artifactBoundary = read("apps/desktop/src/main/artifact-api.ts");
 requireText(artifactBoundary, ["parseArtifactTableActionInput", "clipboard.writeText", "showSaveDialog", "artifactCsv", "artifactTsv", "artifactHtmlReport"], "artifact desktop boundary");
 const visualization = read("packages/contracts/src/visualization.ts");
@@ -80,9 +81,34 @@ requireText(styles, [
   "compact-artifacts-open",
   "workbench-pane-backdrop",
   ".artifact-header > div:first-child { min-width: 0; }",
+  "width: min(520px, calc(100% - 48px))",
   "@media (prefers-reduced-motion: reduce)",
   "--focus-ring",
 ], "responsive and accessible styling");
+
+const decorativeEnglish = [
+  "LOCAL DATA AGENT",
+  "DATA GROUPS",
+  "PRIVATE BY DEFAULT",
+  "LOCAL GROUP WORKSPACE",
+  "SECURE LOCAL CONFIG",
+  "LOCAL VISUALIZATION",
+  "MODEL REGISTRY",
+  "REPEATABLE LOCAL AUTOMATION",
+  "APPROVED AGGREGATE INSIGHT",
+  "BOUNDED AGENT REPORT",
+];
+for (const path of [
+  "apps/desktop/src/renderer/App.tsx",
+  "apps/desktop/src/renderer/ResultVisualization.tsx",
+  "apps/desktop/src/renderer/ProviderSettings.tsx",
+  "apps/desktop/src/renderer/WorkflowPanel.tsx",
+  "apps/desktop/src/renderer/AggregateExplanationCard.tsx",
+  "apps/desktop/src/renderer/AggregateAgentCard.tsx",
+]) {
+  const source = read(path);
+  for (const marker of decorativeEnglish) if (source.includes(marker)) failures.push(`${path} contains decorative English hierarchy: ${marker}`);
+}
 
 const workflowContract = read("packages/contracts/src/workflow.ts");
 const workflowDelivery = read("services/data-core/internal/data/workflow_trigger_finish.go");

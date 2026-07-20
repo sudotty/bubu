@@ -16,3 +16,13 @@ go build -o bin/bubu-data-core ./cmd/bubu-data-core
 ```
 
 Run these commands from this directory, or use `npm run test:data-core` and `npm run build:data-core` at the repository root.
+
+Release builds are platform-aware and reproducible. The root helper maps Electron target names to Go targets, uses `CGO_ENABLED=0` and `-trimpath`, and writes `bubu-data-core.exe` only for Windows:
+
+```bash
+npm run build:data-core:target -- --platform=darwin --arch=arm64
+npm run build:data-core:target -- --platform=darwin --arch=x64
+npm run build:data-core:target -- --platform=win32 --arch=x64
+```
+
+Cross-compilation is useful for artifact inspection, but native installer lifecycle evidence still runs on the matching macOS or Windows runner.

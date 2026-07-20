@@ -179,7 +179,7 @@ export function ProviderSettings() {
       <section className="provider-list-panel">
         <header className="settings-section-header">
           <div>
-            <p className="hero-kicker">MODEL REGISTRY</p>
+            <p className="hero-kicker">模型配置</p>
             <h3>模型提供商</h3>
           </div>
           <button type="button" className="secondary-action" onClick={() => setDraft(newProviderDraft)}>
@@ -220,7 +220,7 @@ export function ProviderSettings() {
 
       <form className="provider-form" onSubmit={(event) => { event.preventDefault(); void saveProvider(); }}>
         <div>
-          <p className="hero-kicker">WRITE-ONLY CREDENTIALS</p>
+          <p className="hero-kicker">凭据仅写</p>
           <h3>{draft.id === undefined ? "添加模型" : "编辑模型"}</h3>
           <p className="settings-copy">渲染界面只能提交新密钥，无法读回已经保存的密钥。模型调用由隔离的 AI 进程执行。</p>
         </div>

@@ -43,7 +43,7 @@ export function ResultVisualization({ result, title }: ResultVisualizationProps)
   return (
     <figure className="result-visualization">
       <figcaption>
-        <div><p className="hero-kicker">LOCAL VISUALIZATION</p><h4>{spec.title}</h4></div>
+        <div><p className="hero-kicker">本地可视化</p><h4>{spec.title}</h4></div>
         <span>{spec.kind === "line" ? "趋势图" : "柱状图"} · {spec.valueLabel}</span>
       </figcaption>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${spec.title}，${spec.categoryLabel} 对 ${spec.valueLabel}`}>

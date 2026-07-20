@@ -95,7 +95,7 @@ h2 { margin-bottom: 0; font-size: 22px; }
 .workspace { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; background: #f8f6f1; }
 .workspace-header { padding: 25px 34px 20px; border-bottom: 1px solid #e2ded5; }
 .mode-pill, .service-state { padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-.mode-pill { color: #336d50; background: #dfeee4; }
+.mode-pill { color: #336d50; background: #dfeee4; white-space: nowrap; }
 .conversation { overflow: auto; padding: 26px clamp(22px, 3vw, 46px); }
 .conversation-settings { padding-right: clamp(28px, 5vw, 72px); padding-left: clamp(28px, 5vw, 72px); }
 .hero-card { max-width: 720px; padding: 30px; border: 1px solid #ded8cc; border-radius: 22px; background: #fffdf9; box-shadow: 0 14px 40px rgba(44, 39, 30, .06); }
@@ -560,7 +560,7 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
   .conversation-stage { grid-column: 2; padding-top: 48px; }
   .workbench-pane-backdrop { position: absolute; z-index: 6; top: 48px; right: 0; bottom: 0; left: 230px; display: none; width: auto; padding: 0; border: 0; border-radius: 0; background: rgba(40, 36, 30, .18); cursor: default; }
   .compact-artifacts-open .workbench-pane-backdrop, .compact-threads-open .workbench-pane-backdrop { display: block; }
-  .artifact-inspector { position: absolute; z-index: 7; top: 48px; right: 0; bottom: 0; width: min(520px, calc(100% - 250px)); transition: transform .18s ease, visibility .18s ease; visibility: hidden; transform: translateX(102%); pointer-events: none; box-shadow: -18px 0 48px rgba(35, 31, 25, .18); }
+  .artifact-inspector { position: absolute; z-index: 7; top: 48px; right: 0; bottom: 0; width: min(520px, calc(100% - 48px)); transition: transform .18s ease, visibility .18s ease; visibility: hidden; transform: translateX(102%); pointer-events: none; box-shadow: -18px 0 48px rgba(35, 31, 25, .18); }
   .compact-artifacts-open .artifact-inspector { visibility: visible; transform: translateX(0); pointer-events: auto; }
   .analysis-panel { padding: 20px; }
 }

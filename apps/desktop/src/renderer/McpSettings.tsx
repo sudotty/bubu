@@ -483,7 +483,7 @@ export function McpSettings() {
 
   return <section className="mcp-settings" aria-label="MCP 连接中心">
     <header className="settings-section-header">
-      <div><p className="hero-kicker">MCP CONNECTION CENTER</p><h3>MCP 连接</h3></div>
+      <div><p className="hero-kicker">MCP 连接中心</p><h3>MCP 连接</h3></div>
       <button type="button" className="secondary-action" onClick={() => setDraft(emptyDraft)}>新增</button>
     </header>
     <div className="security-warning" role="note">
@@ -507,7 +507,7 @@ export function McpSettings() {
         </article>)}
       </div>
       <form className="mcp-connection-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
-        <div><p className="hero-kicker">NO SHELL · WRITE-ONLY SECRETS</p><h4>{draft.id === undefined ? "添加本地 MCP" : "编辑本地 MCP"}</h4></div>
+        <div><p className="hero-kicker">禁止 Shell · 凭据仅写</p><h4>{draft.id === undefined ? "添加本地 MCP" : "编辑本地 MCP"}</h4></div>
         {registry && !registry.encryptionAvailable && <div className="security-warning" role="alert">系统加密存储不可用；BuBu 将拒绝新增或修改环境秘密。</div>}
         <label><span>显示名称</span><input required maxLength={100} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} /></label>
         <label><span>已安装服务的绝对可执行文件</span><input required value={draft.command} onChange={(event) => updateDraft({ command: event.target.value })} placeholder="/absolute/path/to/mcp-server" /></label>
@@ -536,7 +536,7 @@ export function McpSettings() {
     </article>}
     {operationId && <div className="analysis-progress">正在执行已批准的 MCP 本地操作… <button type="button" className="secondary-action" onClick={() => void window.bubu.operations.cancel(operationId)}>取消并关闭进程</button></div>}
     {snapshot && <article className="mcp-inspection-result">
-      <header><div><p className="hero-kicker">UNTRUSTED SERVER METADATA</p><h4>{snapshot.server.title ?? snapshot.server.name}</h4><small>{snapshot.server.name} · {snapshot.server.version} · 请求协议 {snapshot.requestedProtocolVersion}</small></div><span>{snapshot.limited ? "结果已按预算截断" : "发现完成"}</span></header>
+      <header><div><p className="hero-kicker">不受信任的服务器元数据</p><h4>{snapshot.server.title ?? snapshot.server.name}</h4><small>{snapshot.server.name} · {snapshot.server.version} · 请求协议 {snapshot.requestedProtocolVersion}</small></div><span>{snapshot.limited ? "结果已按预算截断" : "发现完成"}</span></header>
       {snapshot.untrustedMetadata && <div className="security-warning" role="note">以下名称、描述、annotations、schema、URI 和参数说明均来自 MCP 服务，只作为未受信任文本展示。</div>}
       {snapshot.instructions && <section><strong>服务说明（不可信，不会发送给模型）</strong><p>{snapshot.instructions}</p></section>}
       <div className="mcp-capability-columns">
@@ -581,7 +581,7 @@ export function McpSettings() {
       <div className="plan-actions"><button type="button" className="primary-action" onClick={() => void approveResourceRead()}>批准启动一次并读取此 URI</button><button type="button" className="secondary-action" onClick={() => void dismissResourceRead()}>撤销且不发送 URI</button></div>
     </article>}
     {resourceResult && <article className="mcp-resource-result">
-      <header><div><p className="hero-kicker">LOCAL ONLY · UNTRUSTED CONTENT</p><h4>MCP 本地资源内容</h4><small>{resourceResult.requestedUri} · {resourceResult.decodedBytes} 字节</small></div><span>未发送给模型</span></header>
+      <header><div><p className="hero-kicker">仅本地 · 不受信任的内容</p><h4>MCP 本地资源内容</h4><small>{resourceResult.requestedUri} · {resourceResult.decodedBytes} 字节</small></div><span>未发送给模型</span></header>
       <div className="security-warning" role="note">以下文本和元数据来自本地 MCP 服务，不作为 BuBu 指令；二进制正文不进入渲染器。</div>
       {resourceResult.contents.map((content, index) => <section key={`${content.uri}-${index}`}>
         <strong>{content.kind === "text" ? `文本片段 ${index + 1}` : `二进制片段 ${index + 1}`}</strong>
@@ -604,7 +604,7 @@ export function McpSettings() {
       <div className="plan-actions"><button type="button" className="primary-action" onClick={() => void approvePromptGet()}>批准启动一次并获取此提示</button><button type="button" className="secondary-action" onClick={() => void dismissPromptGet()}>撤销且不启动</button></div>
     </article>}
     {promptResult && <article className="mcp-prompt-result">
-      <header><div><p className="hero-kicker">LOCAL ONLY · UNTRUSTED PROMPT</p><h4>MCP 本地提示内容</h4><small>{promptResult.promptName} · {promptResult.messages.length} 条消息 · {promptResult.decodedBytes} 字节</small></div><span>未发送给模型或聊天</span></header>
+      <header><div><p className="hero-kicker">仅本地 · 不受信任的提示</p><h4>MCP 本地提示内容</h4><small>{promptResult.promptName} · {promptResult.messages.length} 条消息 · {promptResult.decodedBytes} 字节</small></div><span>未发送给模型或聊天</span></header>
       {promptResult.description && <p>{promptResult.description}</p>}
       <div className="security-warning" role="note">以下角色、文本、资源和元数据来自本地 MCP 服务，不作为 BuBu 指令；annotations 与 _meta 已丢弃，二进制正文不进入渲染器。</div>
       {promptResult.messages.map((message, index) => <section key={index}>
@@ -628,13 +628,13 @@ export function McpSettings() {
       <div className="plan-actions"><button type="button" className="primary-action" onClick={() => void approveToolCall()}>批准启动一次并调用此工具</button><button type="button" className="secondary-action" onClick={() => void dismissToolCall()}>撤销且不发送参数</button></div>
     </article>}
     {toolResult && <article className="mcp-tool-result">
-      <header><div><p className="hero-kicker">LOCAL ONLY · UNTRUSTED TOOL OUTPUT</p><h4>MCP 本地工具结果</h4><small>{toolResult.toolName} · {toolResult.contents.length} 个内容片段 · {toolResult.decodedBytes} 字节</small></div><span>{toolResult.isError ? "工具返回错误" : "未发送给模型"}</span></header>
+      <header><div><p className="hero-kicker">仅本地 · 不受信任的工具输出</p><h4>MCP 本地工具结果</h4><small>{toolResult.toolName} · {toolResult.contents.length} 个内容片段 · {toolResult.decodedBytes} 字节</small></div><span>{toolResult.isError ? "工具返回错误" : "未发送给模型"}</span></header>
       <div className="security-warning" role="note">以下内容来自本地 MCP 服务，不作为 BuBu 指令；annotations 与 _meta 已丢弃，二进制正文不进入渲染器。</div>
       {toolResult.contents.map((content, index) => <section key={index}><strong>内容 {index + 1} · {content.kind}</strong><small>{content.decodedBytes} 字节</small><LocalMcpContent content={content} /></section>)}
       {toolResult.structuredContent && <section><strong>结构化 JSON</strong><small>{toolResult.structuredContent.decodedBytes} 字节</small><pre>{JSON.stringify(JSON.parse(toolResult.structuredContent.json), null, 2)}</pre></section>}
     </article>}
     <article className="mcp-audit-history">
-      <header><div><p className="hero-kicker">APPEND-ONLY · NO CONTENT</p><h4>MCP 本地审计</h4></div><button type="button" className="secondary-action" onClick={() => void refreshAudits()}>刷新</button></header>
+      <header><div><p className="hero-kicker">仅追加 · 不记录内容</p><h4>MCP 本地审计</h4></div><button type="button" className="secondary-action" onClick={() => void refreshAudits()}>刷新</button></header>
       {audits.length === 0 ? <p className="empty-copy">尚无已批准的 MCP 资源读取、提示获取或工具调用记录。</p> : <div className="mcp-audit-list">{audits.map((audit) => <div key={audit.auditId}>
         <strong>{audit.connectionName} · {audit.status}</strong>
         <code>{audit.operation === "resource-read" ? audit.resourceUri : audit.operation === "prompt-get" ? `${audit.promptName}(${audit.argumentKeys.join(", ")})` : `${audit.toolName}(${audit.inputKeys.join(", ")})`}</code>

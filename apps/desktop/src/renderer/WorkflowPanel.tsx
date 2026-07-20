@@ -154,7 +154,7 @@ export function WorkflowPanel({
   return (
     <section className="workflow-panel" aria-label="可重复工作流">
       <header className="workflow-header">
-        <div><p className="hero-kicker">REPEATABLE LOCAL AUTOMATION</p><h3>工作流</h3></div>
+        <div><p className="hero-kicker">可复用的本地自动化</p><h3>工作流</h3></div>
         {draft && <div className="workflow-save-controls">
           <select value={triggerPreset} onChange={(event) => setTriggerPreset(event.target.value as TriggerPreset)} aria-label="工作流触发方式">
             <option value="manual">仅手动运行</option>

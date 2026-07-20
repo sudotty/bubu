@@ -19,3 +19,16 @@ npm test -w @bubu/desktop
 npm run build -w @bubu/desktop
 npm run capture:ui
 ```
+
+## Native packaging
+
+Run packaging only on a matching native runner after the root build has produced the correct Go sidecar and Electron package:
+
+```bash
+npm run build
+npm run make -w @bubu/desktop -- --platform=darwin --arch=arm64 --skip-package
+npm run make -w @bubu/desktop -- --platform=darwin --arch=x64 --skip-package
+npm run make -w @bubu/desktop -- --platform=win32 --arch=x64 --skip-package
+```
+
+Local makes are intentionally unsigned. Pull requests run the three-target unsigned native matrix. Protected version tags use the macOS Developer ID/notary and Windows Azure Artifact Signing paths, verify the installed application, and create a draft GitHub Release. Exact variables, credentials, lifecycle evidence, and recovery rules live in [the signed release runbook](../../docs/release/release-runbook.md).

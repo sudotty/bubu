@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 
 const required = [
   ".github/CODEOWNERS",
+  ".github/README.md",
+  ".github/dependabot.yml",
   ".github/pull_request_template.md",
   ".github/ISSUE_TEMPLATE/bug.yml",
   ".github/ISSUE_TEMPLATE/feature.yml",
@@ -33,6 +35,12 @@ if (existsSync(resolve(".github/workflows/release.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/release.yml"), "utf8");
   for (const value of ["environment: release", "Azure/artifact-signing-action@", "xcrun notarytool submit", "--require-signature", "npm sbom", "finalize-release-assets.mjs", "attest-build-provenance@", "--draft", "cancel-in-progress: false"]) {
     if (!workflow.includes(value)) failures.push(`signed release workflow missing ${value}`);
+  }
+}
+if (existsSync(resolve(".github/dependabot.yml"))) {
+  const dependabot = readFileSync(resolve(".github/dependabot.yml"), "utf8");
+  for (const value of ["package-ecosystem: npm", "package-ecosystem: gomod", "package-ecosystem: github-actions", "electron-toolchain:", "timezone: Asia/Shanghai"]) {
+    if (!dependabot.includes(value)) failures.push(`Dependabot contract missing ${value}`);
   }
 }
 if (failures.length > 0) {
