@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -15,12 +16,18 @@ func validateBackupWorkflows(ctx context.Context, database *sql.DB, schemaVersio
 	}
 
 	query := `
-SELECT id, name, target_kind, target_id, timeout_ms, steps_json, deleted_at,
+SELECT id, name, target_kind, target_id, thread_id, timeout_ms, steps_json, deleted_at,
        trigger_json, next_due_at, target_signature
 FROM workflow_definitions`
+	if schemaVersion < 14 {
+		query = `
+SELECT id, name, target_kind, target_id, '', timeout_ms, steps_json, deleted_at,
+       trigger_json, next_due_at, target_signature
+FROM workflow_definitions`
+	}
 	if schemaVersion < 9 {
 		query = `
-SELECT id, name, target_kind, target_id, timeout_ms, steps_json, deleted_at,
+SELECT id, name, target_kind, target_id, '', timeout_ms, steps_json, deleted_at,
        '{"kind":"manual"}', NULL, ''
 FROM workflow_definitions`
 	}
@@ -37,7 +44,7 @@ FROM workflow_definitions`
 		var nextDueAt sql.NullString
 		if err := rows.Scan(
 			&input.ID, &input.Name, &input.Target.Kind, &input.Target.ID,
-			&input.TimeoutMS, &rawSteps, &deletedAt, &rawTrigger, &nextDueAt, &targetSignature,
+			&input.ThreadID, &input.TimeoutMS, &rawSteps, &deletedAt, &rawTrigger, &nextDueAt, &targetSignature,
 		); err != nil {
 			return fmt.Errorf("scan backup workflow: %w", err)
 		}
@@ -49,6 +56,9 @@ FROM workflow_definitions`
 		input.Trigger, err = decodeWorkflowTrigger(rawTrigger)
 		if err != nil {
 			return err
+		}
+		if schemaVersion < 14 {
+			input.ThreadID = strings.Repeat("0", 32)
 		}
 		if err := validateWorkflowDefinitionInput(input); err != nil {
 			_ = rows.Close()

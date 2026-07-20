@@ -224,10 +224,11 @@ func questionTitle(payload json.RawMessage) (string, error) {
 	return title, nil
 }
 
-func appendExistingConversationEntry(
+func appendConversationEntryToThread(
 	ctx context.Context,
 	transaction *sql.Tx,
 	target ConversationTarget,
+	threadID string,
 	entry ConversationEntryInput,
 	createdAt string,
 ) error {
@@ -237,15 +238,17 @@ func appendExistingConversationEntry(
 	if err := validateConversationEntry(entry); err != nil {
 		return err
 	}
-	var threadID string
 	var nextOrdinal int
+	if !objectID.MatchString(threadID) {
+		return errors.New("triggered workflow conversation thread is invalid")
+	}
 	if err := transaction.QueryRowContext(ctx, `
-SELECT threads.id, COALESCE(MAX(entries.ordinal), 0) + 1
+SELECT COALESCE(MAX(entries.ordinal), 0) + 1
 FROM conversation_threads threads
 LEFT JOIN conversation_entries entries ON entries.thread_id = threads.id
-WHERE threads.target_kind = ? AND threads.target_id = ?
-GROUP BY threads.id`, target.Kind, target.ID).Scan(&threadID, &nextOrdinal); errors.Is(err, sql.ErrNoRows) {
-		return errors.New("triggered workflow requires an existing reviewed conversation")
+WHERE threads.id = ? AND threads.target_kind = ? AND threads.target_id = ? AND threads.archived_at IS NULL
+GROUP BY threads.id`, threadID, target.Kind, target.ID).Scan(&nextOrdinal); errors.Is(err, sql.ErrNoRows) {
+		return errors.New("triggered workflow conversation was not found or is archived")
 	} else if err != nil {
 		return fmt.Errorf("load triggered workflow conversation: %w", err)
 	}

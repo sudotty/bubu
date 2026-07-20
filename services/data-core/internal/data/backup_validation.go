@@ -146,6 +146,9 @@ func backupSchemaObjects(schemaVersion int) (map[string]bool, map[string]bool) {
 	if schemaVersion >= 13 {
 		indexes["conversation_threads_target_updated_idx"] = true
 	}
+	if schemaVersion >= 14 {
+		indexes["workflow_definitions_thread_idx"] = true
+	}
 	if schemaVersion >= 5 {
 		tables["dataset_validation_rules"] = true
 	}

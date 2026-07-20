@@ -22,6 +22,9 @@ var workflowStepID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 var workflowIdempotencyKey = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 func validateWorkflowDefinitionInput(input WorkflowDefinitionInput) error {
+	if !objectID.MatchString(input.ThreadID) {
+		return errors.New("workflow conversation thread is invalid")
+	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.ID != "" && !objectID.MatchString(input.ID) {
 		return errors.New("workflow id is invalid")

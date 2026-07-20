@@ -38,11 +38,11 @@ func TestOpenUpgradesAVersionOneCatalog(t *testing.T) {
 
 	service := openTestService(t, dataDirectory)
 	var applied int
-	if err := service.database.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version IN (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)").Scan(&applied); err != nil {
+	if err := service.database.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version IN (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)").Scan(&applied); err != nil {
 		t.Fatal(err)
 	}
-	if applied != 11 {
-		t.Fatal("version 2 through 12 migrations were not applied")
+	if applied != 13 {
+		t.Fatal("version 2 through 14 migrations were not applied")
 	}
 }
 
