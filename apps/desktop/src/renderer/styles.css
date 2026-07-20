@@ -296,6 +296,21 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 
 .settings-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(360px, 1.15fr); gap: 20px; max-width: 1100px; }
 .settings-workbench { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 26px; max-width: 1240px; }
+.settings-health { grid-column: 1 / -1; display: grid; gap: 14px; padding: 18px 20px; border: 1px solid #ded8cc; border-radius: 16px; background: #fffdf9; }
+.settings-health > header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.settings-health h3 { margin: 0; }
+.settings-health > header > span { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.settings-health .health-ready { color: #336d50; background: #dfeee4; }
+.settings-health .health-warning { color: #8e4b38; background: #f3dfd8; }
+.settings-health > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.settings-health > div > button, .settings-health > div > div { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 11px; border: 1px solid #e0d9cd; border-radius: 11px; text-align: left; color: #514b42; background: #f7f4ee; }
+.settings-health > div > button { cursor: pointer; }
+.settings-health > div > button:hover { border-color: #bcae98; background: #fffdf9; }
+.settings-health > div span { display: grid; gap: 3px; min-width: 0; }
+.settings-health > div small { font-size: 10px; line-height: 1.4; color: #817a70; }
+.recovery-guidance { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: #f1eee7; }
+.recovery-guidance ol { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: #625c53; }
+.recovery-guidance p { margin: 0; color: #7a7165; }
 .settings-nav { display: grid; align-content: start; gap: 7px; padding: 16px 10px; border: 1px solid #ded8cc; border-radius: 16px; background: #f1eee7; }
 .settings-nav .hero-kicker { padding: 0 9px; }
 .settings-nav button { display: grid; gap: 4px; padding: 11px 10px; border: 0; border-radius: 10px; text-align: left; color: #4d473f; background: transparent; cursor: pointer; }
