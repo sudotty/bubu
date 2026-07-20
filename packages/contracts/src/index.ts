@@ -12,6 +12,7 @@ export * from "./group-query-plan.js";
 export * from "./lifecycle.js";
 export * from "./operation.js";
 export * from "./privacy.js";
+export * from "./product-metrics.js";
 export * from "./provider.js";
 export * from "./quality.js";
 export * from "./relationship.js";

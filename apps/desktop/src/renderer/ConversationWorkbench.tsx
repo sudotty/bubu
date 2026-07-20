@@ -1,6 +1,7 @@
 import { Archive, ArchiveRestore, List, MessageSquarePlus, MoreHorizontal, PanelRight, Pencil, RotateCcw, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ConversationTarget, ConversationThreadSummary } from "../shared/product-api.js";
+import { recordProductMetric } from "./product-metrics.js";
 
 function timeLabel(iso: string): string {
   const date = new Date(iso);
@@ -30,6 +31,25 @@ export function ConversationWorkbench({
   const [lastArchived, setLastArchived] = useState<ConversationThreadSummary>();
   const [notice, setNotice] = useState<string>();
   const [compactPane, setCompactPane] = useState<"threads" | "artifacts">();
+  const workbenchRef = useRef<HTMLElement>(null);
+  const compactReturnFocus = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!compactPane) return;
+    const selector = compactPane === "threads" ? ".thread-sidebar" : ".artifact-inspector";
+    const timer = window.setTimeout(() => workbenchRef.current?.querySelector<HTMLElement>(`${selector} button, ${selector} input, ${selector} [tabindex='0']`)?.focus({ preventScroll: true }), 0);
+    return () => window.clearTimeout(timer);
+  }, [compactPane]);
+
+  function toggleCompactPane(pane: "threads" | "artifacts", button: HTMLButtonElement): void {
+    compactReturnFocus.current = button;
+    setCompactPane((current) => current === pane ? undefined : pane);
+  }
+
+  function closeCompactPane(): void {
+    setCompactPane(undefined);
+    requestAnimationFrame(() => compactReturnFocus.current?.focus());
+  }
 
   async function load(): Promise<void> {
     const [next, archived] = await Promise.all([
@@ -108,8 +128,8 @@ export function ConversationWorkbench({
     }
   }
 
-  return <section className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`}>
-    <nav className="workbench-compact-nav" aria-label="任务工作区面板"><button type="button" className="workbench-task-toggle" aria-pressed={compactPane === "threads"} onClick={() => setCompactPane((current) => current === "threads" ? undefined : "threads")}><List size={16} />任务</button><button type="button" aria-pressed={compactPane === "artifacts"} onClick={() => setCompactPane((current) => current === "artifacts" ? undefined : "artifacts")}><PanelRight size={16} />结果</button>{compactPane && <button type="button" aria-label="关闭侧面板" onClick={() => setCompactPane(undefined)}><X size={16} /></button>}</nav>
+  return <section ref={workbenchRef} className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`} onKeyDown={(event) => { if (event.key === "Escape" && compactPane) { event.preventDefault(); closeCompactPane(); } }}>
+    <nav className="workbench-compact-nav" aria-label="任务工作区面板"><button type="button" className="workbench-task-toggle" aria-pressed={compactPane === "threads"} onClick={(event) => toggleCompactPane("threads", event.currentTarget)}><List size={16} />任务</button><button type="button" aria-pressed={compactPane === "artifacts"} onClick={(event) => toggleCompactPane("artifacts", event.currentTarget)}><PanelRight size={16} />结果</button>{compactPane && <button type="button" aria-label="关闭侧面板" onClick={closeCompactPane}><X size={16} /></button>}</nav>
     <div className="conversation-workbench-layout">
     <aside className="thread-sidebar" aria-label="对话线程">
       <header>
@@ -130,7 +150,7 @@ export function ConversationWorkbench({
       </div>
       {archivedThreads.length > 0 && <details className="archived-threads"><summary><ArchiveRestore size={14} />已归档（{archivedThreads.length}）</summary><div>{archivedThreads.map((thread) => <button type="button" key={thread.id} onClick={() => void restoreThread(thread.id)} disabled={busy}><span><strong>{thread.title}</strong><small>{timeLabel(thread.updatedAt)}</small></span><ArchiveRestore size={14} /></button>)}</div></details>}
     </aside>
-    <div className="conversation-stage">{children(activeThreadId, createThread, () => setCompactPane("artifacts"))}</div>
+    <div className="conversation-stage">{children(activeThreadId, createThread, () => { if (document.activeElement instanceof HTMLButtonElement) compactReturnFocus.current = document.activeElement; setCompactPane("artifacts"); recordProductMetric({ name: "artifact_opened", targetKind: target.kind, outcome: "succeeded" }); })}</div>
     {inspector && <aside className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
     </div>
   </section>;

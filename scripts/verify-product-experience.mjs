@@ -19,6 +19,8 @@ requireText(conversations, [
   "conversations.list(target, true)",
   "archived: false",
   "thread-undo",
+  "compactReturnFocus",
+  'event.key === "Escape"',
 ], "conversation lifecycle");
 if (read("apps/desktop/src/renderer/DatasetAnalysis.tsx").includes("请先在左侧") || read("apps/desktop/src/renderer/DatasetGroupAnalysis.tsx").includes("请先在左侧")) {
   failures.push("empty task guidance must not reference a pane that adaptive layout can hide");
@@ -109,6 +111,10 @@ requireText(manifest, [
   "actionable-settings-health: implemented",
   "refreshable-settings-diagnostics: implemented",
   "settings-list-detail-navigation: implemented",
+  "keyboard-managed-compact-panels: implemented",
+  "artifact-tab-keyboard-navigation: implemented",
+  "privacy-preserving-local-product-metrics: implemented",
+  "product-metrics-content-verifier: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
 ], "product manifest");

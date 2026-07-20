@@ -127,6 +127,10 @@ capabilities:
   actionable-settings-health: implemented
   refreshable-settings-diagnostics: implemented
   settings-list-detail-navigation: implemented
+  keyboard-managed-compact-panels: implemented
+  artifact-tab-keyboard-navigation: implemented
+  privacy-preserving-local-product-metrics: implemented
+  product-metrics-content-verifier: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   reduced-motion-interface: implemented

@@ -47,6 +47,7 @@ import { registerMcpPromptApi } from "./mcp-prompt-api.js";
 import { createMcpToolApprovalSessionStore } from "./mcp-tool-approval-sessions.js";
 import { registerMcpToolApi } from "./mcp-tool-api.js";
 import { registerArtifactApi } from "./artifact-api.js";
+import { createProductMetricsStore } from "./product-metrics.js";
 
 interface DesktopApiDependencies {
   readonly sidecars: SidecarSupervisor;
@@ -55,6 +56,7 @@ interface DesktopApiDependencies {
   readonly mcpAuditStore: McpAuditStore;
   readonly mcpRuntimeDirectory: string;
   readonly developmentServerUrl: string | undefined;
+  readonly metricsDirectory: string;
 }
 
 export function registerDesktopApi({
@@ -64,12 +66,14 @@ export function registerDesktopApi({
   mcpAuditStore,
   mcpRuntimeDirectory,
   developmentServerUrl,
+  metricsDirectory,
 }: DesktopApiDependencies): void {
   const replacementSessions = createReplacementSessionStore({
     now: Date.now,
     newToken: () => randomBytes(16).toString("hex"),
   });
   const operations = createOperationRegistry();
+  const metrics = createProductMetricsStore(metricsDirectory);
   const aggregateApprovals = createAggregateApprovalSessionStore({
     now: Date.now,
     newToken: () => randomBytes(32).toString("hex"),
@@ -147,6 +151,10 @@ export function registerDesktopApi({
     assertTrustedSender(event.senderFrame?.url ?? "");
     const operationId = parseOperationId(value);
     return { operationId, cancelled: operations.cancel(operationId) };
+  });
+  ipcMain.handle(desktopChannels.recordProductMetric, async (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    await metrics.record(value);
   });
 
   ipcMain.handle(desktopChannels.getReadiness, (event) => {
