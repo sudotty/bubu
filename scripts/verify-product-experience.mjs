@@ -65,7 +65,7 @@ requireText(artifacts, [
   "pinnedArtifactKey",
   "exportReport",
 ], "artifact workbench");
-requireText(read("apps/desktop/src/main.ts"), ["04-artifact.png", "结果抽屉或图表超出工作台", "setTimeout(resolve, 220)", "useContentSize: true"], "settled packaged Artifact evidence");
+requireText(read("apps/desktop/src/main.ts"), ["04-artifact.png", "结果抽屉或图表超出工作台", "inspector.getAnimations()", "inspectorScrollWidth - measurements.inspectorClientWidth", "useContentSize: true"], "settled packaged Artifact evidence");
 const artifactBoundary = read("apps/desktop/src/main/artifact-api.ts");
 requireText(artifactBoundary, ["parseArtifactTableActionInput", "clipboard.writeText", "showSaveDialog", "artifactCsv", "artifactTsv", "artifactHtmlReport"], "artifact desktop boundary");
 const visualization = read("packages/contracts/src/visualization.ts");

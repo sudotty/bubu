@@ -255,24 +255,34 @@ async function verifySmokeRenderer(
   `);
   await captureSmokeStep(window, screenshotDirectory, "02-chat.png");
   const artifactLayout = await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
+    new Promise(async (resolve) => {
       const workbench = document.querySelector(".conversation-workbench");
       const resultButton = Array.from(document.querySelectorAll(".workbench-compact-nav button")).find((button) => button.textContent?.includes("结果"));
       if (!(workbench instanceof HTMLElement) || !(resultButton instanceof HTMLButtonElement)) return resolve({ ok: false, missing: ["结果抽屉按钮"] });
       resultButton.click();
-      setTimeout(() => {
-        const inspector = workbench.querySelector(".artifact-inspector");
-        const chart = inspector?.querySelector(".result-visualization");
-        if (!(inspector instanceof HTMLElement) || !(chart instanceof HTMLElement)) return resolve({ ok: false, missing: ["结果抽屉或可视化"] });
-        const workbenchRect = workbench.getBoundingClientRect();
-        const inspectorRect = inspector.getBoundingClientRect();
-        const chartRect = chart.getBoundingClientRect();
-        const contained = inspectorRect.left >= workbenchRect.left - 1 && inspectorRect.right <= workbenchRect.right + 1 && chartRect.left >= inspectorRect.left - 1 && chartRect.right <= inspectorRect.right + 1;
-        resolve({ ok: contained, missing: contained ? [] : ["结果抽屉或图表超出工作台"] });
-      }, 220);
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const inspector = workbench.querySelector(".artifact-inspector");
+      const chart = inspector?.querySelector(".result-visualization");
+      if (!(inspector instanceof HTMLElement) || !(chart instanceof HTMLElement)) return resolve({ ok: false, missing: ["结果抽屉或可视化"] });
+      await Promise.all(inspector.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const measurements = {
+        workbenchWidth: workbench.clientWidth,
+        inspectorOffset: inspector.offsetLeft,
+        inspectorWidth: inspector.offsetWidth,
+        inspectorClientWidth: inspector.clientWidth,
+        inspectorScrollWidth: inspector.scrollWidth,
+        chartClientWidth: chart.clientWidth,
+        chartScrollWidth: chart.scrollWidth,
+      };
+      const contained = measurements.inspectorOffset >= -1
+        && measurements.inspectorOffset + measurements.inspectorWidth <= measurements.workbenchWidth + 1
+        && measurements.inspectorScrollWidth - measurements.inspectorClientWidth <= 1
+        && measurements.chartScrollWidth - measurements.chartClientWidth <= 1;
+      resolve({ ok: contained, missing: contained ? [] : ["结果抽屉或图表超出工作台"], measurements });
     })
-  `) as { readonly ok: boolean; readonly missing: readonly string[] };
-  if (!artifactLayout.ok) throw new Error(`Packaged renderer Artifact layout failed: ${artifactLayout.missing.join(", ")}`);
+  `) as { readonly ok: boolean; readonly missing: readonly string[]; readonly measurements?: Readonly<Record<string, number>> };
+  if (!artifactLayout.ok) throw new Error(`Packaged renderer Artifact layout failed: ${artifactLayout.missing.join(", ")} ${JSON.stringify(artifactLayout.measurements ?? {})}`);
   await captureSmokeStep(window, screenshotDirectory, "04-artifact.png");
   await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
