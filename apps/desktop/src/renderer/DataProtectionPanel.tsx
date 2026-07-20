@@ -84,6 +84,7 @@ export function DataProtectionPanel({
         </button>
       )}
       <small>恢复前会验证格式、摘要、SQLite 完整性、迁移和隐私边界；验证失败不会替换当前数据。</small>
+      <div className="recovery-guidance"><strong>恢复会发生什么？</strong><ol><li>选择本地 `.bubu-backup` 文件。</li><li>先验证摘要、结构和隐私约束，当前数据保持不变。</li><li>验证通过后原子替换本地目录，并重新加载数据联系人。</li></ol><p>恢复不会导入模型或 MCP 密钥；请在新设备上重新配置凭据。</p></div>
     </section>
   );
 }
