@@ -6,10 +6,10 @@ import {
   parseAggregateExplanationApproval,
   parseAggregateExplanationPreparation,
   parseGroupQueryRequest,
+  parseGroupQueryPlanExecutionRequest,
   parseOperationEnvelope,
   parseQueryPlanRequest,
-  parseSafeGroupQueryPlan,
-  parseSafeQueryPlan,
+  parseQueryPlanExecutionRequest,
 } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
 import {
@@ -277,16 +277,19 @@ export function registerAnalysisApi({
   ipcMain.handle(desktopChannels.executeQueryPlan, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     const envelope = parseOperationEnvelope(value);
-    const plan = parseSafeQueryPlan(envelope.value);
+    const execution = parseQueryPlanExecutionRequest(envelope.value);
+    const { plan, threadId } = execution;
     const target = { kind: "dataset", id: plan.datasetId } as const;
     return operations.run(envelope.operationId, async (signal) => {
-      if (!containsProposedPlan(await sidecars.getConversation(target), plan)) {
+      const thread = await sidecars.getConversationByID(threadId);
+      if (!thread || thread.target.kind !== target.kind || thread.target.id !== target.id || !containsProposedPlan(thread, plan)) {
         throw new Error("只能执行已经生成并审查的查询计划");
       }
       try {
         const result = await sidecars.executeQueryPlan(plan, signal);
         await sidecars.appendConversation({
           target,
+          threadId,
           entry: { kind: "result", role: "assistant", payload: { result, sourcePlan: plan } },
         });
         return result;
@@ -360,16 +363,19 @@ export function registerAnalysisApi({
   ipcMain.handle(desktopChannels.executeGroupQueryPlan, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     const envelope = parseOperationEnvelope(value);
-    const plan = parseSafeGroupQueryPlan(envelope.value);
+    const execution = parseGroupQueryPlanExecutionRequest(envelope.value);
+    const { plan, threadId } = execution;
     const target = { kind: "group", id: plan.groupId } as const;
     return operations.run(envelope.operationId, async (signal) => {
-      if (!containsProposedPlan(await sidecars.getConversation(target), plan)) {
+      const thread = await sidecars.getConversationByID(threadId);
+      if (!thread || thread.target.kind !== target.kind || thread.target.id !== target.id || !containsProposedPlan(thread, plan)) {
         throw new Error("只能执行已经生成并审查的群组计划");
       }
       try {
         const result = await sidecars.executeGroupQueryPlan(plan, signal);
         await sidecars.appendConversation({
           target,
+          threadId,
           entry: { kind: "result", role: "assistant", payload: { result, sourcePlan: plan } },
         });
         return result;

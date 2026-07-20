@@ -18,7 +18,7 @@ export function ConversationWorkbench({
   readonly target: ConversationTarget;
   readonly title: string;
   readonly subtitle: string;
-  readonly inspector?: ReactNode;
+  readonly inspector?: (threadId: string | undefined) => ReactNode;
   readonly children: (threadId: string | undefined) => ReactNode;
 }) {
   const [threads, setThreads] = useState<readonly ConversationThreadSummary[]>([]);
@@ -76,6 +76,6 @@ export function ConversationWorkbench({
       </div>
     </aside>
     <div className="conversation-stage">{children(activeThreadId)}</div>
-    {inspector && <aside className="artifact-inspector" aria-label="结果与数据检查器">{inspector}</aside>}
+    {inspector && <aside className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
   </section>;
 }

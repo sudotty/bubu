@@ -42,12 +42,14 @@ import {
   type ProviderRegistryState,
   type QueryPlanProposal,
   type QueryPlanRequest,
+  type QueryPlanExecutionRequest,
   type SafeQueryPlan,
   type SafeQueryResult,
   type ProductReadiness,
   type GroupQueryPlanProposal,
   type GroupRelationshipOverview,
   type GroupQueryRequest,
+  type GroupQueryPlanExecutionRequest,
   type OperationCancellationResult,
   type OperationId,
   type SafeGroupQueryPlan,
@@ -163,12 +165,12 @@ const desktopApi: BuBuDesktopApi = {
   analysis: {
     propose: (value: QueryPlanRequest, operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.proposeQueryPlan, { operationId, value }) as Promise<QueryPlanProposal>,
-    execute: (plan: SafeQueryPlan, operationId: OperationId) =>
-      ipcRenderer.invoke(desktopChannels.executeQueryPlan, { operationId, value: plan }) as Promise<SafeQueryResult>,
+    execute: (value: QueryPlanExecutionRequest, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.executeQueryPlan, { operationId, value }) as Promise<SafeQueryResult>,
     proposeGroup: (value: GroupQueryRequest, operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.proposeGroupQueryPlan, { operationId, value }) as Promise<GroupQueryPlanProposal>,
-    executeGroup: (plan: SafeGroupQueryPlan, operationId: OperationId) =>
-      ipcRenderer.invoke(desktopChannels.executeGroupQueryPlan, { operationId, value: plan }) as Promise<SafeGroupQueryResult>,
+    executeGroup: (value: GroupQueryPlanExecutionRequest, operationId: OperationId) =>
+      ipcRenderer.invoke(desktopChannels.executeGroupQueryPlan, { operationId, value }) as Promise<SafeGroupQueryResult>,
     prepareAggregateExplanation: (value: AggregateExplanationPreparation) =>
       ipcRenderer.invoke(desktopChannels.prepareAggregateExplanation, value) as Promise<AggregateExplanationProposal>,
     approveAggregateExplanation: (value: AggregateExplanationApproval, operationId: OperationId) =>

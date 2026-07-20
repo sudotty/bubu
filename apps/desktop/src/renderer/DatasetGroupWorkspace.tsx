@@ -3,6 +3,7 @@ import type { DatasetGroup, DatasetSummary } from "../shared/product-api.js";
 import { DatasetGroupAnalysis } from "./DatasetGroupAnalysis.js";
 import { DatasetRelationshipPanel } from "./DatasetRelationshipPanel.js";
 import { ConversationWorkbench } from "./ConversationWorkbench.js";
+import { ArtifactInspector } from "./ArtifactInspector.js";
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "数据群组操作失败";
@@ -81,7 +82,9 @@ export function DatasetGroupWorkspace({
         {group && <span className="mode-pill">{group.members.length} 个成员</span>}
       </header>
       {notice && <div className="notice" role="status">{notice}</div>}
-      <div className="group-editor">
+      <details className="group-editor" open={group === undefined}>
+        <summary>{group ? "编辑群组成员与关联范围" : "配置新群组"}</summary>
+        <div className="group-editor-body">
         <label>
           <span>群组名称</span>
           <input value={name} onChange={(event) => setName(event.target.value)} maxLength={100} placeholder="例如：销售与目标对比" />
@@ -108,11 +111,11 @@ export function DatasetGroupWorkspace({
           </button>
           {group && <button type="button" className="secondary-action" onClick={() => void remove()} disabled={busy}>删除群组</button>}
         </div>
-      </div>
-      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。">
+        </div>
+      </details>
+      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。" inspector={(threadId) => <ArtifactInspector target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">GROUP INSPECTOR</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
         {(threadId) => <DatasetGroupAnalysis group={group} threadId={threadId} />}
       </ConversationWorkbench>}
-      {group && <section className="group-inspector"><DatasetRelationshipPanel group={group} /></section>}
     </section>
   );
 }

@@ -98,7 +98,8 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
     try {
-      setResult(await window.bubu.analysis.execute(proposal.plan, nextOperationId));
+      if (!threadId) throw new Error("请先创建或选择一个对话任务");
+      setResult(await window.bubu.analysis.execute({ plan: proposal.plan, threadId }, nextOperationId));
       setState("complete");
     } catch (reason) {
       setError(messageFrom(reason));
@@ -123,7 +124,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
         <span className="mode-pill">计划批准后才查询</span>
       </header>
 
-      <ConversationHistory thread={history} />
+      <ConversationHistory thread={history} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
 
       {submittedQuestion && (
         <div className="question-bubble">
@@ -190,6 +191,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
           {result.rows.length === 0 && <p className="empty-copy">这个计划没有找到匹配的数据。</p>}
         </article>
         <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "查询结果"} />
+        <article className="assistant-conclusion"><p className="hero-kicker">BUBU · LOCAL RESULT</p><strong>结果已准备好。</strong><p>我已在本地执行经过审查的计划。右侧可继续查看数据、图表、计划与审计证据。</p></article>
         </>
       )}
 
