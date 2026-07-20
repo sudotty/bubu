@@ -44,9 +44,11 @@ function runLabel(status: WorkflowRun["status"]): string {
 
 export function WorkflowPanel({
   target,
+  threadId,
   draft,
 }: {
   readonly target: WorkflowTarget;
+  readonly threadId: string;
   readonly draft?: WorkflowDraft | undefined;
 }) {
   const [workflows, setWorkflows] = useState<readonly WorkflowDefinition[]>([]);
@@ -99,6 +101,7 @@ export function WorkflowPanel({
       const saved = await window.bubu.workflows.save({
         name,
         target,
+        threadId,
         trigger: triggerFromPreset(triggerPreset),
         timeoutMs: 60_000,
         steps: [step],

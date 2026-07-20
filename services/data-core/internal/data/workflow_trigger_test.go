@@ -19,12 +19,13 @@ func TestIntervalWorkflowTriggerPersistsAndRunsIdempotently(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	input := datasetWorkflowInput(dataset, 1)
+	input := datasetWorkflowInput(t, service, dataset, 1)
 	input.Trigger = WorkflowTrigger{Kind: "interval", EveryMinutes: 24 * 60}
 	definition, err := service.SaveWorkflow(context.Background(), input)
 	if err != nil {
 		t.Fatal(err)
 	}
+	distractorID := workflowThreadID(t, service, ConversationTarget{Kind: "dataset", ID: dataset.ID})
 	if definition.NextDueAt == nil {
 		t.Fatal("interval workflow did not persist its next due time")
 	}
@@ -50,9 +51,13 @@ func TestIntervalWorkflowTriggerPersistsAndRunsIdempotently(t *testing.T) {
 	if err != nil || finished.Status != "succeeded" {
 		t.Fatalf("trigger event did not finish: %#v, %v", finished, err)
 	}
-	thread, err := service.GetConversation(context.Background(), ConversationTarget{Kind: "dataset", ID: dataset.ID})
+	thread, err := service.GetConversationByID(context.Background(), definition.ThreadID)
 	if err != nil || thread == nil || len(thread.Entries) != 2 || thread.Entries[1].Kind != "result" {
 		t.Fatalf("triggered result was not delivered atomically to the conversation: %#v, %v", thread, err)
+	}
+	distractor, err := service.GetConversationByID(context.Background(), distractorID)
+	if err != nil || distractor == nil || len(distractor.Entries) != 1 {
+		t.Fatalf("triggered result leaked into another thread: %#v, %v", distractor, err)
 	}
 	var delivered struct {
 		SourcePlan *SafeQueryPlan `json:"sourcePlan"`
@@ -65,7 +70,7 @@ func TestIntervalWorkflowTriggerPersistsAndRunsIdempotently(t *testing.T) {
 
 func TestDatasetVersionTriggerFiresOnlyAfterReplacement(t *testing.T) {
 	service, dataset := importQueryFixture(t)
-	input := datasetWorkflowInput(dataset, 1)
+	input := datasetWorkflowInput(t, service, dataset, 1)
 	input.Trigger = WorkflowTrigger{Kind: "dataset-version"}
 	definition, err := service.SaveWorkflow(context.Background(), input)
 	if err != nil {
@@ -98,7 +103,7 @@ func TestInterruptedTriggeredRunBecomesDeliverableFailure(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	input := datasetWorkflowInput(dataset, 1)
+	input := datasetWorkflowInput(t, service, dataset, 1)
 	input.Trigger = WorkflowTrigger{Kind: "interval", EveryMinutes: 60}
 	definition, err := service.SaveWorkflow(context.Background(), input)
 	if err != nil {
@@ -135,7 +140,8 @@ func TestGroupVersionTriggerTracksOrderedMemberVersions(t *testing.T) {
 	service, group := importGroupQueryFixture(t)
 	definition, err := service.SaveWorkflow(context.Background(), WorkflowDefinitionInput{
 		Name: "Group lookup", Target: WorkflowTarget{Kind: "group", ID: group.ID},
-		Trigger: WorkflowTrigger{Kind: "dataset-version"}, TimeoutMS: 60_000,
+		ThreadID: workflowThreadID(t, service, ConversationTarget{Kind: "group", ID: group.ID}),
+		Trigger:  WorkflowTrigger{Kind: "dataset-version"}, TimeoutMS: 60_000,
 		Steps: []WorkflowStepDefinition{{
 			ID: "group-lookup", Kind: "group-query", MaximumAttempts: 1,
 			GroupPlan: groupPlanPointer(baseGroupQueryPlan(group)),

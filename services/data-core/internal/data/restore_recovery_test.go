@@ -83,7 +83,7 @@ END`); err != nil {
 
 func TestBackupValidationRejectsForgedWorkflowArtifacts(t *testing.T) {
 	service, dataset := importQueryFixture(t)
-	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(dataset, 1))
+	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(t, service, dataset, 1))
 	if err != nil {
 		t.Fatal(err)
 	}

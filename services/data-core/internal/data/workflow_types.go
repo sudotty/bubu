@@ -22,6 +22,7 @@ type WorkflowDefinitionInput struct {
 	ID        string                   `json:"id,omitempty"`
 	Name      string                   `json:"name"`
 	Target    WorkflowTarget           `json:"target"`
+	ThreadID  string                   `json:"threadId"`
 	Trigger   WorkflowTrigger          `json:"trigger"`
 	TimeoutMS int                      `json:"timeoutMs"`
 	Steps     []WorkflowStepDefinition `json:"steps"`
@@ -31,6 +32,7 @@ type WorkflowDefinition struct {
 	ID        string                   `json:"id"`
 	Name      string                   `json:"name"`
 	Target    WorkflowTarget           `json:"target"`
+	ThreadID  string                   `json:"threadId"`
 	Trigger   WorkflowTrigger          `json:"trigger"`
 	TimeoutMS int                      `json:"timeoutMs"`
 	Steps     []WorkflowStepDefinition `json:"steps"`

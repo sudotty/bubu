@@ -9,10 +9,28 @@ import (
 	"testing"
 )
 
-func datasetWorkflowInput(dataset DatasetSummary, maximumAttempts int) WorkflowDefinitionInput {
+func workflowThreadID(t *testing.T, service *Service, target ConversationTarget) string {
+	t.Helper()
+	created, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target, Title: "Reviewed workflow plan"})
+	if err != nil || created == nil {
+		t.Fatalf("create workflow conversation: %#v, %v", created, err)
+	}
+	thread, err := service.AppendConversationEntry(context.Background(), ConversationAppendInput{
+		Target:   target,
+		ThreadID: created.ID,
+		Entry:    ConversationEntryInput{Kind: "question", Role: "user", Payload: json.RawMessage(`{"question":"Reviewed workflow plan"}`)},
+	})
+	if err != nil || thread == nil {
+		t.Fatalf("create workflow conversation: %#v, %v", thread, err)
+	}
+	return thread.ID
+}
+
+func datasetWorkflowInput(t *testing.T, service *Service, dataset DatasetSummary, maximumAttempts int) WorkflowDefinitionInput {
 	return WorkflowDefinitionInput{
 		Name:      "Regional totals",
 		Target:    WorkflowTarget{Kind: "dataset", ID: dataset.ID},
+		ThreadID:  workflowThreadID(t, service, ConversationTarget{Kind: "dataset", ID: dataset.ID}),
 		Trigger:   WorkflowTrigger{Kind: "manual"},
 		TimeoutMS: 60_000,
 		Steps: []WorkflowStepDefinition{{
@@ -29,7 +47,7 @@ func datasetWorkflowInput(dataset DatasetSummary, maximumAttempts int) WorkflowD
 
 func TestWorkflowPersistsVersionedDefinitionsAndIdempotentCheckpoints(t *testing.T) {
 	service, dataset := importQueryFixture(t)
-	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(dataset, 2))
+	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(t, service, dataset, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +79,7 @@ func TestWorkflowPersistsVersionedDefinitionsAndIdempotentCheckpoints(t *testing
 
 func TestWorkflowRebindsACompatibleCurrentDatasetVersion(t *testing.T) {
 	service, dataset := importQueryFixture(t)
-	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(dataset, 1))
+	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(t, service, dataset, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,11 +105,11 @@ func TestWorkflowRebindsACompatibleCurrentDatasetVersion(t *testing.T) {
 
 func TestWorkflowRetriesBoundedFailuresAndRetiresWithItsTarget(t *testing.T) {
 	service, dataset := importQueryFixture(t)
-	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(dataset, 2))
+	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(t, service, dataset, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
-	corrupt := datasetWorkflowInput(dataset, 2).Steps
+	corrupt := datasetWorkflowInput(t, service, dataset, 2).Steps
 	corrupt[0].Plan.Dimensions = []string{"Missing"}
 	raw, _ := json.Marshal(corrupt)
 	if _, err := service.database.Exec("UPDATE workflow_definitions SET steps_json = ? WHERE id = ?", string(raw), definition.ID); err != nil {
@@ -113,7 +131,7 @@ func TestWorkflowRetriesBoundedFailuresAndRetiresWithItsTarget(t *testing.T) {
 
 func TestWorkflowCancellationAfterRunStartPersistsTerminalAudit(t *testing.T) {
 	service, dataset := importQueryFixture(t)
-	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(dataset, 1))
+	definition, err := service.SaveWorkflow(context.Background(), datasetWorkflowInput(t, service, dataset, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,8 +159,8 @@ func TestWorkflowCancellationAfterRunStartPersistsTerminalAudit(t *testing.T) {
 }
 
 func TestWorkflowResolvedInputsRejectUntypedArtifacts(t *testing.T) {
-	_, dataset := importQueryFixture(t)
-	plan := datasetWorkflowInput(dataset, 1).Steps[0].Plan
+	service, dataset := importQueryFixture(t)
+	plan := datasetWorkflowInput(t, service, dataset, 1).Steps[0].Plan
 	raw, err := json.Marshal(plan)
 	if err != nil {
 		t.Fatal(err)
