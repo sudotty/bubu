@@ -160,6 +160,12 @@ capabilities:
   dual-backend-windows-signing-config: implemented
   packaged-backup-restore-smoke: implemented
   native-installer-lifecycle-smoke: implemented
+  native-package-matrix-ci: implemented
+  deterministic-release-asset-naming: implemented
+  draft-github-release-pipeline: implemented
+  release-checksums: implemented
+  cyclonedx-release-sbom: implemented
+  conditional-build-provenance-attestations: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented

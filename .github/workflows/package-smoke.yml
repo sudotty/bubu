@@ -1,0 +1,72 @@
+name: Native package smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-package-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS 13+ arm64
+            runner: macos-15
+            platform: darwin
+            arch: arm64
+            installer: apps/desktop/out/make/BuBu.dmg
+          - name: macOS 13+ x64
+            runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            installer: apps/desktop/out/make/BuBu.dmg
+          - name: Windows 10 22H2+ x64
+            runner: windows-2025
+            platform: win32
+            arch: x64
+            installer: apps/desktop/out/make/squirrel.windows/x64/BuBu-Setup.exe
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: services/data-core/go.mod
+          cache-dependency-path: services/data-core/go.sum
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify native runner target
+        run: |
+          node -e "if(process.platform!=='${{ matrix.platform }}'||process.arch!=='${{ matrix.arch }}')throw new Error('runner target mismatch: '+process.platform+'-'+process.arch)"
+      - name: Build native application
+        run: npm run build
+      - name: Make native installer
+        run: npm run make -w @bubu/desktop -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --skip-package
+      - name: Exercise clean install, launch, backup, restore, and uninstall
+        run: node scripts/smoke-native-installer.mjs --artifact="${{ github.workspace }}/${{ matrix.installer }}" --report="${{ runner.temp }}/installer-smoke.json"
+      - name: Stage deterministic package evidence
+        run: node scripts/stage-release-assets.mjs --version=$(node -p "require('./package.json').version") --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+      - name: Upload native package evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-package-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/release-stage
+          if-no-files-found: error
+          retention-days: 7

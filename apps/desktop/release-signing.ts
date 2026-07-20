@@ -33,6 +33,11 @@ export function resolveWindowsSigning(env: Environment = process.env): WindowsSi
     if (values(env, related).some(Boolean)) throw new Error("Windows signing variables require BUBU_WINDOWS_SIGN_BACKEND");
     return undefined;
   }
+  if (backend === "azure-action") {
+    // The official GitHub Action signs the packaged application before MakerSquirrel
+    // and the generated Setup.exe afterwards. Forge must leave those files unsigned.
+    return undefined;
+  }
   if (backend === "azure") {
     const group = completeGroup(env, ["BUBU_WINDOWS_SIGNTOOL_PATH", "BUBU_AZURE_SIGNING_DLIB_PATH", "BUBU_AZURE_SIGNING_METADATA_PATH", "AZURE_CLIENT_ID", "AZURE_TENANT_ID"], "Azure Artifact Signing");
     const [signToolPath, dlib, metadata] = group ?? [];
