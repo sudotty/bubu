@@ -19,6 +19,7 @@ The primary journey is import → inspect → ask → review → approve → use
 - Message form communicates authority: user input is a right-side bubble, assistant narrative is visually quiet, tool activity is a compact event row, approval is a unique card, failure is a recovery surface, and result data is a bounded preview. Full tables and evidence belong to Artifact instead of being repeated in the dialogue.
 - The workspace header states the active entity and current product state. Primary actions belong near the object they affect; destructive actions require explicit language and confirmation.
 - Result actions state their scope. “复制” and “导出当前视图” use the Artifact table after its current filter/sort; source-dataset export remains a separate dataset operation. Pinned state is local UI orientation, not a new data copy or audit claim.
+- A chart is shown only when a pure suitability rule can explain it without inventing aggregation or hiding high cardinality. The UI always states the recommendation reason and supplies the exact plotted points as a table. Local HTML reports remain bounded, static, escaped, and free of hidden source rows.
 - At the supported packaged smoke viewport of 920 × 640, every primary journey must remain readable without horizontal page overflow. Dense tables, schema, JSON, and audit content may scroll inside bounded regions.
 
 ## State and copy

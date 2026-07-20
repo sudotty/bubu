@@ -146,6 +146,7 @@ export const desktopChannels = {
   listModelAudits: "bubu:privacy:model-audits-list",
   copyArtifactTable: "bubu:artifacts:copy-table",
   exportArtifactTable: "bubu:artifacts:export-table",
+  exportArtifactReport: "bubu:artifacts:export-report",
 } as const;
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
@@ -215,6 +216,7 @@ export interface BuBuDesktopApi {
   readonly artifacts: {
     copyTable(value: ArtifactTableActionInput): Promise<ArtifactCopyResult>;
     exportTable(value: ArtifactTableActionInput): Promise<ArtifactExportResult>;
+    exportReport(value: ArtifactTableActionInput): Promise<ArtifactExportResult>;
   };
   readonly analysis: {
     propose(value: QueryPlanRequest, operationId: OperationId): Promise<QueryPlanProposal>;

@@ -204,6 +204,7 @@ async function verifySmokeRenderer(
       resultButton.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-pressed") === "true";
+      const reportAvailable = Array.from(document.querySelectorAll(".artifact-summary-actions button")).some((button) => button.textContent?.includes("导出轻报告"));
       const dataTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("数据"));
       if (dataTab instanceof HTMLButtonElement) dataTab.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
@@ -218,9 +219,10 @@ async function verifySmokeRenderer(
       resultButton.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open");
-      resolve({ ok: taskOpened && resultOpened && copyAvailable && exportAvailable && pinToggled && closed, missing: [
+      resolve({ ok: taskOpened && resultOpened && reportAvailable && copyAvailable && exportAvailable && pinToggled && closed, missing: [
         ...(!taskOpened ? ["任务抽屉状态"] : []),
         ...(!resultOpened ? ["结果抽屉状态"] : []),
+        ...(!reportAvailable ? ["轻报告导出"] : []),
         ...(!copyAvailable ? ["复制当前结果"] : []),
         ...(!exportAvailable ? ["导出当前结果"] : []),
         ...(!pinToggled ? ["固定结果状态"] : []),

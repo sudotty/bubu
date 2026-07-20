@@ -1,4 +1,4 @@
-import { ArrowDownUp, Bot, Copy, Download, Maximize2, Minimize2, Pin, PinOff, X } from "lucide-react";
+import { ArrowDownUp, Bot, Copy, Download, FileText, Maximize2, Minimize2, Pin, PinOff, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ConversationEntry, ConversationThread, SafeGroupQueryResult, SafeQueryResult } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
@@ -77,6 +77,7 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
   const [expanded, setExpanded] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
   const [pinned, setPinned] = useState(() => threadId ? readPinnedArtifacts().has(threadId) : false);
+  const [reportNotice, setReportNotice] = useState<string>();
   const thread = useConversationThread(target, threadId);
   const artifacts = useMemo(() => latestArtifacts(thread), [thread]);
   const result = artifacts.result;
@@ -87,6 +88,7 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
     setAutomationOpen(false);
     setExpanded(false);
     setPinned(threadId ? readPinnedArtifacts().has(threadId) : false);
+    setReportNotice(undefined);
   }, [threadId]);
 
   if (!threadId || !thread || (!result && !plan)) return <>{fallback}</>;
@@ -96,6 +98,15 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
     localStorage.setItem(pinnedArtifactKey, JSON.stringify([...values]));
     setPinned(values.has(threadId));
   };
+  const exportReport = async () => {
+    if (!result) return;
+    try {
+      const outcome = await window.bubu.artifacts.exportReport({ title: plan?.plan.purpose ?? thread.title, columns: result.columns.map(({ label }) => label), rows: result.rows });
+      setReportNotice(outcome.status === "exported" ? `已导出包含 ${outcome.rowCount} 行的本地轻报告` : "已取消报告导出");
+    } catch (error) {
+      setReportNotice(error instanceof Error ? error.message : "报告导出失败，请重试");
+    }
+  };
   const draft = plan ? ("datasetId" in plan.plan ? { kind: "dataset-query" as const, plan: plan.plan } : { kind: "group-query" as const, groupPlan: plan.plan }) : undefined;
   return <div className={`artifact-shell ${expanded ? "artifact-shell-expanded" : ""}`}>
     <header className="artifact-header"><div><p className="hero-kicker">LOCAL ARTIFACT</p><h3>{plan?.plan.purpose ?? thread.title}</h3></div><div className="artifact-header-actions"><span>仅本地</span><button type="button" onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "收起结果工作区" : "展开结果工作区"}>{expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button></div></header>
@@ -104,7 +115,7 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
         {(Object.keys(labels) as InspectorTab[]).map((item) => <button type="button" role="tab" key={item} className={tab === item ? "artifact-tab-active" : ""} aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)} onKeyDown={(event) => { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []); const index = tabs.indexOf(event.currentTarget); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length]; next?.focus(); next?.click(); }}>{labels[item]}</button>)}
       </nav>
       <div className="artifact-body" role="tabpanel">
-        {tab === "summary" && <section className="artifact-summary"><div className="artifact-metrics"><span><strong>{result?.rows.length ?? 0}</strong>结果行</span><span><strong>{result?.columns.length ?? 0}</strong>结果列</span><span><strong>{thread.entries.length}</strong>证据事件</span></div><p>{result ? "经过审查的计划已由本地 Go 数据内核执行，原始行没有自动发送给模型。" : "计划已保存，等待你在对话中批准本地执行。"}</p>{result?.truncated && <small>结果已按照计划上限截断。</small>}<button type="button" className="secondary-action artifact-automation-action" onClick={() => { setAutomationOpen(true); setExpanded(true); }}><Bot size={15} />把已审查计划变成自动化</button></section>}
+        {tab === "summary" && <section className="artifact-summary"><div className="artifact-metrics"><span><strong>{result?.rows.length ?? 0}</strong>结果行</span><span><strong>{result?.columns.length ?? 0}</strong>结果列</span><span><strong>{thread.entries.length}</strong>证据事件</span></div><p>{result ? "经过审查的计划已由本地 Go 数据内核执行，原始行没有自动发送给模型。" : "计划已保存，等待你在对话中批准本地执行。"}</p>{result?.truncated && <small>结果已按照计划上限截断。</small>}<div className="artifact-summary-actions"><button type="button" className="secondary-action" disabled={!result} onClick={() => void exportReport()}><FileText size={15} />导出轻报告</button><button type="button" className="secondary-action artifact-automation-action" onClick={() => { setAutomationOpen(true); setExpanded(true); }}><Bot size={15} />把已审查计划变成自动化</button></div>{reportNotice && <p className="artifact-action-notice" role="status">{reportNotice}</p>}</section>}
         {tab === "data" && (result ? <ResultTable result={result} title={plan?.plan.purpose ?? thread.title} pinned={pinned} onTogglePinned={togglePinned} /> : <p className="empty-copy">批准执行后，受限结果会出现在这里。</p>)}
         {tab === "visual" && (result ? <ResultVisualization result={result} title={plan?.plan.purpose ?? thread.title} /> : <p className="empty-copy">查询结果生成后才会提供确定性图表。</p>)}
         {tab === "evidence" && <section className="artifact-evidence">{plan && <div className="artifact-plan"><strong>{plan.plan.purpose}</strong><dl><div><dt>维度</dt><dd>{plan.plan.dimensions.length || "无"}</dd></div><div><dt>计算</dt><dd>{plan.plan.measures.length || "明细"}</dd></div><div><dt>最多返回</dt><dd>{plan.plan.limit} 行</dd></div></dl></div>}<ol>{thread.entries.map((entry) => <li key={entry.id}><span>{eventLabel(entry)}</span><strong>{new Date(entry.createdAt).toLocaleString("zh-CN")}</strong><small>第 {entry.ordinal} 条追加记录</small></li>)}</ol></section>}

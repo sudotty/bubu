@@ -121,6 +121,9 @@ capabilities:
   artifact-current-view-csv-export: implemented
   local-artifact-pinning: implemented
   chat-to-artifact-navigation: implemented
+  deterministic-chart-suitability: implemented
+  accessible-chart-data-alternative: implemented
+  bounded-local-html-report: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   reduced-motion-interface: implemented

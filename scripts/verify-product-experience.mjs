@@ -59,9 +59,13 @@ requireText(artifacts, [
   "copyTable(actionInput)",
   "exportTable(actionInput)",
   "pinnedArtifactKey",
+  "exportReport",
 ], "artifact workbench");
 const artifactBoundary = read("apps/desktop/src/main/artifact-api.ts");
-requireText(artifactBoundary, ["parseArtifactTableActionInput", "clipboard.writeText", "showSaveDialog", "artifactCsv", "artifactTsv"], "artifact desktop boundary");
+requireText(artifactBoundary, ["parseArtifactTableActionInput", "clipboard.writeText", "showSaveDialog", "artifactCsv", "artifactTsv", "artifactHtmlReport"], "artifact desktop boundary");
+const visualization = read("packages/contracts/src/visualization.ts");
+requireText(visualization, ["recommendVisualization", "未经计划批准的聚合", "共有 ${points.length} 个分类", "toSorted"], "deterministic visualization suitability");
+requireText(read("apps/desktop/src/renderer/ResultVisualization.tsx"), ["建议保留表格", "chart-data-alternative", "recommendation.reason"], "accessible visualization");
 
 const styles = read("apps/desktop/src/renderer/styles.css");
 requireText(styles, [
@@ -97,6 +101,9 @@ requireText(manifest, [
   "artifact-current-view-csv-export: implemented",
   "local-artifact-pinning: implemented",
   "chat-to-artifact-navigation: implemented",
+  "deterministic-chart-suitability: implemented",
+  "accessible-chart-data-alternative: implemented",
+  "bounded-local-html-report: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
 ], "product manifest");

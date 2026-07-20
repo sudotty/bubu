@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import {
-  deriveVisualizationSpec,
+  recommendVisualization,
   type VisualizationSpec,
 } from "@bubu/contracts";
 
@@ -33,8 +33,9 @@ function shortLabel(value: string): string {
 }
 
 export function ResultVisualization({ result, title }: ResultVisualizationProps) {
-  const spec = useMemo(() => deriveVisualizationSpec(result, title), [result, title]);
-  if (!spec) return null;
+  const recommendation = useMemo(() => recommendVisualization(result, title), [result, title]);
+  if (recommendation.kind === "table") return <section className="visualization-guidance"><strong>建议保留表格</strong><p>{recommendation.reason}</p></section>;
+  const spec = recommendation.spec;
   const chart = coordinates(spec);
   const barWidth = Math.max(6, Math.min(42, (chart.plotWidth / spec.points.length) * 0.66));
   const linePoints = spec.points.map(({ value }, index) => `${chart.x(index)},${chart.y(value)}`).join(" ");
@@ -60,6 +61,8 @@ export function ResultVisualization({ result, title }: ResultVisualizationProps)
         <text x={plot.left} y={14} className="chart-value-label">{chart.maximum.toLocaleString("zh-CN")}</text>
         <text x={plot.left} y={height - plot.bottom + 16} className="chart-value-label">{chart.minimum.toLocaleString("zh-CN")}</text>
       </svg>
+      <p className="visualization-reason">{recommendation.reason}</p>
+      <details className="chart-data-alternative"><summary>查看图表数据表</summary><div className="table-scroll"><table><thead><tr><th scope="col">{spec.categoryLabel}</th><th scope="col">{spec.valueLabel}</th></tr></thead><tbody>{spec.points.map((point, index) => <tr key={`${point.label}-${index}`}><td>{point.label}</td><td>{point.value}</td></tr>)}</tbody></table></div></details>
       {spec.omittedPointCount > 0 && <small>为保证可读性，图中省略了其余 {spec.omittedPointCount} 个点；表格仍保留完整的本地结果。</small>}
     </figure>
   );

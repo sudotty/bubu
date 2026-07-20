@@ -27,6 +27,8 @@ The center timeline uses one stable message grammar: user prompts are right-alig
 
 Result narration opens the Artifact workspace directly. In the data tab, copy and CSV export operate on the current filtered and sorted view rather than silently exporting the source dataset. The desktop main process parses the bounded table payload, neutralizes spreadsheet formulas, and owns clipboard/save-dialog access. Pinning is a parsed local presentation preference scoped to the task; it does not duplicate rows or alter the append-only evidence trail.
 
+Visualization is a deterministic recommendation, not model decoration. A line chart requires a parseable datetime category and is sorted chronologically; a bar chart requires unique categories paired with finite values. Duplicate categories, more than 20 categories, missing numeric values, or insufficient columns keep the table and explain why. Every chart includes an expandable data table. Artifact can also export a bounded, script-free local HTML report containing the current result table and explicit local provenance.
+
 ## Trust model
 
 The question text is model input and must not contain pasted sensitive rows. Automatically prepared context is limited to the disclosure shown in the review. Remote model planning, deterministic local execution, and optional aggregate explanation are different events with separate authority and audit records.
