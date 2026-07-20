@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import {
@@ -375,6 +375,12 @@ void app
           entry: { kind: "result", role: "assistant", payload: { result, sourcePlan: plan } },
         });
       }
+      const smokeBackupPath = join(dirname(launchMode.dataDirectory), "smoke-restore.bubu-backup");
+      await sidecars.createBackup(smokeBackupPath);
+      await sidecars.deleteDataset(imported.datasets[0]?.id ?? "missing-smoke-dataset");
+      await sidecars.restoreBackup(smokeBackupPath);
+      const restoredDatasets = await sidecars.listDatasets();
+      if (restoredDatasets.length !== imported.datasets.length) throw new Error("Packaged backup/restore smoke did not restore every dataset");
     }
     const window = await createMainWindow(
       launchMode.kind !== "smoke",
@@ -388,6 +394,7 @@ void app
       }
       await verifySmokeRenderer(window, launchMode.screenshotDirectory);
       console.log("BUBU_PACKAGED_IMPORT_UI_OK");
+      console.log("BUBU_PACKAGED_BACKUP_RESTORE_OK");
       console.log("BUBU_PACKAGED_SMOKE_OK");
       app.quit();
       return;

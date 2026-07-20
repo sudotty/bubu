@@ -158,6 +158,8 @@ capabilities:
   fail-closed-release-signing-config: implemented
   app-store-connect-api-key-notarization: implemented
   dual-backend-windows-signing-config: implemented
+  packaged-backup-restore-smoke: implemented
+  native-installer-lifecycle-smoke: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented

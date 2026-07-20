@@ -15,7 +15,10 @@ if (!executableParts) {
   process.exit(1);
 }
 
-const executable = resolve("apps", "desktop", "out", platformDirectory, ...executableParts);
+const executableArgument = process.argv.find((argument) => argument.startsWith("--executable="));
+const executable = executableArgument
+  ? resolve(executableArgument.slice("--executable=".length))
+  : resolve("apps", "desktop", "out", platformDirectory, ...executableParts);
 if (!existsSync(executable)) {
   console.error(`Packaged desktop executable is missing: ${executable}`);
   process.exit(1);
@@ -57,7 +60,8 @@ if (
   result.error ||
   result.status !== 0 ||
   !result.stdout.includes("BUBU_PACKAGED_SMOKE_OK") ||
-  !result.stdout.includes("BUBU_PACKAGED_IMPORT_UI_OK")
+  !result.stdout.includes("BUBU_PACKAGED_IMPORT_UI_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_BACKUP_RESTORE_OK")
 ) {
   console.error("Packaged desktop smoke failed.");
   if (result.error) console.error(result.error.message);
