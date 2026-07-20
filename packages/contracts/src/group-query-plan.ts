@@ -120,6 +120,11 @@ export const groupQueryRequestSchema = z.object({
   question: z.string().trim().min(1).max(20_000),
 }).strict();
 
+export const groupQueryPlanExecutionRequestSchema = z.object({
+  plan: safeGroupQueryPlanSchema,
+  threadId: z.string().regex(/^[0-9a-f]{32}$/u),
+}).strict();
+
 export const groupQueryPlanProposalSchema = z
   .object({
     question: z.string().trim().min(1).max(20_000),
@@ -155,6 +160,7 @@ export type SafeGroupQueryPlan = z.infer<typeof safeGroupQueryPlanSchema>;
 export type SafeGroupQueryResult = z.infer<typeof safeGroupQueryResultSchema>;
 export type GroupQueryRequest = z.infer<typeof groupQueryRequestSchema>;
 export type GroupQueryPlanProposal = z.infer<typeof groupQueryPlanProposalSchema>;
+export type GroupQueryPlanExecutionRequest = z.infer<typeof groupQueryPlanExecutionRequestSchema>;
 
 export function parseSafeGroupQueryPlan(value: unknown): SafeGroupQueryPlan {
   return safeGroupQueryPlanSchema.parse(value);
@@ -171,6 +177,10 @@ export function parseSafeGroupQueryResult(value: unknown): SafeGroupQueryResult 
 
 export function parseGroupQueryRequest(value: unknown): GroupQueryRequest {
   return groupQueryRequestSchema.parse(value);
+}
+
+export function parseGroupQueryPlanExecutionRequest(value: unknown): GroupQueryPlanExecutionRequest {
+  return groupQueryPlanExecutionRequestSchema.parse(value);
 }
 
 export function parseGroupQueryPlanProposal(value: unknown): GroupQueryPlanProposal {

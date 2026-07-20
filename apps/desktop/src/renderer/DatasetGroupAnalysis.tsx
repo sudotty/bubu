@@ -85,7 +85,8 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
     try {
-      setResult(await window.bubu.analysis.executeGroup(proposal.plan, nextOperationId));
+      if (!threadId) throw new Error("请先创建或选择一个对话任务");
+      setResult(await window.bubu.analysis.executeGroup({ plan: proposal.plan, threadId }, nextOperationId));
       setState("complete");
     } catch (reason) {
       setError(messageFrom(reason));
@@ -106,7 +107,7 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
         <div><p className="hero-kicker">PRIVATE MULTI-TABLE CHAT</p><h3>和群组对话</h3></div>
         <span className="mode-pill">等值关联 · 禁止笛卡尔积</span>
       </header>
-      <ConversationHistory thread={history} group={group} />
+      <ConversationHistory thread={history} group={group} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
       <div className="group-source-order">
         {group.members.map((member, index) => <span key={member.id}><strong>{index + 1}</strong>{member.displayName}</span>)}
       </div>

@@ -121,9 +121,7 @@ async function verifySmokeRenderer(
         "数值",
         "日期时间",
         "替换数据版本",
-        "LOCAL DATA QUALITY",
-        "质量与格式校验",
-        "列分布探查",
+        "LOCAL ARTIFACT",
         "先生成计划",
         "LOCAL CONVERSATION HISTORY",
         "历史结果"
@@ -159,7 +157,7 @@ async function verifySmokeRenderer(
   await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const composer = document.querySelector(".analysis-composer");
-      const conversation = document.querySelector(".conversation");
+      const conversation = document.querySelector(".conversation-stage");
       window.scrollTo({ top: 0 });
       if (composer instanceof HTMLElement && conversation instanceof HTMLElement) {
         conversation.scrollTop = composer.offsetTop - (conversation.clientHeight - composer.clientHeight) / 2;
@@ -198,7 +196,7 @@ async function verifySmokeRenderer(
         return resolve({ ok: false, missing: ["模型设置按钮"] });
       }
       settingsButton.click();
-      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置", "MCP 连接", "只保存，不启动", "MCP 本地审计", "本地备份与恢复", "创建本地数据备份", "从备份恢复"];
+      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;

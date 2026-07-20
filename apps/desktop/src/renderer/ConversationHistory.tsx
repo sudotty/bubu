@@ -14,9 +14,13 @@ function localResultLabel(group: DatasetGroup | undefined, label: string): strin
 export function ConversationHistory({
   thread,
   group,
+  hideQuestion,
+  hideLatestResult,
 }: {
   readonly thread: ConversationThread | null | undefined;
   readonly group?: DatasetGroup;
+  readonly hideQuestion?: string | undefined;
+  readonly hideLatestResult?: boolean;
 }) {
   if (!thread || thread.entries.length === 0) return null;
   return (
@@ -24,6 +28,7 @@ export function ConversationHistory({
       <header><p className="hero-kicker">LOCAL CONVERSATION HISTORY</p><span>{thread.entries.length} 条追加记录</span></header>
       {thread.entries.map((entry) => {
         if (entry.kind === "question") {
+          if (hideQuestion === entry.payload.question) return null;
           return <div className="question-bubble history-question" key={entry.id}><small>你 · 历史</small><p>{entry.payload.question}</p></div>;
         }
         if (entry.kind === "plan") {
@@ -43,6 +48,7 @@ export function ConversationHistory({
           return <AggregateAgentCard key={entry.id} run={entry.payload.agentRun} />;
         }
         const result = entry.payload.result;
+        if (hideLatestResult && entry.id === thread.entries.findLast(({ kind }) => kind === "result")?.id) return null;
         return <div className="history-result" key={entry.id}>
           <header className="preview-header"><div><p className="hero-kicker">SAVED LOCAL RESULT</p><h3>历史结果</h3></div><span>{result.rows.length} 行{result.truncated ? " · 已截断" : ""}</span></header>
           <div className="table-scroll"><table>

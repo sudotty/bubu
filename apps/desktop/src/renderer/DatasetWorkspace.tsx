@@ -9,6 +9,7 @@ import { DatasetAnalysis } from "./DatasetAnalysis.js";
 import { DatasetQualityPanel } from "./DatasetQualityPanel.js";
 import { SchemaMappingPanel } from "./SchemaMappingPanel.js";
 import { ConversationWorkbench } from "./ConversationWorkbench.js";
+import { ArtifactInspector } from "./ArtifactInspector.js";
 
 export type MappingRequired = Extract<DatasetReplacementSelectionResult, { readonly status: "mapping-required" }>;
 
@@ -167,7 +168,7 @@ export function DatasetWorkspace({
         target={{ kind: "dataset", id: dataset.id }}
         title="数据对话"
         subtitle="每条对话都是一个可审查的数据任务。"
-        inspector={<><header className="preview-header"><div><p className="hero-kicker">DATA INSPECTOR</p><h3>数据健康与结构</h3></div><span>本地检查</span></header><DatasetQualityPanel datasetId={dataset.id} versionId={dataset.versionId} /></>}
+        inspector={(threadId) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">DATA INSPECTOR</p><h3>数据健康与结构</h3></div><span>本地检查</span></header><DatasetQualityPanel datasetId={dataset.id} versionId={dataset.versionId} /></>} />}
       >
         {(threadId) => <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} threadId={threadId} />}
       </ConversationWorkbench>

@@ -36,6 +36,7 @@ import type {
   GroupQueryPlanProposal,
   GroupRelationshipOverview,
   GroupQueryRequest,
+  GroupQueryPlanExecutionRequest,
   OperationCancellationResult,
   OperationId,
   ProviderConfigurationInput,
@@ -44,6 +45,7 @@ import type {
   ProviderRegistryState,
   QueryPlanProposal,
   QueryPlanRequest,
+  QueryPlanExecutionRequest,
   SafeGroupQueryPlan,
   SafeGroupQueryResult,
   SafeQueryPlan,
@@ -207,9 +209,9 @@ export interface BuBuDesktopApi {
   };
   readonly analysis: {
     propose(value: QueryPlanRequest, operationId: OperationId): Promise<QueryPlanProposal>;
-    execute(plan: SafeQueryPlan, operationId: OperationId): Promise<SafeQueryResult>;
+    execute(value: QueryPlanExecutionRequest, operationId: OperationId): Promise<SafeQueryResult>;
     proposeGroup(value: GroupQueryRequest, operationId: OperationId): Promise<GroupQueryPlanProposal>;
-    executeGroup(plan: SafeGroupQueryPlan, operationId: OperationId): Promise<SafeGroupQueryResult>;
+    executeGroup(value: GroupQueryPlanExecutionRequest, operationId: OperationId): Promise<SafeGroupQueryResult>;
     prepareAggregateExplanation(value: AggregateExplanationPreparation): Promise<AggregateExplanationProposal>;
     approveAggregateExplanation(value: AggregateExplanationApproval, operationId: OperationId): Promise<AggregateExplanation>;
     dismissAggregateExplanation(value: AggregateExplanationApproval): Promise<void>;
@@ -290,6 +292,7 @@ export type {
   GroupQueryPlanProposal,
   GroupRelationshipOverview,
   GroupQueryRequest,
+  GroupQueryPlanExecutionRequest,
   OperationCancellationResult,
   OperationId,
   ProviderConfigurationInput,
@@ -301,6 +304,7 @@ export type {
   ProviderSummary,
   QueryPlanProposal,
   QueryPlanRequest,
+  QueryPlanExecutionRequest,
   SafeGroupQueryPlan,
   SafeGroupQueryResult,
   SafeQueryPlan,

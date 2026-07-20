@@ -121,10 +121,16 @@ export const queryPlanRequestSchema = z
   })
   .strict();
 
+export const queryPlanExecutionRequestSchema = z.object({
+  plan: safeQueryPlanSchema,
+  threadId: z.string().regex(/^[0-9a-f]{32}$/u),
+}).strict();
+
 export type SafeQueryPlan = z.infer<typeof safeQueryPlanSchema>;
 export type SafeQueryResult = z.infer<typeof safeQueryResultSchema>;
 export type QueryPlanProposal = z.infer<typeof queryPlanProposalSchema>;
 export type QueryPlanRequest = z.infer<typeof queryPlanRequestSchema>;
+export type QueryPlanExecutionRequest = z.infer<typeof queryPlanExecutionRequestSchema>;
 
 export function parseSafeQueryPlan(value: unknown): SafeQueryPlan {
   return safeQueryPlanSchema.parse(value);
@@ -145,4 +151,8 @@ export function parseQueryPlanProposal(value: unknown): QueryPlanProposal {
 
 export function parseQueryPlanRequest(value: unknown): QueryPlanRequest {
   return queryPlanRequestSchema.parse(value);
+}
+
+export function parseQueryPlanExecutionRequest(value: unknown): QueryPlanExecutionRequest {
+  return queryPlanExecutionRequestSchema.parse(value);
 }
