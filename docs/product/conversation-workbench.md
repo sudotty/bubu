@@ -12,7 +12,7 @@ BuBu treats a conversation as a durable local data task, not a disposable model 
 6. Read the concise response in the chat and inspect the durable result in the Artifact workspace.
 7. Optionally save the reviewed plan as a workflow. The definition and every triggered result remain bound to the originating thread.
 
-Errors retain a recovery path: retry plan generation or return the submitted text to the composer for editing. Reopening a thread derives its task status from its append-only history, so a completed task does not appear idle after restart.
+Errors retain a recovery path: retry plan generation or return the submitted text to the composer for editing. Reopening a thread derives a typed lifecycle from its append-only history—draft, planning, awaiting approval, executing, completed, needs attention, or cancelled—so a completed task does not appear idle after restart. A persisted question without a following plan is treated as an interrupted task and offers retry/edit actions using the saved question. Cancellation is terminal for the current operation but does not claim to roll back or delete earlier records.
 
 ## Workspace responsibilities
 

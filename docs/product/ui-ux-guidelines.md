@@ -32,6 +32,8 @@ Async operations need a clear start label, progress state, cancellation when sup
 - cancelling a request from rolling back an external side effect;
 - a saved configuration from a launched process.
 
+Conversation task state is a typed product lifecycle rather than component-specific strings. Persisted history is authoritative after restart: a plan awaits approval, a result is complete, an error needs attention, a cancellation is explicitly labelled, and an unmatched saved question is recoverable as an interrupted run.
+
 ## Privacy and approval UX
 
 - Raw rows remain local by default. Remote disclosure reviews name the destination, exact disclosure class, row/cell bounds, and one-use nature before approval.

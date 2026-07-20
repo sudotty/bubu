@@ -14,8 +14,7 @@ import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
 import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
 import { ChatAssistantMessage, ChatRecoveryMessage, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
-
-type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
+import { derivePersistedTaskState, isCancellation, type TaskLifecycleState } from "./task-lifecycle.js";
 
 function messageFrom(error: unknown): string {
   return operationErrorMessage(error, "群组分析失败，请重试");
@@ -41,7 +40,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<GroupQueryPlanProposal>();
   const [result, setResult] = useState<SafeGroupQueryResult>();
-  const [state, setState] = useState<GroupAnalysisState>("idle");
+  const [state, setState] = useState<TaskLifecycleState>("draft");
   const [error, setError] = useState<string>();
   const [operationId, setOperationId] = useState<OperationId>();
   const [startedAt, setStartedAt] = useState<number>();
@@ -53,7 +52,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
     setSubmittedQuestion(undefined);
     setProposal(undefined);
     setResult(undefined);
-    setState("idle");
+    setState("draft");
     setError(undefined);
     setOperationId(undefined);
     setStartedAt(undefined);
@@ -69,7 +68,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
     setProposal(persistedProposal && "disclosedContexts" in persistedProposal ? persistedProposal : undefined);
     setResult(persistedResult?.kind === "result" && "groupId" in persistedResult.payload.result ? persistedResult.payload.result : undefined);
     setError(persistedError?.kind === "error" && (!persistedResult || persistedError.ordinal > persistedResult.ordinal) ? persistedError.payload.message : undefined);
-    setState(persistedResult ? "complete" : persistedPlan ? "proposed" : persistedError ? "failed" : "idle");
+    setState(derivePersistedTaskState(history.entries));
   }, [history, operationId, submittedQuestion, threadId]);
 
   async function propose(questionOverride?: string): Promise<void> {
@@ -89,10 +88,10 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
         { groupId: group.id, threadId, question: normalized },
         nextOperationId,
       ));
-      setState("proposed");
+      setState("awaiting-approval");
     } catch (reason) {
-      setError(messageFrom(reason));
-      setState("failed");
+      setError(isCancellation(reason) ? undefined : messageFrom(reason));
+      setState(isCancellation(reason) ? "cancelled" : "needs-attention");
       setCompletedAt(Date.now());
     } finally {
       setOperationId((current) => current === nextOperationId ? undefined : current);
@@ -108,11 +107,11 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
     try {
       if (!threadId) throw new Error("请先创建或选择一个对话任务");
       setResult(await window.bubu.analysis.executeGroup({ plan: proposal.plan, threadId }, nextOperationId));
-      setState("complete");
+      setState("completed");
       setCompletedAt(Date.now());
     } catch (reason) {
-      setError(messageFrom(reason));
-      setState("failed");
+      setError(isCancellation(reason) ? undefined : messageFrom(reason));
+      setState(isCancellation(reason) ? "cancelled" : "needs-attention");
       setCompletedAt(Date.now());
     } finally {
       setOperationId((current) => current === nextOperationId ? undefined : current);
@@ -123,6 +122,17 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
     if (!operationId) return;
     await window.bubu.operations.cancel(operationId);
   }
+
+  const lastQuestion = history?.entries.findLast((entry) => entry.kind === "question");
+  const recoverableQuestion = submittedQuestion ?? (lastQuestion?.kind === "question" ? lastQuestion.payload.question : undefined);
+  const editRecoverableQuestion = () => {
+    setQuestion(recoverableQuestion ?? question);
+    setSubmittedQuestion(undefined);
+    setProposal(undefined);
+    setResult(undefined);
+    setError(undefined);
+    setState("draft");
+  };
 
   return (
     <section className="analysis-panel group-analysis" aria-label={`与群组 ${group.name} 对话`}>
@@ -137,13 +147,14 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
       </div>
       {submittedQuestion && <ChatUserMessage><p>{submittedQuestion}</p></ChatUserMessage>}
       {state === "planning" && <ChatToolEvent busy>正在根据每个成员的结构和合成示例生成关联树…</ChatToolEvent>}
-      {error && <ChatRecoveryMessage message={error} actions={<><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></>} />}
+      {state === "cancelled" && <ChatAssistantMessage title="当前操作已取消"><p>群组关系与已保存的任务记录没有变化。你可以修改问题，或重新生成关联计划。</p></ChatAssistantMessage>}
+      {state === "needs-attention" && <ChatRecoveryMessage message={error ?? "上次运行在生成关联计划前中断，群组任务记录已保留。"} actions={<><button type="button" className="primary-action" onClick={() => void propose(recoverableQuestion)} disabled={!recoverableQuestion}>重新生成关联计划</button><button type="button" className="secondary-action" onClick={editRecoverableQuestion}>修改问题</button></>} />}
 
       {proposal && (
         <article className="plan-card chat-approval-card">
           <header>
             <div><p className="chat-context-label">需要你的批准</p><h4>{proposal.plan.purpose}</h4></div>
-            <span className={state === "complete" ? "plan-state plan-complete" : "plan-state"}>{state === "complete" ? "已本地执行" : "尚未执行"}</span>
+            <span className={state === "completed" ? "plan-state plan-complete" : "plan-state"}>{state === "completed" ? "已本地执行" : "尚未执行"}</span>
           </header>
           <div className="join-tree">
             {proposal.plan.joins.map((join, index) => (
@@ -175,9 +186,9 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
               </section>
             ))}
           </details>
-          {state !== "complete" && <div className="plan-actions">
+          {state !== "completed" && <div className="plan-actions">
             <button type="button" className="primary-action" onClick={() => void execute()} disabled={state === "executing"}>{state === "executing" ? "正在本地关联…" : "批准并在本地关联"}</button>
-            <button type="button" className="secondary-action" onClick={() => { setProposal(undefined); setState("idle"); }} disabled={state === "executing"}>放弃计划</button>
+            <button type="button" className="secondary-action" onClick={() => { setProposal(undefined); setState("draft"); }} disabled={state === "executing"}>放弃计划</button>
           </div>}
         </article>
       )}

@@ -38,6 +38,15 @@ for (const path of ["apps/desktop/src/renderer/DatasetAnalysis.tsx", "apps/deskt
   }
   if (!source.includes("rows.slice(0, 5)")) failures.push(`${path} must keep result previews bounded to five rows`);
 }
+const taskLifecycle = read("apps/desktop/src/renderer/task-lifecycle.ts");
+requireText(taskLifecycle, [
+  '"draft"',
+  '"awaiting-approval"',
+  '"needs-attention"',
+  '"cancelled"',
+  "derivePersistedTaskState",
+  "A persisted question without its following plan",
+], "task lifecycle");
 
 const artifacts = read("apps/desktop/src/renderer/ArtifactInspector.tsx");
 requireText(artifacts, [
@@ -76,6 +85,9 @@ requireText(manifest, [
   "compact-conversation-drawers: implemented",
   "adaptive-conversation-panes: implemented",
   "semantic-chat-message-grammar: implemented",
+  "typed-conversation-task-lifecycle: implemented",
+  "interrupted-task-recovery: implemented",
+  "cancellation-aware-task-state: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
 ], "product manifest");
