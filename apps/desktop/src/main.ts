@@ -155,7 +155,7 @@ async function verifySmokeRenderer(
         "本地任务状态",
         "LOCAL ARTIFACT",
         "先生成计划",
-        "LOCAL CONVERSATION HISTORY",
+        "任务记录",
         "结果已准备好"
       ];
       const deadline = Date.now() + 5000;

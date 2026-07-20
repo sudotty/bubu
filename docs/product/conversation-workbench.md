@@ -23,6 +23,8 @@ Errors retain a recovery path: retry plan generation or return the submitted tex
 
 The workbench adapts to its own available width rather than a device label. Wide mode keeps tasks, chat, and Artifact together. Medium mode keeps tasks beside chat and opens Artifact as a supporting panel. Compact mode preserves chat as the primary pane and opens **任务** or **结果** as keyboard-accessible drawers. Empty chat states include a direct task-creation action and never refer to a possibly hidden “left side.” The product contract requires bounded internal scrolling and no page-level horizontal overflow at the packaged 920 × 640 minimum.
 
+The center timeline uses one stable message grammar: user prompts are right-aligned bubbles; assistant narration is a calm, unboxed response with a BuBu marker; transient system/tool activity is a compact status row; typed plans are the only warm approval cards; failures are recovery cards with the next safe actions; and local results appear as five-row previews that point to the durable Artifact workspace. English decorative kickers are not used to simulate product hierarchy.
+
 ## Trust model
 
 The question text is model input and must not contain pasted sensitive rows. Automatically prepared context is limited to the disclosure shown in the review. Remote model planning, deterministic local execution, and optional aggregate explanation are different events with separate authority and audit records.

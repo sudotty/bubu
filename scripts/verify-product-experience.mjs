@@ -23,6 +23,21 @@ requireText(conversations, [
 if (read("apps/desktop/src/renderer/DatasetAnalysis.tsx").includes("请先在左侧") || read("apps/desktop/src/renderer/DatasetGroupAnalysis.tsx").includes("请先在左侧")) {
   failures.push("empty task guidance must not reference a pane that adaptive layout can hide");
 }
+const chatMessages = read("apps/desktop/src/renderer/ChatMessage.tsx");
+requireText(chatMessages, [
+  "chat-message-user",
+  "chat-tool-event",
+  "chat-message-assistant",
+  "chat-message-recovery",
+  'role="alert"',
+], "semantic chat messages");
+for (const path of ["apps/desktop/src/renderer/DatasetAnalysis.tsx", "apps/desktop/src/renderer/DatasetGroupAnalysis.tsx", "apps/desktop/src/renderer/ConversationHistory.tsx"]) {
+  const source = read(path);
+  if (/PRIVACY-SAFE DATA CHAT|PRIVATE MULTI-TABLE CHAT|LOCAL CONVERSATION HISTORY|REVIEW BEFORE EXECUTION|REVIEW JOIN TREE|LOCAL QUERY RESULT|LOCAL JOIN RESULT/u.test(source)) {
+    failures.push(`${path} contains decorative English chat hierarchy`);
+  }
+  if (!source.includes("rows.slice(0, 5)")) failures.push(`${path} must keep result previews bounded to five rows`);
+}
 
 const artifacts = read("apps/desktop/src/renderer/ArtifactInspector.tsx");
 requireText(artifacts, [
@@ -60,6 +75,7 @@ requireText(manifest, [
   "expandable-artifact-workspace: implemented",
   "compact-conversation-drawers: implemented",
   "adaptive-conversation-panes: implemented",
+  "semantic-chat-message-grammar: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
 ], "product manifest");

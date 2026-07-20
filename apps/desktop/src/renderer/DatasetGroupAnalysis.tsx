@@ -13,6 +13,7 @@ import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
 import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
+import { ChatAssistantMessage, ChatRecoveryMessage, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -126,7 +127,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
   return (
     <section className="analysis-panel group-analysis" aria-label={`与群组 ${group.name} 对话`}>
       <header className="analysis-header">
-        <div><p className="hero-kicker">PRIVATE MULTI-TABLE CHAT</p><h3>和群组对话</h3></div>
+        <div><p className="chat-context-label">私密多表对话</p><h3>和群组对话</h3></div>
         <span className="mode-pill">等值关联 · 禁止笛卡尔积</span>
       </header>
       <TaskRunStatus state={state} startedAt={startedAt} completedAt={completedAt} />
@@ -134,14 +135,14 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
       <div className="group-source-order">
         {group.members.map((member, index) => <span key={member.id}><strong>{index + 1}</strong>{member.displayName}</span>)}
       </div>
-      {submittedQuestion && <div className="question-bubble"><small>你</small><p>{submittedQuestion}</p></div>}
-      {state === "planning" && <div className="analysis-progress">正在根据每个成员的结构和合成示例生成关联树…</div>}
-      {error && <div className="task-error" role="alert"><strong>这一步没有完成</strong><p>{error}</p><div><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></div></div>}
+      {submittedQuestion && <ChatUserMessage><p>{submittedQuestion}</p></ChatUserMessage>}
+      {state === "planning" && <ChatToolEvent busy>正在根据每个成员的结构和合成示例生成关联树…</ChatToolEvent>}
+      {error && <ChatRecoveryMessage message={error} actions={<><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></>} />}
 
       {proposal && (
-        <article className="plan-card">
+        <article className="plan-card chat-approval-card">
           <header>
-            <div><p className="hero-kicker">REVIEW JOIN TREE</p><h4>{proposal.plan.purpose}</h4></div>
+            <div><p className="chat-context-label">需要你的批准</p><h4>{proposal.plan.purpose}</h4></div>
             <span className={state === "complete" ? "plan-state plan-complete" : "plan-state"}>{state === "complete" ? "已本地执行" : "尚未执行"}</span>
           </header>
           <div className="join-tree">
@@ -182,15 +183,16 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { read
       )}
 
       {result && <>
-      <article className="query-result">
-        <header className="preview-header"><div><p className="hero-kicker">LOCAL JOIN RESULT</p><h3>关联结果</h3></div><span>{result.rows.length} 行{result.truncated ? " · 已截断" : ""}</span></header>
+      <article className="query-result chat-result-preview">
+        <header className="preview-header"><div><small>本地结果预览</small><h3>关联结果</h3></div><span>{result.rows.length} 行{result.truncated ? " · 已截断" : ""}</span></header>
         <div className="table-scroll"><table>
           <thead><tr>{result.columns.map((column) => <th key={column.label}>{resultLabel(group, column.label)}<small>{column.type}</small></th>)}</tr></thead>
-          <tbody>{result.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}</tbody>
+          <tbody>{result.rows.slice(0, 5).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}</tbody>
         </table></div>
         {result.rows.length === 0 && <p className="empty-copy">这个关联计划没有找到匹配的数据。</p>}
       </article>
       <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "群组查询结果"} />
+      <ChatAssistantMessage title="关联结果已准备好"><p>关联计划已在本地执行。完整数据、图表、计划与审计证据都在结果区。</p></ChatAssistantMessage>
       </>}
 
       {result && proposal && threadId && <AggregateExplanationPanel plan={proposal.plan} threadId={threadId} />}
