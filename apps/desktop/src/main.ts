@@ -276,12 +276,13 @@ async function verifySmokeRenderer(
         return resolve({ ok: false, missing: ["模型设置按钮"] });
       }
       settingsButton.click();
-      const expected = ["模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置"];
+      const expected = ["先处理影响使用的问题", "重新检查", "模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;
         const missing = expected.filter((value) => !contents.includes(value));
-        if (missing.length === 0) return resolve({ ok: true, missing: [] });
+        const currentSection = document.querySelector('.settings-nav button[aria-current="page"]');
+        if (missing.length === 0 && currentSection?.textContent?.includes("模型与提供商")) return resolve({ ok: true, missing: [] });
         if (Date.now() >= deadline) return resolve({ ok: false, missing });
         setTimeout(inspect, 50);
       };

@@ -20,6 +20,7 @@ The primary journey is import → inspect → ask → review → approve → use
 - The workspace header states the active entity and current product state. Primary actions belong near the object they affect; destructive actions require explicit language and confirmation.
 - Result actions state their scope. “复制” and “导出当前视图” use the Artifact table after its current filter/sort; source-dataset export remains a separate dataset operation. Pinned state is local UI orientation, not a new data copy or audit claim.
 - A chart is shown only when a pure suitability rule can explain it without inventing aggregation or hiding high cardinality. The UI always states the recommendation reason and supplies the exact plotted points as a table. Local HTML reports remain bounded, static, escaped, and free of hidden source rows.
+- Settings begins with ordered, actionable findings rather than equal-weight status tiles. Blockers, required setup, and optional integrations have different language; each routes to a stable list–detail section, and the user can rerun diagnostics after a change.
 - At the supported packaged smoke viewport of 920 × 640, every primary journey must remain readable without horizontal page overflow. Dense tables, schema, JSON, and audit content may scroll inside bounded regions.
 
 ## State and copy
