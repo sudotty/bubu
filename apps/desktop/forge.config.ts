@@ -5,6 +5,8 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { resolve } from "node:path";
 
+const dataCoreBinary = process.platform === "win32" ? "bubu-data-core.exe" : "bubu-data-core";
+
 const macSignIdentity = process.env.BUBU_MAC_SIGN_IDENTITY?.trim();
 const appleId = process.env.BUBU_APPLE_ID?.trim();
 const appleIdPassword = process.env.BUBU_APPLE_APP_PASSWORD?.trim();
@@ -19,7 +21,7 @@ const config: ForgeConfig = {
     ...(appleId && appleIdPassword && appleTeamId ? { osxNotarize: { appleId, appleIdPassword, teamId: appleTeamId } } : {}),
     extraResource: [
       "../../services/ai-runtime/dist",
-      "../../services/data-core/bin/bubu-data-core",
+      `../../services/data-core/bin/${dataCoreBinary}`,
     ],
   },
   rebuildConfig: {},

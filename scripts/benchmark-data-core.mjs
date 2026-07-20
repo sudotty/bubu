@@ -13,13 +13,14 @@ import {
   parseRpcResponse,
   parseSafeQueryResult,
 } from "../packages/contracts/dist/index.js";
+import { dataCoreBinaryPath } from "./platform-paths.mjs";
 
 const MiB = 1024 * 1024;
 const options = parseOptions(process.argv.slice(2));
 const workspace = await mkdtemp(resolve(tmpdir(), "bubu-performance-"));
 const sourcePath = resolve(workspace, "reference-100mb.csv");
 const dataDirectory = resolve(workspace, "data");
-const executable = resolve("services", "data-core", "bin", "bubu-data-core");
+const executable = dataCoreBinaryPath();
 const auth = randomBytes(32).toString("hex");
 let child;
 let stderr = "";

@@ -34,6 +34,7 @@ import {
   parseWorkflowTriggerEvents,
   parseWorkflowTriggerEvent,
 } from "../packages/contracts/dist/index.js";
+import { dataCoreBinaryPath } from "./platform-paths.mjs";
 
 const root = await mkdtemp(resolve(tmpdir(), "bubu-data-core-smoke-"));
 const dataDirectory = resolve(root, "data");
@@ -43,7 +44,7 @@ const driftedPath = resolve(root, "synthetic-sales-drifted.csv");
 const targetsPath = resolve(root, "synthetic-targets.csv");
 const exportPath = resolve(root, "safe-export.csv");
 const backupPath = resolve(root, "local-data.bubu-backup");
-const executable = resolve("services", "data-core", "bin", "bubu-data-core");
+const executable = dataCoreBinaryPath();
 const auth = randomBytes(32).toString("hex");
 let stderr = "";
 
