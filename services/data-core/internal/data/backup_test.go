@@ -31,7 +31,7 @@ func TestBackupAndRestoreRoundTripPrivateLocalState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	group, err := service.SaveGroup(context.Background(), "", "Before backup", []string{
+	group, err := service.SaveGroup(context.Background(), "", "Before backup", "", "one-off", []string{
 		imported.Datasets[0].ID,
 		imported.Datasets[1].ID,
 	})

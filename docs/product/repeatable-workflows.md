@@ -4,11 +4,11 @@ BuBu can save an already generated and reviewed single-dataset or group query pl
 
 ## Save and run
 
-After BuBu displays a query or join plan, select **保存当前计划** in the workflow section. Electron main verifies that every step exactly matches a plan in the local conversation before sending the strict workflow definition to the Go data core.
+After BuBu displays a query or join plan, open the top-right **工作流** drawer and select **收尾为工作流**. Electron main verifies that every step exactly matches a plan in the local conversation before sending the strict workflow definition to the Go data core.
 
 A workflow contains 1–8 ordered read-only query steps. Each step has a stable local name and 1–3 attempts. The complete run has a 1-second to 10-minute deadline; the current UI uses 60 seconds and two attempts. Unknown step kinds, arbitrary commands, SQL, duplicate step names, target drift, oversized plans, and extra JSON fields are rejected.
 
-Before saving, choose one trigger: manual only, every 24 hours, every 7 days, or after the target data version changes. For a group, the version signature includes every member identity and current immutable version in saved order. Interval triggers measure elapsed time from save or the last claimed run; they are not yet wall-clock calendar schedules.
+Before saving, choose one trigger: manual only, daily, weekly, monthly (a bounded 30-day elapsed interval), or after the target data version changes. Business-topic cadence preselects the same workflow trigger. For a group, the version signature includes every member identity and current immutable version in saved order. Interval triggers measure elapsed time from save or the last claimed run; they are not yet wall-clock calendar schedules.
 
 On each run, BuBu:
 
@@ -40,4 +40,4 @@ Manual runs use the named operation cancellation path. Electron aborts the opera
 
 ## Current boundary
 
-This release implements deterministic query workflows plus elapsed-interval and dataset-version triggers with in-app conversation delivery. The interactive bounded aggregate Agent supplies a reusable pure runner, filtered local tool registry, fixed budgets, and audited typed result, but it is not yet a scheduled workflow step and cannot reuse an earlier approval. Wall-clock schedules, operating-system notifications, crash resume from the next safe checkpoint, approval nodes for side effects, durable model/Agent steps, external tools, MCP, and RAG steps remain separate automation slices. Until those runtimes and gates exist, `workflows`, `bounded-agents`, and `reminders` stay `in-progress`; only their narrower executable capabilities are marked implemented.
+This release implements deterministic query workflows plus daily/weekly/monthly elapsed intervals and dataset-version triggers with in-app conversation delivery. The workflow drawer renders the definition statically or the latest persisted run dynamically, including conversation delivery and next-update orientation. The interactive bounded aggregate Agent supplies a reusable pure runner, filtered local tool registry, fixed budgets, and audited typed result, but it is not yet a scheduled workflow step and cannot reuse an earlier approval. Wall-clock schedules, operating-system notifications, crash resume from the next safe checkpoint, approval nodes for side effects, durable model/Agent steps, external tools, MCP, and RAG steps remain separate automation slices. Until those runtimes and gates exist, `workflows`, `bounded-agents`, and `reminders` stay `in-progress`; only their narrower executable capabilities are marked implemented.

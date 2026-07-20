@@ -6,7 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+	"unicode/utf8"
 )
+
+const maximumDatasetVersions = 10_000
 
 func (service *Service) ListDatasets(ctx context.Context) ([]DatasetSummary, error) {
 	rows, err := service.database.QueryContext(ctx, `
@@ -42,6 +46,71 @@ ORDER BY d.updated_at DESC, d.id`)
 		return nil, fmt.Errorf("iterate datasets: %w", err)
 	}
 	return result, nil
+}
+
+func (service *Service) RenameDataset(ctx context.Context, input DatasetRenameInput) (DatasetSummary, error) {
+	if !objectID.MatchString(input.DatasetID) {
+		return DatasetSummary{}, errors.New("dataset id is invalid")
+	}
+	displayName := strings.TrimSpace(input.DisplayName)
+	if displayName == "" || utf8.RuneCountInString(displayName) > 100 {
+		return DatasetSummary{}, errors.New("dataset display name is invalid")
+	}
+	result, err := service.database.ExecContext(ctx, `
+UPDATE datasets SET display_name = ?, updated_at = ? WHERE id = ?`,
+		displayName, time.Now().UTC().Format(time.RFC3339Nano), input.DatasetID)
+	if err != nil {
+		return DatasetSummary{}, fmt.Errorf("rename dataset: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil || affected != 1 {
+		return DatasetSummary{}, errors.New("dataset not found")
+	}
+	datasets, err := service.ListDatasets(ctx)
+	if err != nil {
+		return DatasetSummary{}, err
+	}
+	for _, dataset := range datasets {
+		if dataset.ID == input.DatasetID {
+			return dataset, nil
+		}
+	}
+	return DatasetSummary{}, errors.New("renamed dataset is unavailable")
+}
+
+func (service *Service) ListDatasetVersions(ctx context.Context, datasetID string) ([]DatasetVersionSummary, error) {
+	if !objectID.MatchString(datasetID) {
+		return nil, errors.New("dataset id is invalid")
+	}
+	rows, err := service.database.QueryContext(ctx, `
+SELECT v.id, v.ordinal, v.source_name, v.row_count, v.column_count, v.imported_at,
+       CASE WHEN d.current_version_id = v.id THEN 1 ELSE 0 END
+FROM datasets d
+JOIN dataset_versions v ON v.dataset_id = d.id
+WHERE d.id = ? AND v.status = 'ready'
+ORDER BY v.ordinal DESC
+LIMIT ?`, datasetID, maximumDatasetVersions)
+	if err != nil {
+		return nil, fmt.Errorf("list dataset versions: %w", err)
+	}
+	defer rows.Close()
+	versions := make([]DatasetVersionSummary, 0)
+	for rows.Next() {
+		var version DatasetVersionSummary
+		var current int
+		if err := rows.Scan(&version.VersionID, &version.Version, &version.SourceName, &version.RowCount, &version.ColumnCount, &version.ImportedAt, &current); err != nil {
+			return nil, fmt.Errorf("scan dataset version: %w", err)
+		}
+		version.Current = current == 1
+		versions = append(versions, version)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate dataset versions: %w", err)
+	}
+	if len(versions) == 0 {
+		return nil, errors.New("dataset not found")
+	}
+	return versions, nil
 }
 
 func (service *Service) Preview(ctx context.Context, datasetID string, limit, offset int) (PreviewResult, error) {

@@ -38,6 +38,14 @@ describe("workflow contracts", () => {
       ...input,
       trigger: { kind: "interval", everyMinutes: 24 * 60 },
     }).trigger).toEqual({ kind: "interval", everyMinutes: 24 * 60 });
+    expect(parseWorkflowDefinitionInput({
+      ...input,
+      trigger: { kind: "interval", everyMinutes: 30 * 24 * 60 },
+    }).trigger).toEqual({ kind: "interval", everyMinutes: 30 * 24 * 60 });
+    expect(() => parseWorkflowDefinitionInput({
+      ...input,
+      trigger: { kind: "interval", everyMinutes: 32 * 24 * 60 },
+    })).toThrow();
   });
 
   it("parses typed checkpoint results without accepting arbitrary artifacts", () => {

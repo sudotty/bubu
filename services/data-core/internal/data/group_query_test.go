@@ -24,7 +24,7 @@ func importGroupQueryFixture(t *testing.T) (*Service, DatasetGroup) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	group, err := service.SaveGroup(context.Background(), "", "Orders and products", []string{
+	group, err := service.SaveGroup(context.Background(), "", "Orders and products", "", "one-off", []string{
 		imported.Datasets[0].ID,
 		imported.Datasets[1].ID,
 	})

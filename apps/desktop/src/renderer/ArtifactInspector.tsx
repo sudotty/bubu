@@ -1,6 +1,6 @@
 import { ArrowDownUp, Bot, Copy, Download, FileText, Maximize2, Minimize2, Pin, PinOff, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ConversationEntry, ConversationThread, SafeGroupQueryResult, SafeQueryResult } from "../shared/product-api.js";
+import type { ConversationEntry, ConversationThread, DatasetGroupCadence, SafeGroupQueryResult, SafeQueryResult } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { useConversationThread } from "./useConversationThread.js";
 import { WorkflowPanel } from "./WorkflowPanel.js";
@@ -75,7 +75,7 @@ function readPinnedArtifacts(): Set<string> {
   }
 }
 
-export function ArtifactInspector({ target, threadId, fallback }: { readonly target: { readonly kind: "dataset" | "group"; readonly id: string }; readonly threadId: string | undefined; readonly fallback: ReactNode }) {
+export function ArtifactInspector({ target, threadId, fallback, initialView = "artifacts", workflowCadence }: { readonly target: { readonly kind: "dataset" | "group"; readonly id: string }; readonly threadId: string | undefined; readonly fallback: ReactNode; readonly initialView?: "artifacts" | "workflow"; readonly workflowCadence?: DatasetGroupCadence }) {
   const [tab, setTab] = useState<InspectorTab>("summary");
   const [expanded, setExpanded] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
@@ -88,12 +88,14 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
 
   useEffect(() => {
     setTab("summary");
-    setAutomationOpen(false);
+    setAutomationOpen(initialView === "workflow");
     setExpanded(false);
     setPinned(threadId ? readPinnedArtifacts().has(threadId) : false);
     setReportNotice(undefined);
-  }, [threadId]);
+  }, [initialView, threadId]);
 
+  const draft = plan ? ("datasetId" in plan.plan ? { kind: "dataset-query" as const, plan: plan.plan } : { kind: "group-query" as const, groupPlan: plan.plan }) : undefined;
+  if (initialView === "workflow") return <div className="artifact-shell workflow-shell"><WorkflowPanel target={target} threadId={threadId ?? ""} draft={draft} defaultTriggerPreset={workflowCadence === "one-off" ? "manual" : workflowCadence} /></div>;
   if (!threadId || !thread || (!result && !plan)) return <>{fallback}</>;
   const togglePinned = () => {
     const values = readPinnedArtifacts();
@@ -112,10 +114,9 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
       setReportNotice(error instanceof Error ? error.message : "报告导出失败，请重试");
     }
   };
-  const draft = plan ? ("datasetId" in plan.plan ? { kind: "dataset-query" as const, plan: plan.plan } : { kind: "group-query" as const, groupPlan: plan.plan }) : undefined;
   return <div className={`artifact-shell ${expanded ? "artifact-shell-expanded" : ""}`}>
     <header className="artifact-header"><div><p className="hero-kicker">本地结果</p><h3>{plan?.plan.purpose ?? thread.title}</h3></div><div className="artifact-header-actions"><span>仅本地</span><button type="button" onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "收起结果工作区" : "展开结果工作区"}>{expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button></div></header>
-    {automationOpen ? <div className="artifact-automation-workspace"><header><button type="button" onClick={() => setAutomationOpen(false)}><X size={15} />返回结果</button><strong>当前任务自动化</strong></header><WorkflowPanel target={target} threadId={threadId} draft={draft} /></div> : <>
+    {automationOpen ? <div className="artifact-automation-workspace"><header><button type="button" onClick={() => setAutomationOpen(false)}><X size={15} />返回结果</button><strong>当前任务自动化</strong></header><WorkflowPanel target={target} threadId={threadId} draft={draft} defaultTriggerPreset={workflowCadence === "one-off" ? "manual" : workflowCadence} /></div> : <>
       <nav className="artifact-tabs" aria-label="结果检查器" role="tablist">
         {(Object.keys(labels) as InspectorTab[]).map((item) => <button type="button" role="tab" key={item} className={tab === item ? "artifact-tab-active" : ""} aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)} onKeyDown={(event) => { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []); const index = tabs.indexOf(event.currentTarget); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length]; next?.focus(); next?.click(); }}>{labels[item]}</button>)}
       </nav>

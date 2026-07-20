@@ -18,9 +18,12 @@ import type {
   ConversationThread,
   ConversationThreadSummary,
   DatasetGroup,
+  DatasetGroupCadence,
   DatasetGroupId,
   DatasetGroupSaveInput,
   DatasetImportResult,
+  DatasetRenameInput,
+  DatasetVersionSummary,
   DatasetExportSelectionResult,
   DatasetDeletionSelectionResult,
   DatasetQualityReport,
@@ -84,6 +87,8 @@ import type {
 export const desktopChannels = {
   getReadiness: "bubu:system:get-readiness",
   importDatasets: "bubu:datasets:import",
+  renameDataset: "bubu:datasets:rename",
+  listDatasetVersions: "bubu:datasets:versions-list",
   exportDataset: "bubu:datasets:export",
   deleteDataset: "bubu:datasets:delete",
   createBackup: "bubu:data-protection:create-backup",
@@ -173,6 +178,8 @@ export interface BuBuDesktopApi {
   };
   readonly datasets: {
     importFiles(operationId: OperationId): Promise<DatasetImportResult>;
+    rename(input: DatasetRenameInput): Promise<DatasetSummary>;
+    versions(datasetId: string): Promise<readonly DatasetVersionSummary[]>;
     export(datasetId: string, operationId: OperationId): Promise<DatasetExportSelectionResult>;
     delete(datasetId: string): Promise<DatasetDeletionSelectionResult>;
     list(): Promise<readonly DatasetSummary[]>;
@@ -290,9 +297,12 @@ export type {
   ConversationThread,
   ConversationThreadSummary,
   DatasetGroup,
+  DatasetGroupCadence,
   DatasetGroupId,
   DatasetGroupSaveInput,
   DatasetImportResult,
+  DatasetRenameInput,
+  DatasetVersionSummary,
   DatasetExportSelectionResult,
   DatasetDeletionSelectionResult,
   DatasetQualityReport,

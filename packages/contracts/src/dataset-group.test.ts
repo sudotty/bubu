@@ -16,7 +16,18 @@ const dataset = (id: string, name: string) => ({
 describe("dataset group boundary", () => {
   it("requires two through eight unique data contacts", () => {
     const datasetIds = ["a".repeat(32), "b".repeat(32)];
-    expect(parseDatasetGroupSaveInput({ name: "销售群", datasetIds })).toEqual({ name: "销售群", datasetIds });
+    expect(parseDatasetGroupSaveInput({ name: "销售群", datasetIds })).toEqual({
+      name: "销售群",
+      description: "",
+      cadence: "one-off",
+      datasetIds,
+    });
+    expect(parseDatasetGroupSaveInput({
+      name: "周经营复盘",
+      description: "每周把订单、目标和库存放在同一条对话中复盘",
+      cadence: "weekly",
+      datasetIds,
+    })).toMatchObject({ cadence: "weekly" });
     expect(() => parseDatasetGroupSaveInput({ name: "销售群", datasetIds: [datasetIds[0]] })).toThrow();
     expect(() => parseDatasetGroupSaveInput({ name: "销售群", datasetIds: [datasetIds[0], datasetIds[0]] })).toThrow("unique");
   });
@@ -25,6 +36,8 @@ describe("dataset group boundary", () => {
     const value = {
       id: "e".repeat(32),
       name: "销售群",
+      description: "销售主题",
+      cadence: "daily",
       members: [dataset("a".repeat(32), "sales"), dataset("b".repeat(32), "targets")],
       createdAt: "2026-07-17T00:00:00Z",
       updatedAt: "2026-07-17T00:00:00Z",

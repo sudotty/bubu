@@ -4,13 +4,15 @@ BuBu is a local-first AI data workspace for people who need to understand recurr
 
 ![BuBu dataset workspace with synthetic data](docs/assets/product/01-datasets.png)
 
-The interaction model is conversation-first: a dataset or related dataset collection can hold multiple independent local task threads. The center stays readable as a chat; plans, results, charts, and audit evidence remain inspectable artifacts rather than getting lost in message text.
+The interaction model is conversation-first: imported Excel/CSV files become locally named data objects, and related objects form business topics with one-off, daily, weekly, monthly, or data-update rhythms. Each object or topic can hold multiple independent local task threads. History, results, and workflow stay in top-right drawers so the center remains a readable chat.
 
 ![BuBu local result Artifact workspace](docs/assets/product/04-artifact.png)
 
+![BuBu dynamic local workflow graph](docs/assets/product/05-workflow.png)
+
 ## What works now
 
-- Atomic CSV, TSV, and XLSX import; local SQLite catalog; immutable replacement versions; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
+- Atomic CSV, TSV, and XLSX import; custom local object names; immutable replacement/version history; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
 - Single-dataset and multi-table lookup analysis through typed plans. Conversations can be created, named by their first question, renamed, archived, restored, and resumed locally; the user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
 - Deterministic local bar and time-series charts, persisted task state, recoverable execution errors, and an expandable Artifact workspace for summaries, sortable/filterable data, visualization, evidence, and thread-bound automation. Interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion are implemented.
 - OS-encrypted provider and stdio MCP configuration. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
@@ -21,10 +23,10 @@ Still planned or incomplete: explicit-row disclosure, reusable Agent definitions
 ## Product flow and privacy
 
 1. Import files locally and inspect their shape and quality.
-2. Start or resume a local task thread, then ask a question against one dataset or a 2–8 member group. On compact windows, **任务** and **结果** open as bounded drawers around the central chat.
+2. Start or resume a local task thread, then ask a question against one data object or a 2–8 member business topic. **历史**、**结果**和**工作流**始终从聊天右上角打开为有边界的抽屉，也可通过右键菜单进入。
 3. Review the typed query plan and the exact schema, synthetic context, or aggregate that may leave the device.
 4. Approve once; Go validates and executes the bounded plan locally.
-5. Keep the result, chart, and audit trail in the local conversation workbench, or save the reviewed plan as a workflow.
+5. Keep the result, chart, and audit trail in the local conversation workbench, or choose a business rhythm and **收尾为工作流**; the static/dynamic node graph shows processing, delivery, and the next update.
 
 | Boundary | Default | Authority |
 | --- | --- | --- |

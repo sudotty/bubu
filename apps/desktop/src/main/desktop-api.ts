@@ -4,6 +4,7 @@ import {
   parseDatasetGroupId,
   parseDatasetGroupSaveInput,
   parseDatasetId,
+  parseDatasetRenameInput,
   parseDatasetReplacementMappingInput,
   parseDatasetValidationSaveInput,
   parseColumnDistributionRequest,
@@ -164,6 +165,14 @@ export function registerDesktopApi({
   ipcMain.handle(desktopChannels.listDatasets, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     return sidecars.listDatasets();
+  });
+  ipcMain.handle(desktopChannels.renameDataset, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.renameDataset(parseDatasetRenameInput(value));
+  });
+  ipcMain.handle(desktopChannels.listDatasetVersions, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.listDatasetVersions(parseDatasetId(value));
   });
   ipcMain.handle(desktopChannels.importDatasets, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

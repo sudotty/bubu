@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { CalendarClock, Settings2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { DatasetGroup, DatasetSummary } from "../shared/product-api.js";
 import { DatasetGroupAnalysis } from "./DatasetGroupAnalysis.js";
 import { DatasetRelationshipPanel } from "./DatasetRelationshipPanel.js";
@@ -12,24 +13,37 @@ function messageFrom(error: unknown): string {
 export function DatasetGroupWorkspace({
   group,
   datasets,
+  editRequest,
   onSaved,
   onDeleted,
 }: {
   readonly group: DatasetGroup | undefined;
   readonly datasets: readonly DatasetSummary[];
+  readonly editRequest: number;
   readonly onSaved: (group: DatasetGroup) => void;
   readonly onDeleted: (groups: readonly DatasetGroup[]) => void;
 }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [cadence, setCadence] = useState<DatasetGroup["cadence"]>("one-off");
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string>();
+  const editorRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     setName(group?.name ?? "");
+    setDescription(group?.description ?? "");
+    setCadence(group?.cadence ?? "one-off");
     setSelectedIds(group?.members.map(({ id }) => id) ?? []);
     setNotice(undefined);
   }, [group]);
+
+  useEffect(() => {
+    if (editRequest === 0) return;
+    if (editorRef.current) editorRef.current.open = true;
+    requestAnimationFrame(() => editorRef.current?.querySelector<HTMLInputElement>("input")?.focus());
+  }, [editRequest]);
 
   function toggleDataset(datasetId: string): void {
     setSelectedIds((current) =>
@@ -48,6 +62,8 @@ export function DatasetGroupWorkspace({
       const saved = await window.bubu.datasetGroups.save({
         ...(group === undefined ? {} : { id: group.id }),
         name,
+        description,
+        cadence,
         datasetIds: [...selectedIds],
       });
       onSaved(saved);
@@ -73,27 +89,36 @@ export function DatasetGroupWorkspace({
 
   return (
     <section className="group-workspace">
-      <header className="group-hero">
+      <header className="group-topic-strip">
         <div>
-          <p className="hero-kicker">本地数据群组</p>
-          <h3>{group?.name ?? "创建数据群组"}</h3>
-          <p>把 2–8 个数据联系人放进同一个群组，成员始终指向各自最新的不可变版本。群组本身不复制原始数据。</p>
+          <span className="group-topic-icon"><CalendarClock size={16} /></span>
+          <span><strong>{group?.description || "把业务相关的数据对象放进同一个对话上下文"}</strong><small>{group ? `${group.members.length} 个数据对象 · ${cadenceLabel(group.cadence)}` : "选择一次性或周期性业务主题"}</small></span>
         </div>
-        {group && <span className="mode-pill">{group.members.length} 个成员</span>}
+        {group && <button type="button" className="secondary-action compact-action" onClick={() => { if (editorRef.current) editorRef.current.open = true; }}><Settings2 size={14} />主题设置</button>}
       </header>
       {notice && <div className="notice" role="status">{notice}</div>}
-      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。" inspector={(threadId) => <ArtifactInspector target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">群组检查器</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
+      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联、查询结果和工作流都保存在各自任务中。" inspector={(threadId, view) => <ArtifactInspector initialView={view} workflowCadence={group.cadence} target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">群组检查器</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
         {(threadId, createThread, openArtifact) => <DatasetGroupAnalysis group={group} threadId={threadId} onCreateThread={createThread} onOpenArtifact={openArtifact} />}
       </ConversationWorkbench>}
-      <details className="group-editor" open={group === undefined}>
-        <summary>{group ? "编辑群组成员与关联范围" : "配置新群组"}</summary>
+      <details ref={editorRef} className="group-editor" open={group === undefined}>
+        <summary>{group ? "编辑业务主题" : "配置业务主题"}</summary>
         <div className="group-editor-body">
         <label>
-          <span>群组名称</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} maxLength={100} placeholder="例如：销售与目标对比" />
+          <span>业务主题名称</span>
+          <input value={name} onChange={(event) => setName(event.target.value)} maxLength={100} placeholder="例如：华东销售周报" />
         </label>
+        <label>
+          <span>这组数据要解决什么问题</span>
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={240} rows={2} placeholder="例如：每周汇总门店销售、目标和退款，并把异常发送到当前对话" />
+        </label>
+        <fieldset className="cadence-picker">
+          <legend>业务节奏</legend>
+          <div>
+            {(["one-off", "daily", "weekly", "monthly", "dataset-version"] as const).map((value) => <label className={cadence === value ? "cadence-selected" : ""} key={value}><input type="radio" name="group-cadence" value={value} checked={cadence === value} onChange={() => setCadence(value)} /><strong>{cadenceLabel(value)}</strong><small>{cadenceDescription(value)}</small></label>)}
+          </div>
+        </fieldset>
         <fieldset>
-          <legend>选择数据联系人（{selectedIds.length}/8）</legend>
+          <legend>选择数据对象（{selectedIds.length}/8）</legend>
           {datasets.length === 0 && <p className="empty-copy">请先导入至少两个 CSV 或 Excel 数据联系人。</p>}
           <div className="group-member-picker">
             {datasets.map((dataset) => {
@@ -118,4 +143,18 @@ export function DatasetGroupWorkspace({
       </details>
     </section>
   );
+}
+
+function cadenceLabel(cadence: DatasetGroup["cadence"]): string {
+  return { "one-off": "一次性", daily: "每天", weekly: "每周", monthly: "每月", "dataset-version": "数据更新时" }[cadence];
+}
+
+function cadenceDescription(cadence: DatasetGroup["cadence"]): string {
+  return {
+    "one-off": "临时分析，按需收尾",
+    daily: "适合日清和每日运营",
+    weekly: "适合周报和周期复盘",
+    monthly: "适合月结与经营汇总",
+    "dataset-version": "任一成员替换版本后触发",
+  }[cadence];
 }

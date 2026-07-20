@@ -5,7 +5,6 @@ import type {
   DatasetSummary,
   ProductReadiness,
 } from "../shared/product-api.js";
-import { MoreHorizontal } from "lucide-react";
 import { DatasetAnalysis } from "./DatasetAnalysis.js";
 import { DatasetQualityPanel } from "./DatasetQualityPanel.js";
 import { SchemaMappingPanel } from "./SchemaMappingPanel.js";
@@ -104,51 +103,19 @@ export function DatasetWorkspace({
   dataset,
   preview,
   replacing,
-  lifecycleAction,
   pendingMapping,
-  onReplace,
-  onExport,
-  onDelete,
   onApplyMapping,
   onCancelMapping,
 }: {
   readonly dataset: DatasetSummary;
   readonly preview: PreviewState;
   readonly replacing: boolean;
-  readonly lifecycleAction: "export" | "delete" | undefined;
   readonly pendingMapping: MappingRequired | undefined;
-  readonly onReplace: () => void;
-  readonly onExport: () => void;
-  readonly onDelete: () => void;
   readonly onApplyMapping: (input: DatasetReplacementMappingInput) => void;
   readonly onCancelMapping: () => void;
 }) {
-  const busy = replacing || lifecycleAction !== undefined;
   return (
     <>
-      <section className="dataset-summary">
-        <div className="dataset-identity">
-          <p className="hero-kicker">数据联系人 · 版本 {dataset.version}</p>
-          <h3>{dataset.displayName}</h3>
-          <p>{dataset.sourceName} · 本地 SQLite · 不保存源文件路径</p>
-        </div>
-        <div className="dataset-actions">
-          <div className="dataset-metrics">
-            <span><strong>{numberFormat.format(dataset.rowCount)}</strong> 行</span>
-            <span><strong>{dataset.columnCount}</strong> 列</span>
-            <span><strong>{dataset.sourceKind.toUpperCase()}</strong> 来源</span>
-          </div>
-          <details className="dataset-action-menu">
-            <summary aria-label={`${dataset.displayName} 的数据集操作`}><MoreHorizontal size={17} />数据集操作</summary>
-            <div>
-              <button type="button" onClick={onExport} disabled={busy}>{lifecycleAction === "export" ? "正在导出…" : "安全导出 CSV"}</button>
-              <button type="button" onClick={onReplace} disabled={busy}>{replacing ? "正在检查…" : "替换数据版本"}</button>
-              <button type="button" className="danger-menu-action" onClick={onDelete} disabled={busy}>{lifecycleAction === "delete" ? "正在删除…" : "永久删除数据集"}</button>
-            </div>
-          </details>
-        </div>
-      </section>
-
       {pendingMapping && (
         <SchemaMappingPanel
           key={pendingMapping.replacementToken}
@@ -163,7 +130,7 @@ export function DatasetWorkspace({
         target={{ kind: "dataset", id: dataset.id }}
         title="数据对话"
         subtitle="每条对话都是一个可审查的数据任务。"
-        inspector={(threadId) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} fallback={<DatasetContextInspector dataset={dataset} preview={preview} />} />}
+        inspector={(threadId, view) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} initialView={view} fallback={<DatasetContextInspector dataset={dataset} preview={preview} />} />}
       >
         {(threadId, createThread, openArtifact) => <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} threadId={threadId} onCreateThread={createThread} onOpenArtifact={openArtifact} />}
       </ConversationWorkbench>

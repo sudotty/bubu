@@ -30,11 +30,11 @@ func TestDeleteDatasetRemovesPrivateStateAndRepairsAffectedGroups(t *testing.T) 
 	if _, err := service.ReplaceFile(context.Background(), a.ID, paths[0]); err != nil {
 		t.Fatal(err)
 	}
-	groupAB, err := service.SaveGroup(context.Background(), "", "AB", []string{a.ID, b.ID})
+	groupAB, err := service.SaveGroup(context.Background(), "", "AB", "", "one-off", []string{a.ID, b.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	groupABC, err := service.SaveGroup(context.Background(), "", "ABC", []string{a.ID, b.ID, c.ID})
+	groupABC, err := service.SaveGroup(context.Background(), "", "ABC", "", "one-off", []string{a.ID, b.ID, c.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

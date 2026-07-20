@@ -48,6 +48,8 @@ capabilities:
   reference-100mib-performance-gate: implemented
   reference-100k-query-budget: implemented
   dataset-versioning: implemented
+  custom-dataset-display-names: implemented
+  dataset-version-history-popover: implemented
   same-schema-replacement: implemented
   schema-drift-detection: implemented
   schema-drift-mapping: implemented
@@ -65,6 +67,7 @@ capabilities:
   validation: implemented
   multi-table-query: implemented
   dataset-groups: implemented
+  business-topic-group-cadence: implemented
   bounded-lookup-joins: implemented
   reusable-dataset-relationships: implemented
   deterministic-relationship-discovery: implemented
@@ -125,6 +128,8 @@ capabilities:
   recoverable-conversation-errors: implemented
   keyboard-first-conversation-composer: implemented
   compact-conversation-drawers: implemented
+  conversation-context-menus: implemented
+  top-right-history-result-workflow-controls: implemented
   adaptive-conversation-panes: implemented
   semantic-chat-message-grammar: implemented
   typed-conversation-task-lifecycle: implemented
@@ -188,6 +193,8 @@ capabilities:
   workflow-retry-budgets: implemented
   workflow-step-checkpoints: implemented
   workflow-local-run-audit: implemented
+  static-dynamic-workflow-graph: implemented
+  conversation-workflow-finalization: implemented
   cancellable-workflow-runs: implemented
   persistent-workflow-trigger-queue: implemented
   interval-workflow-triggers: implemented

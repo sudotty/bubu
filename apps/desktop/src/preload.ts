@@ -26,6 +26,8 @@ import {
   type DatasetReplacementMappingInput,
   type DatasetReplacementResult,
   type DatasetImportResult,
+  type DatasetRenameInput,
+  type DatasetVersionSummary,
   type DatasetExportSelectionResult,
   type DatasetDeletionSelectionResult,
   type DatasetQualityReport,
@@ -92,6 +94,10 @@ const desktopApi: BuBuDesktopApi = {
   datasets: {
     importFiles: (operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.importDatasets, { operationId }) as Promise<DatasetImportResult>,
+    rename: (input: DatasetRenameInput) =>
+      ipcRenderer.invoke(desktopChannels.renameDataset, input) as Promise<DatasetSummary>,
+    versions: (datasetId: string) =>
+      ipcRenderer.invoke(desktopChannels.listDatasetVersions, datasetId) as Promise<readonly DatasetVersionSummary[]>,
     export: (datasetId: string, operationId: OperationId) =>
       ipcRenderer.invoke(desktopChannels.exportDataset, { operationId, value: datasetId }) as Promise<DatasetExportSelectionResult>,
     delete: (datasetId: string) =>

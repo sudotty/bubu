@@ -54,6 +54,8 @@ func ensureJSONEnd(decoder *json.Decoder) error {
 type DatasetService interface {
 	ImportFile(ctx context.Context, sourcePath string) (data.ImportResult, error)
 	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
+	RenameDataset(ctx context.Context, input data.DatasetRenameInput) (data.DatasetSummary, error)
+	ListDatasetVersions(ctx context.Context, datasetID string) ([]data.DatasetVersionSummary, error)
 	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
 	ReplaceFileWithMapping(ctx context.Context, datasetID string, sourcePath string, mappings []data.ColumnMapping) (data.ReplacementResult, error)
 	GetQualityReport(ctx context.Context, datasetID string) (data.DatasetQualityReport, error)
@@ -66,7 +68,7 @@ type DatasetService interface {
 	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
 	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
 	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
-	SaveGroup(ctx context.Context, groupID string, name string, datasetIDs []string) (data.DatasetGroup, error)
+	SaveGroup(ctx context.Context, groupID string, name string, description string, cadence string, datasetIDs []string) (data.DatasetGroup, error)
 	ListGroups(ctx context.Context) ([]data.DatasetGroup, error)
 	DeleteGroup(ctx context.Context, groupID string) error
 	GetGroupRelationships(ctx context.Context, groupID string) (data.GroupRelationshipOverview, error)
@@ -124,6 +126,26 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		result, err := datasets.ImportFiles(ctx, sourcePaths)
 		if err != nil {
 			return failure(request.ID, "IMPORT_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.rename":
+		input, ok := objectParam[data.DatasetRenameInput](map[string]any{"input": request.Params}, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId and displayName are required", false)
+		}
+		result, err := datasets.RenameDataset(ctx, input)
+		if err != nil {
+			return failure(request.ID, "DATASET_RENAME_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.versions.list":
+		datasetID, ok := stringParam(request.Params, "datasetId")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId is required", false)
+		}
+		result, err := datasets.ListDatasetVersions(ctx, datasetID)
+		if err != nil {
+			return failure(request.ID, "DATASET_VERSIONS_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
 	case "dataset.replace":
@@ -191,13 +213,17 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 		}
 		return success(request.ID, result)
 	case "dataset.group.save":
-		name, nameOK := stringParam(request.Params, "name")
-		datasetIDs, datasetsOK := stringSliceParam(request.Params, "datasetIds", 8)
-		groupID, idOK := optionalStringParam(request.Params, "id")
-		if !nameOK || !datasetsOK || !idOK {
+		input, ok := objectParam[data.DatasetGroupSaveInput](map[string]any{"input": request.Params}, "input")
+		if !ok {
 			return failure(request.ID, "INVALID_ARGUMENT", "group name, optional id, and datasetIds are invalid", false)
 		}
-		result, err := datasets.SaveGroup(ctx, groupID, name, datasetIDs)
+		if input.Cadence == "" {
+			input.Cadence = "one-off"
+		}
+		if input.Name == "" || len(input.DatasetIDs) < 2 || len(input.DatasetIDs) > 8 || !validGroupCadence(input.Cadence) {
+			return failure(request.ID, "INVALID_ARGUMENT", "group name, cadence, and 2-8 datasetIds are required", false)
+		}
+		result, err := datasets.SaveGroup(ctx, input.ID, input.Name, input.Description, input.Cadence, input.DatasetIDs)
 		if err != nil {
 			return failure(request.ID, "GROUP_SAVE_FAILED", err.Error(), false)
 		}
@@ -283,6 +309,15 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 	}
 
 	return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
+}
+
+func validGroupCadence(value string) bool {
+	switch value {
+	case "one-off", "daily", "weekly", "monthly", "dataset-version":
+		return true
+	default:
+		return false
+	}
 }
 
 func stringParam(params map[string]any, key string) (string, bool) {

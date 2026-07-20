@@ -26,16 +26,19 @@ type fakeDatasets struct {
 	waitForCancellation bool
 }
 
-func (fake *fakeDatasets) SaveGroup(
-	_ context.Context,
-	groupID string,
-	name string,
-	datasetIDs []string,
-) (data.DatasetGroup, error) {
+func (fake *fakeDatasets) SaveGroup(_ context.Context, groupID, name, description, cadence string, datasetIDs []string) (data.DatasetGroup, error) {
 	if groupID == "" {
 		groupID = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 	}
-	return data.DatasetGroup{ID: groupID, Name: name, Members: make([]data.DatasetSummary, len(datasetIDs))}, nil
+	return data.DatasetGroup{ID: groupID, Name: name, Description: description, Cadence: cadence, Members: make([]data.DatasetSummary, len(datasetIDs))}, nil
+}
+
+func (fake *fakeDatasets) RenameDataset(_ context.Context, input data.DatasetRenameInput) (data.DatasetSummary, error) {
+	return data.DatasetSummary{ID: input.DatasetID, DisplayName: input.DisplayName}, nil
+}
+
+func (fake *fakeDatasets) ListDatasetVersions(context.Context, string) ([]data.DatasetVersionSummary, error) {
+	return []data.DatasetVersionSummary{}, nil
 }
 
 func (fake *fakeDatasets) ListGroups(context.Context) ([]data.DatasetGroup, error) {

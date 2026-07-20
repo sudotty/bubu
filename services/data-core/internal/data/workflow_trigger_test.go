@@ -68,6 +68,24 @@ func TestIntervalWorkflowTriggerPersistsAndRunsIdempotently(t *testing.T) {
 	}
 }
 
+func TestMonthlyWorkflowIntervalIsBoundedAndPersisted(t *testing.T) {
+	service, dataset := importQueryFixture(t)
+	input := datasetWorkflowInput(t, service, dataset, 1)
+	input.Trigger = WorkflowTrigger{Kind: "interval", EveryMinutes: 30 * 24 * 60}
+	definition, err := service.SaveWorkflow(context.Background(), input)
+	if err != nil || definition.NextDueAt == nil {
+		t.Fatalf("save monthly workflow: %#v, %v", definition, err)
+	}
+	nextDueAt, err := time.Parse(time.RFC3339Nano, *definition.NextDueAt)
+	if err != nil || time.Until(nextDueAt) < 29*24*time.Hour || time.Until(nextDueAt) > 31*24*time.Hour {
+		t.Fatalf("monthly workflow due time is outside its interval: %v, %v", definition.NextDueAt, err)
+	}
+	input.Trigger.EveryMinutes = 32 * 24 * 60
+	if _, err := service.SaveWorkflow(context.Background(), input); err == nil {
+		t.Fatal("workflow interval exceeded its bounded monthly range")
+	}
+}
+
 func TestDatasetVersionTriggerFiresOnlyAfterReplacement(t *testing.T) {
 	service, dataset := importQueryFixture(t)
 	input := datasetWorkflowInput(t, service, dataset, 1)

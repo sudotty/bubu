@@ -25,7 +25,7 @@ export function ConversationHistory({
   if (!thread || thread.entries.length === 0) return null;
   return (
     <section className="conversation-history" aria-label="本地历史对话">
-      <header><strong>任务记录</strong><span>{thread.entries.length} 条本地事件</span></header>
+      <header className="history-divider"><span>之前的消息</span><small>{thread.entries.length} 条本地记录</small></header>
       {thread.entries.map((entry) => {
         if (entry.kind === "question") {
           if (hideQuestion === entry.payload.question) return null;

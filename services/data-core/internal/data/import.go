@@ -163,8 +163,8 @@ func materializeVersion(
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO dataset_versions(
     id, dataset_id, ordinal, table_name, source_sha256, source_size,
-    imported_at, row_count, column_count, status
-) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'importing')`,
+    imported_at, row_count, column_count, status, source_name
+) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'importing', ?)`,
 		target.versionID,
 		target.datasetID,
 		target.version,
@@ -173,6 +173,7 @@ INSERT INTO dataset_versions(
 		fileSize,
 		target.importedAt,
 		len(names),
+		target.sourceName,
 	); err != nil {
 		return DatasetSummary{}, fmt.Errorf("create dataset version: %w", err)
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -19,11 +20,20 @@ func (service *Service) SaveGroup(
 	ctx context.Context,
 	groupID string,
 	name string,
+	description string,
+	cadence string,
 	datasetIDs []string,
 ) (DatasetGroup, error) {
 	normalizedName := strings.TrimSpace(name)
-	if normalizedName == "" || len(normalizedName) > 100 {
+	if normalizedName == "" || utf8.RuneCountInString(normalizedName) > 100 {
 		return DatasetGroup{}, errors.New("group name is invalid")
+	}
+	normalizedDescription := strings.TrimSpace(description)
+	if utf8.RuneCountInString(normalizedDescription) > 240 {
+		return DatasetGroup{}, errors.New("group description is invalid")
+	}
+	if !validGroupCadence(cadence) {
+		return DatasetGroup{}, errors.New("group cadence is invalid")
 	}
 	if len(datasetIDs) < minimumGroupMembers || len(datasetIDs) > maximumGroupMembers {
 		return DatasetGroup{}, fmt.Errorf("group must contain between %d and %d datasets", minimumGroupMembers, maximumGroupMembers)
@@ -76,12 +86,13 @@ SELECT COUNT(*) FROM dataset_group_members WHERE dataset_id = ? AND group_id <> 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	if creating {
 		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO dataset_groups(id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`, groupID, normalizedName, now, now); err != nil {
+INSERT INTO dataset_groups(id, name, description, cadence, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)`, groupID, normalizedName, normalizedDescription, cadence, now, now); err != nil {
 			return DatasetGroup{}, fmt.Errorf("create dataset group: %w", err)
 		}
 	} else {
 		result, err := transaction.ExecContext(ctx, `
-UPDATE dataset_groups SET name = ?, updated_at = ? WHERE id = ?`, normalizedName, now, groupID)
+UPDATE dataset_groups SET name = ?, description = ?, cadence = ?, updated_at = ? WHERE id = ?`, normalizedName, normalizedDescription, cadence, now, groupID)
 		if err != nil {
 			return DatasetGroup{}, fmt.Errorf("update dataset group: %w", err)
 		}
@@ -106,7 +117,7 @@ INSERT INTO dataset_group_members(group_id, dataset_id, ordinal) VALUES (?, ?, ?
 
 func (service *Service) ListGroups(ctx context.Context) ([]DatasetGroup, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT id, name, created_at, updated_at
+SELECT id, name, description, cadence, created_at, updated_at
 FROM dataset_groups
 ORDER BY updated_at DESC, id`)
 	if err != nil {
@@ -116,7 +127,7 @@ ORDER BY updated_at DESC, id`)
 	groups := make([]DatasetGroup, 0)
 	for rows.Next() {
 		var group DatasetGroup
-		if err := rows.Scan(&group.ID, &group.Name, &group.CreatedAt, &group.UpdatedAt); err != nil {
+		if err := rows.Scan(&group.ID, &group.Name, &group.Description, &group.Cadence, &group.CreatedAt, &group.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan dataset group: %w", err)
 		}
 		groups = append(groups, group)
@@ -143,8 +154,8 @@ func (service *Service) GetGroup(ctx context.Context, groupID string) (DatasetGr
 	}
 	var group DatasetGroup
 	err := service.database.QueryRowContext(ctx, `
-SELECT id, name, created_at, updated_at FROM dataset_groups WHERE id = ?`, groupID).Scan(
-		&group.ID, &group.Name, &group.CreatedAt, &group.UpdatedAt,
+SELECT id, name, description, cadence, created_at, updated_at FROM dataset_groups WHERE id = ?`, groupID).Scan(
+		&group.ID, &group.Name, &group.Description, &group.Cadence, &group.CreatedAt, &group.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return DatasetGroup{}, errors.New("dataset group not found")
@@ -154,6 +165,15 @@ SELECT id, name, created_at, updated_at FROM dataset_groups WHERE id = ?`, group
 	}
 	group.Members, err = service.loadGroupMembers(ctx, groupID)
 	return group, err
+}
+
+func validGroupCadence(value string) bool {
+	switch value {
+	case "one-off", "daily", "weekly", "monthly", "dataset-version":
+		return true
+	default:
+		return false
+	}
 }
 
 func (service *Service) loadGroupMembers(ctx context.Context, groupID string) ([]DatasetSummary, error) {

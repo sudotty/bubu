@@ -27,7 +27,7 @@ func TestDatasetGroupLifecycleUsesCurrentImmutableMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	group, err := service.SaveGroup(context.Background(), "", "区域经营群", []string{
+	group, err := service.SaveGroup(context.Background(), "", "区域经营群", "区域销售与目标复盘", "weekly", []string{
 		imported.Datasets[0].ID,
 		imported.Datasets[1].ID,
 	})
@@ -47,14 +47,14 @@ func TestDatasetGroupLifecycleUsesCurrentImmutableMembers(t *testing.T) {
 	if len(groups) != 1 || groups[0].Members[0].Version != 2 || groups[0].Members[0].RowCount != 2 {
 		t.Fatalf("group did not resolve the current immutable member: %#v", groups)
 	}
-	updated, err := service.SaveGroup(context.Background(), group.ID, "经营对比群", []string{
+	updated, err := service.SaveGroup(context.Background(), group.ID, "经营对比群", "数据更新时复盘", "dataset-version", []string{
 		imported.Datasets[1].ID,
 		imported.Datasets[0].ID,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Name != "经营对比群" || updated.Members[0].ID != imported.Datasets[1].ID {
+	if updated.Name != "经营对比群" || updated.Description != "数据更新时复盘" || updated.Cadence != "dataset-version" || updated.Members[0].ID != imported.Datasets[1].ID {
 		t.Fatalf("group update did not preserve order: %#v", updated)
 	}
 	if _, err := service.AppendConversationEntry(context.Background(), ConversationAppendInput{
@@ -79,10 +79,10 @@ func TestDatasetGroupLifecycleUsesCurrentImmutableMembers(t *testing.T) {
 func TestDatasetGroupRejectsInvalidMembership(t *testing.T) {
 	service := openTestService(t, filepath.Join(t.TempDir(), "data"))
 	missing := strings.Repeat("f", 32)
-	if _, err := service.SaveGroup(context.Background(), "", "Invalid", []string{missing}); err == nil || !strings.Contains(err.Error(), "between") {
+	if _, err := service.SaveGroup(context.Background(), "", "Invalid", "", "one-off", []string{missing}); err == nil || !strings.Contains(err.Error(), "between") {
 		t.Fatalf("expected minimum membership error, got %v", err)
 	}
-	if _, err := service.SaveGroup(context.Background(), "", "Invalid", []string{missing, missing}); err == nil || !strings.Contains(err.Error(), "duplicated") {
+	if _, err := service.SaveGroup(context.Background(), "", "Invalid", "", "one-off", []string{missing, missing}); err == nil || !strings.Contains(err.Error(), "duplicated") {
 		t.Fatalf("expected duplicate membership error, got %v", err)
 	}
 }

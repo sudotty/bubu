@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Database, Plus, Settings, UsersRound } from "lucide-react";
+import { Database, Download, FilePenLine, FolderSync, MoreHorizontal, Plus, Settings, Trash2, UsersRound } from "lucide-react";
 import type {
   DatasetGroup,
   DatasetReplacementMappingInput,
@@ -19,8 +19,22 @@ import {
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { McpSettings } from "./McpSettings.js";
 import { SettingsHealthOverview } from "./SettingsHealthOverview.js";
+import { DatasetNameDialog } from "./DatasetNameDialog.js";
+import { DatasetVersions } from "./DatasetVersions.js";
+import { ContextMenu } from "./ContextMenu.js";
 
 const numberFormat = new Intl.NumberFormat("zh-CN");
+const cadenceLabels: Record<DatasetGroup["cadence"], string> = {
+  "one-off": "单次主题",
+  daily: "每日更新",
+  weekly: "每周更新",
+  monthly: "每月更新",
+  "dataset-version": "数据更新时",
+};
+
+type ContactMenuState =
+  | { readonly kind: "dataset"; readonly dataset: DatasetSummary; readonly x: number; readonly y: number }
+  | { readonly kind: "group"; readonly group: DatasetGroup; readonly x: number; readonly y: number };
 
 function messageFrom(error: unknown): string {
   return operationErrorMessage(error, "操作失败，请重试");
@@ -43,6 +57,11 @@ export function App() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
   const [activeOperationId, setActiveOperationId] = useState<OperationId>();
+  const [renamingDatasets, setRenamingDatasets] = useState<readonly DatasetSummary[]>([]);
+  const [renamingBusy, setRenamingBusy] = useState(false);
+  const [contactMenu, setContactMenu] = useState<ContactMenuState>();
+  const [versionOpenRequest, setVersionOpenRequest] = useState(0);
+  const [groupEditRequest, setGroupEditRequest] = useState(0);
   const conversationRef = useRef<HTMLDivElement>(null);
 
   function startOperation(): OperationId {
@@ -142,12 +161,37 @@ export function App() {
       const nextDatasets = await window.bubu.datasets.list();
       setDatasets(nextDatasets);
       setSelectedDatasetId(result.datasets[0]?.id);
+      setRenamingDatasets(result.datasets);
       setNotice(`已导入 ${result.datasets.length} 个数据联系人`);
     } catch (error) {
       setNotice(messageFrom(error));
     } finally {
       setImporting(false);
       finishOperation(operationId);
+    }
+  }
+
+  async function saveDatasetNames(names: ReadonlyMap<string, string>): Promise<void> {
+    setRenamingBusy(true);
+    setNotice(undefined);
+    try {
+      for (const dataset of renamingDatasets) {
+        const displayName = names.get(dataset.id)?.trim();
+        if (!displayName || displayName === dataset.displayName) continue;
+        await window.bubu.datasets.rename({ datasetId: dataset.id, displayName });
+      }
+      const [nextDatasets, nextGroups] = await Promise.all([
+        window.bubu.datasets.list(),
+        window.bubu.datasetGroups.list(),
+      ]);
+      setDatasets(nextDatasets);
+      setGroups(nextGroups);
+      setRenamingDatasets([]);
+      setNotice("数据对象名称已保存，可以直接开始对话。");
+    } catch (error) {
+      setNotice(messageFrom(error));
+    } finally {
+      setRenamingBusy(false);
     }
   }
 
@@ -300,8 +344,8 @@ export function App() {
       {view !== "settings" && <section className="contacts">
         <header className="contacts-header">
           <div>
-            <p className="eyebrow">{view === "groups" ? "数据群组" : "本地数据助手"}</p>
-            <h1>{view === "groups" ? "群组" : "BuBu"}</h1>
+            <p className="eyebrow">{view === "groups" ? "业务主题" : "本地数据助手"}</p>
+            <h1>{view === "groups" ? "数据群组" : "BuBu"}</h1>
           </div>
           <button
             type="button"
@@ -319,7 +363,7 @@ export function App() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={view === "groups" ? "搜索数据群组" : "搜索数据联系人"}
+            placeholder={view === "groups" ? "搜索业务主题" : "搜索数据对象"}
           />
         </label>
 
@@ -338,12 +382,17 @@ export function App() {
               className={`contact-card ${dataset.id === selectedDatasetId ? "contact-card-active" : ""}`}
               key={dataset.id}
               onClick={() => setSelectedDatasetId(dataset.id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setContactMenu({ kind: "dataset", dataset, x: event.clientX, y: event.clientY });
+              }}
             >
               <span className="contact-avatar">{dataset.sourceKind === "xlsx" ? "X" : "C"}</span>
               <span>
                 <strong>{dataset.displayName}</strong>
-                <small>{numberFormat.format(dataset.rowCount)} 行 · {dataset.columnCount} 列</small>
+                <small>{numberFormat.format(dataset.rowCount)} 行 · 版本 {dataset.version}</small>
               </span>
+              <time>{new Date(dataset.importedAt).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })}</time>
             </button>
           ))}
           {view === "groups" && !catalogLoading && filteredGroups.length === 0 && (
@@ -359,24 +408,48 @@ export function App() {
               className={`contact-card ${group.id === selectedGroupId ? "contact-card-active" : ""}`}
               key={group.id}
               onClick={() => setSelectedGroupId(group.id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setContactMenu({ kind: "group", group, x: event.clientX, y: event.clientY });
+              }}
             >
               <span className="contact-avatar">G</span>
-              <span><strong>{group.name}</strong><small>{group.members.length} 个数据联系人</small></span>
+              <span><strong>{group.name}</strong><small>{cadenceLabels[group.cadence]} · {group.members.length} 个数据对象</small></span>
             </button>
           ))}
         </div>
-        <p className="local-note">{view === "groups" ? "群组只保存成员关系 · 不复制原始数据" : "默认本地模式 · 原始数据不会自动出站"}</p>
+        <p className="local-note">{view === "groups" ? "主题保存成员关系与业务节奏 · 不复制原始数据" : "数据对象保存在本地 · 原始数据不会自动出站"}</p>
       </section>}
 
       <section className="workspace">
         <header className="workspace-header">
-          <div>
-            <p className="eyebrow">{view === "settings" ? "安全本地配置" : view === "groups" ? "本地群组工作区" : "默认保持私密"}</p>
-            <h2>{view === "settings" ? "设置" : view === "groups" ? selectedGroup?.name ?? "创建数据群组" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
+          <div className="workspace-identity">
+            {view !== "settings" && <span className="workspace-avatar" aria-hidden="true">{view === "groups" ? "G" : selectedDataset?.sourceKind === "xlsx" ? "X" : "C"}</span>}
+            <div>
+              <p className="eyebrow">{view === "settings" ? "安全本地配置" : view === "groups" ? "业务数据主题" : "本地数据对象"}</p>
+              <h2>{view === "settings" ? "设置" : view === "groups" ? selectedGroup?.name ?? "创建数据群组" : selectedDataset?.displayName ?? "本地 AI 数据工作台"}</h2>
+              {selectedDataset && view === "datasets" && <small>{selectedDataset.sourceName} · {numberFormat.format(selectedDataset.rowCount)} 行 · {selectedDataset.columnCount} 列</small>}
+              {selectedGroup && view === "groups" && <small>{selectedGroup.description || `${selectedGroup.members.length} 个数据对象`} · {cadenceLabels[selectedGroup.cadence]}</small>}
+            </div>
           </div>
-          <span className="mode-pill">
-            {readiness.kind === "loaded" && readiness.value.status === "ready" ? "本地服务就绪" : "本地模式"}
-          </span>
+          <div className="workspace-actions">
+            {view === "datasets" && selectedDataset && <>
+              <DatasetVersions dataset={selectedDataset} openRequest={versionOpenRequest} />
+              <details className="dataset-action-menu workspace-more-menu">
+                <summary aria-label={`${selectedDataset.displayName} 的数据对象操作`}><MoreHorizontal size={18} /></summary>
+                <div>
+                  <button type="button" onClick={() => setRenamingDatasets([selectedDataset])}><FilePenLine size={15} />重命名数据对象</button>
+                  <button type="button" onClick={() => void replaceFile(selectedDataset.id)} disabled={replacing}><FolderSync size={15} />{replacing ? "正在检查…" : "替换数据版本"}</button>
+                  <button type="button" onClick={() => void exportDataset(selectedDataset.id)} disabled={lifecycleAction !== undefined}><Download size={15} />安全导出 CSV</button>
+                  <button type="button" className="danger-menu-action" onClick={() => void deleteDataset(selectedDataset.id)} disabled={lifecycleAction !== undefined}><Trash2 size={15} />永久删除数据集</button>
+                </div>
+              </details>
+            </>}
+            {view === "groups" && selectedGroup && <span className="mode-pill">{cadenceLabels[selectedGroup.cadence]}</span>}
+            <span className="service-presence" title={readiness.kind === "loaded" && readiness.value.status === "ready" ? "本地服务就绪" : "本地模式"}>
+              <i />{readiness.kind === "loaded" && readiness.value.status === "ready" ? "本地就绪" : "本地模式"}
+            </span>
+          </div>
         </header>
 
         <div ref={conversationRef} className={`conversation ${view === "settings" ? "conversation-settings" : ""}`}>
@@ -399,6 +472,7 @@ export function App() {
             <DatasetGroupWorkspace
               group={selectedGroup}
               datasets={datasets}
+              editRequest={groupEditRequest}
               onSaved={(saved) => {
                 setGroups((current) => [saved, ...current.filter(({ id }) => id !== saved.id)]);
                 setSelectedGroupId(saved.id);
@@ -426,11 +500,7 @@ export function App() {
               dataset={selectedDataset}
               preview={preview}
               replacing={replacing}
-              lifecycleAction={lifecycleAction}
               pendingMapping={pendingMapping}
-              onReplace={() => void replaceFile(selectedDataset.id)}
-              onExport={() => void exportDataset(selectedDataset.id)}
-              onDelete={() => void deleteDataset(selectedDataset.id)}
               onApplyMapping={(input) => void applyReplacementMapping(input)}
               onCancelMapping={() => setPendingMapping(undefined)}
             />
@@ -438,6 +508,30 @@ export function App() {
         </div>
 
       </section>
+      {renamingDatasets.length > 0 && <DatasetNameDialog datasets={renamingDatasets} busy={renamingBusy} onCancel={() => setRenamingDatasets([])} onSave={(names) => void saveDatasetNames(names)} />}
+      {contactMenu?.kind === "dataset" && <ContextMenu
+        x={contactMenu.x}
+        y={contactMenu.y}
+        label={`${contactMenu.dataset.displayName} 的数据对象菜单`}
+        onClose={() => setContactMenu(undefined)}
+        items={[
+          { label: "重命名数据对象", icon: <FilePenLine size={15} />, onSelect: () => { setSelectedDatasetId(contactMenu.dataset.id); setRenamingDatasets([contactMenu.dataset]); } },
+          { label: "查看数据版本", icon: <FolderSync size={15} />, onSelect: () => { setSelectedDatasetId(contactMenu.dataset.id); setVersionOpenRequest((value) => value + 1); } },
+          { label: "替换为新文件", icon: <FolderSync size={15} />, onSelect: () => { setSelectedDatasetId(contactMenu.dataset.id); void replaceFile(contactMenu.dataset.id); } },
+          { label: "安全导出 CSV", icon: <Download size={15} />, onSelect: () => void exportDataset(contactMenu.dataset.id) },
+        ]}
+      />}
+      {contactMenu?.kind === "group" && <ContextMenu
+        x={contactMenu.x}
+        y={contactMenu.y}
+        label={`${contactMenu.group.name} 的业务主题菜单`}
+        onClose={() => setContactMenu(undefined)}
+        items={[
+          { label: "打开业务主题", icon: <UsersRound size={15} />, onSelect: () => setSelectedGroupId(contactMenu.group.id) },
+          { label: "编辑主题与运行节奏", icon: <Settings size={15} />, onSelect: () => { setSelectedGroupId(contactMenu.group.id); setGroupEditRequest((value) => value + 1); } },
+          { label: "创建新业务主题", icon: <Plus size={15} />, onSelect: () => setSelectedGroupId(undefined) },
+        ]}
+      />}
     </main>
   );
 }
