@@ -144,16 +144,28 @@ func TestConversationThreadsAreIndependentForOneDataset(t *testing.T) {
 	if err != nil || loadedSecond == nil || len(loadedSecond.Entries) != 0 {
 		t.Fatalf("second thread changed unexpectedly: %#v, %v", loadedSecond, err)
 	}
-	threads, err := service.ListConversations(context.Background(), target)
-	if err != nil || len(threads) != 2 {
-		t.Fatalf("expected two active threads, got %#v, %v", threads, err)
+	autoNamed, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target})
+	if err != nil || autoNamed == nil {
+		t.Fatal(err)
+	}
+	autoNamed, err = service.AppendConversationEntry(context.Background(), ConversationAppendInput{Target: target, ThreadID: autoNamed.ID, Entry: ConversationEntryInput{Kind: "question", Role: "user", Payload: json.RawMessage(`{"question":"自动生成线程标题"}`)}})
+	if err != nil || autoNamed == nil || autoNamed.Title != "自动生成线程标题" {
+		t.Fatalf("first question did not name the thread: %#v, %v", autoNamed, err)
+	}
+	threads, err := service.ListConversations(context.Background(), target, false)
+	if err != nil || len(threads) != 3 {
+		t.Fatalf("expected three active threads, got %#v, %v", threads, err)
 	}
 	if err := service.ArchiveConversation(context.Background(), ConversationArchiveInput{ThreadID: second.ID, Archived: true}); err != nil {
 		t.Fatal(err)
 	}
-	threads, err = service.ListConversations(context.Background(), target)
-	if err != nil || len(threads) != 1 || threads[0].ID != first.ID {
+	threads, err = service.ListConversations(context.Background(), target, false)
+	if err != nil || len(threads) != 2 {
 		t.Fatalf("archive did not hide one thread: %#v, %v", threads, err)
+	}
+	archived, err := service.ListConversations(context.Background(), target, true)
+	if err != nil || len(archived) != 1 || archived[0].ID != second.ID {
+		t.Fatalf("archived thread was not recoverable: %#v, %v", archived, err)
 	}
 }
 

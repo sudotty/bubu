@@ -117,6 +117,11 @@ export const conversationArchiveInputSchema = z.object({
   archived: z.boolean(),
 }).strict();
 
+export const conversationListInputSchema = z.object({
+  target: conversationTargetSchema,
+  archived: z.boolean(),
+}).strict();
+
 export const conversationAppendInputSchema = z.object({
   target: conversationTargetSchema,
   threadId: conversationIdSchema.optional(),
@@ -131,6 +136,7 @@ export type ConversationThreadSummary = z.infer<typeof conversationThreadSummary
 export type ConversationCreateInput = z.infer<typeof conversationCreateInputSchema>;
 export type ConversationRenameInput = z.infer<typeof conversationRenameInputSchema>;
 export type ConversationArchiveInput = z.infer<typeof conversationArchiveInputSchema>;
+export type ConversationListInput = z.infer<typeof conversationListInputSchema>;
 export type ConversationAppendInput = z.infer<typeof conversationAppendInputSchema>;
 
 export function parseConversationTarget(value: unknown): ConversationTarget {
@@ -163,6 +169,10 @@ export function parseConversationRenameInput(value: unknown): ConversationRename
 
 export function parseConversationArchiveInput(value: unknown): ConversationArchiveInput {
   return conversationArchiveInputSchema.parse(value);
+}
+
+export function parseConversationListInput(value: unknown): ConversationListInput {
+  return conversationListInputSchema.parse(value);
 }
 
 export function parseConversationAppendInput(value: unknown): ConversationAppendInput {

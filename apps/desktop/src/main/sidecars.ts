@@ -278,8 +278,8 @@ class DataCoreClient implements RuntimeClient {
     return parseOptionalConversationThread(await this.#broker.request("conversation.get.byid", { threadId }));
   }
 
-  async listConversations(target: ConversationTarget): Promise<readonly ConversationThreadSummary[]> {
-    return parseConversationThreadSummaryList(await this.#broker.request("conversation.list", { target }));
+  async listConversations(target: ConversationTarget, archived = false): Promise<readonly ConversationThreadSummary[]> {
+    return parseConversationThreadSummaryList(await this.#broker.request("conversation.list", { target, archived }));
   }
 
   async createConversation(input: ConversationCreateInput): Promise<ConversationThread> {
@@ -491,7 +491,7 @@ export interface SidecarSupervisor {
   executeGroupQueryPlan(plan: SafeGroupQueryPlan, signal?: AbortSignal): Promise<SafeGroupQueryResult>;
   getConversation(target: ConversationTarget): Promise<ConversationThread | null>;
   getConversationByID(threadId: string): Promise<ConversationThread | null>;
-  listConversations(target: ConversationTarget): Promise<readonly ConversationThreadSummary[]>;
+  listConversations(target: ConversationTarget, archived?: boolean): Promise<readonly ConversationThreadSummary[]>;
   createConversation(input: ConversationCreateInput): Promise<ConversationThread>;
   renameConversation(input: ConversationRenameInput): Promise<ConversationThread>;
   archiveConversation(input: ConversationArchiveInput): Promise<void>;
@@ -562,7 +562,7 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     executeGroupQueryPlan: (plan, signal) => dataCore.executeGroupQueryPlan(plan, signal),
     getConversation: (target) => dataCore.getConversation(target),
     getConversationByID: (threadId) => dataCore.getConversationByID(threadId),
-    listConversations: (target) => dataCore.listConversations(target),
+    listConversations: (target, archived) => dataCore.listConversations(target, archived),
     createConversation: (input) => dataCore.createConversation(input),
     renameConversation: (input) => dataCore.renameConversation(input),
     archiveConversation: (input) => dataCore.archiveConversation(input),

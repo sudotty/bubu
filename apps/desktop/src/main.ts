@@ -120,7 +120,7 @@ async function verifySmokeRenderer(
         "LOCAL ARTIFACT",
         "先生成计划",
         "LOCAL CONVERSATION HISTORY",
-        "历史结果"
+        "结果已准备好"
       ];
       const deadline = Date.now() + 5000;
       let selectedSales = false;

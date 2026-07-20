@@ -66,6 +66,18 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
     setOperationId(undefined);
   }, [datasetId, threadId]);
 
+  useEffect(() => {
+    if (!history || !threadId || operationId || submittedQuestion) return;
+    const persistedPlan = history.entries.findLast((entry) => entry.kind === "plan");
+    const persistedResult = history.entries.findLast((entry) => entry.kind === "result");
+    const persistedError = history.entries.findLast((entry) => entry.kind === "error");
+    const persistedProposal = persistedPlan?.kind === "plan" ? persistedPlan.payload.proposal : undefined;
+    setProposal(persistedProposal && "disclosedContext" in persistedProposal ? persistedProposal : undefined);
+    setResult(persistedResult?.kind === "result" && "datasetId" in persistedResult.payload.result ? persistedResult.payload.result : undefined);
+    setError(persistedError?.kind === "error" && (!persistedResult || persistedError.ordinal > persistedResult.ordinal) ? persistedError.payload.message : undefined);
+    setState(persistedResult ? "complete" : persistedPlan ? "proposed" : persistedError ? "failed" : "idle");
+  }, [history, operationId, submittedQuestion, threadId]);
+
   async function propose(): Promise<void> {
     const normalizedQuestion = question.trim();
     if (!normalizedQuestion) return;
@@ -200,6 +212,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
       {result && proposal && threadId && <AggregateAgentPanel plan={proposal.plan} threadId={threadId} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
+        {!threadId && <p className="composer-thread-note">请先在左侧开始一个新任务，再发送问题。</p>}
         <p className="composer-privacy-note">你的问题文本会原样发送给当前模型；请不要把敏感原始行或值粘贴到问题中。表格内容只自动发送列结构与本地合成示例。</p>
         <label className="sr-only" htmlFor={`question-${datasetId}`}>向这个数据联系人提问</label>
         <textarea
@@ -209,8 +222,9 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
           placeholder="例如：按区域统计已支付订单的金额，并按金额从高到低排序"
           maxLength={20_000}
           rows={2}
+          disabled={!threadId}
         />
-        <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>
+        <button type="submit" disabled={!threadId || state === "planning" || state === "executing" || question.trim().length === 0}>
           {state === "planning" ? "生成中…" : "先生成计划"}
         </button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}

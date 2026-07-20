@@ -34,10 +34,11 @@ func handleConversationMethod(ctx context.Context, request Request, datasets Dat
 		return success(request.ID, result), true
 	case "conversation.list":
 		target, ok := objectParam[data.ConversationTarget](request.Params, "target")
-		if !ok {
+		archived, archivedOK := objectParam[bool](request.Params, "archived")
+		if !ok || !archivedOK {
 			return failure(request.ID, "INVALID_ARGUMENT", "target must be a strict conversation target", false), true
 		}
-		result, err := datasets.ListConversations(ctx, target)
+		result, err := datasets.ListConversations(ctx, target, archived)
 		if err != nil {
 			return failure(request.ID, "CONVERSATION_ACCESS_FAILED", err.Error(), false), true
 		}

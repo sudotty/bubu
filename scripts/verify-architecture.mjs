@@ -547,6 +547,14 @@ const conversationRefresh = read("apps/desktop/src/renderer/useConversationThrea
 for (const invariant of ["window.bubu.conversations.get(target)", "inFlight", "AUTOMATION_POLL_INTERVAL_MILLISECONDS"]) {
   if (!conversationRefresh.includes(invariant)) failures.push(`in-app automation reminder refresh missing: ${invariant}`);
 }
+const conversationWorkbench = read("apps/desktop/src/renderer/ConversationWorkbench.tsx");
+for (const invariant of ["conversations.rename", "conversations.list(target, true)", "archived: false", "thread-undo"]) {
+  if (!conversationWorkbench.includes(invariant)) failures.push(`conversation lifecycle UI missing: ${invariant}`);
+}
+const conversationStore = read("services/data-core/internal/data/conversation.go");
+if (!conversationStore.includes("name conversation from first question")) {
+  failures.push("conversation title is not derived from the first question");
+}
 const workflowPanel = read("apps/desktop/src/renderer/WorkflowPanel.tsx");
 if (!workflowPanel.includes("AUTOMATION_POLL_INTERVAL_MILLISECONDS")) {
   failures.push("workflow due state does not refresh on the shared automation interval");

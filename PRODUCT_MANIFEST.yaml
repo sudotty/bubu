@@ -95,10 +95,14 @@ capabilities:
   dataset-conversations: implemented
   group-conversations: implemented
   multi-thread-conversations: implemented
+  conversation-thread-rename: implemented
+  first-question-thread-titles: implemented
   conversation-thread-archive: implemented
+  conversation-thread-restore: implemented
   append-only-local-conversation-history: implemented
   conversation-artifact-workbench: implemented
   visible-conversation-task-status: implemented
+  persisted-conversation-task-resume: implemented
   thread-bound-aggregate-approvals: implemented
   thread-bound-workflow-definitions: implemented
   deterministic-workflow-thread-delivery: implemented
