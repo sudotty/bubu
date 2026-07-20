@@ -131,6 +131,9 @@ capabilities:
   artifact-tab-keyboard-navigation: implemented
   privacy-preserving-local-product-metrics: implemented
   product-metrics-content-verifier: implemented
+  conditional-macos-signing-configuration: implemented
+  release-readiness-verifier: implemented
+  legacy-retirement-verifier: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   reduced-motion-interface: implemented
@@ -189,3 +192,5 @@ releaseGates:
   - privacy-non-disclosure
   - reference-performance
   - signed-artifacts
+  - clean-install-upgrade-restore
+  - legacy-migration-disposition

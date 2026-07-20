@@ -1,6 +1,6 @@
 # BuBu productization execution contract
 
-Status: active on `codex/bubu-productization` from the verified conversation-workbench tree.
+Status: implemented on `codex/bubu-productization`; final whole-repository verification remains the closing evidence.
 
 ## Product decision
 
@@ -48,3 +48,9 @@ Guardrails remain exact: zero unapproved row disclosure, zero cross-thread workf
 ## Release decision
 
 The existing draft pull request is a frozen verified baseline and receives no more product scope. This branch becomes a separate review surface. Public beta remains blocked on signed and notarized macOS artifacts, signed update metadata, clean-device install/upgrade/recovery evidence, and an explicit disposition for every remaining `bubu-bi` migration slice.
+
+## Completion evidence
+
+Stages 0–7 are isolated in commits `50fb36f`, `07bfcbb`, `7154c0e`, `1b0631a`, `f56edc5`, `af47275`, `9a68218`, and `59e5f02`. Stage 8 adds release and retirement gates in its own commit.
+
+The closing `npm run verify` passed on 2026-07-20: 78 contract tests, 34 AI-runtime tests, 92 desktop tests, all Go tests, dependency audit, documentation/GitHub/architecture/product/metrics/release/legacy verifiers, production packaging, data-core/MCP/desktop smoke tests, and the deterministic 100 MiB performance gate. The measured data-core result was 3,976.13 ms import/profile, 162.55 ms query p95, and 36.39 MiB peak RSS, within the checked-in budgets.
