@@ -82,6 +82,9 @@ export function DatasetGroupWorkspace({
         {group && <span className="mode-pill">{group.members.length} 个成员</span>}
       </header>
       {notice && <div className="notice" role="status">{notice}</div>}
+      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。" inspector={(threadId) => <ArtifactInspector target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">GROUP INSPECTOR</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
+        {(threadId) => <DatasetGroupAnalysis group={group} threadId={threadId} />}
+      </ConversationWorkbench>}
       <details className="group-editor" open={group === undefined}>
         <summary>{group ? "编辑群组成员与关联范围" : "配置新群组"}</summary>
         <div className="group-editor-body">
@@ -113,9 +116,6 @@ export function DatasetGroupWorkspace({
         </div>
         </div>
       </details>
-      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。" inspector={(threadId) => <ArtifactInspector target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">GROUP INSPECTOR</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
-        {(threadId) => <DatasetGroupAnalysis group={group} threadId={threadId} />}
-      </ConversationWorkbench>}
     </section>
   );
 }

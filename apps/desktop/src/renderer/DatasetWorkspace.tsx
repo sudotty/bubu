@@ -34,6 +34,27 @@ const typeLabels = {
   text: "文本",
 } as const;
 
+function DatasetContextInspector({ dataset, preview }: { readonly dataset: DatasetSummary; readonly preview: PreviewState }) {
+  return <div className="dataset-context-inspector">
+    <header className="preview-header">
+      <div><p className="hero-kicker">DATA CONTEXT</p><h3>数据结构与健康</h3></div>
+      <span>版本 {dataset.version}</span>
+    </header>
+    {preview.kind === "loading" && <p className="empty-copy">正在读取本地预览与列画像…</p>}
+    {preview.kind === "failed" && <p className="error-text">{preview.message}</p>}
+    {preview.kind === "loaded" && <section className="context-preview" aria-label="本地数据预览">
+      <div className="context-preview-heading"><strong>前 {preview.value.rows.length} 行</strong><small>共 {numberFormat.format(preview.value.totalRows)} 行</small></div>
+      <div className="table-scroll">
+        <table>
+          <thead><tr>{preview.value.columns.map((column) => <th key={column.ordinal}><span>{column.name}</span><small>{typeLabels[column.inferredType]}</small></th>)}</tr></thead>
+          <tbody>{preview.value.rows.map((row, rowIndex) => <tr key={`${preview.value.offset + rowIndex}`}>{preview.value.columns.map((column, columnIndex) => <td key={column.ordinal}>{row[columnIndex] == null ? <span className="null-value">—</span> : String(row[columnIndex])}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
+    </section>}
+    <DatasetQualityPanel datasetId={dataset.id} versionId={dataset.versionId} />
+  </div>;
+}
+
 export function EmptyWorkspace({
   readiness,
   onImport,
@@ -140,35 +161,11 @@ export function DatasetWorkspace({
         />
       )}
 
-      {preview.kind === "loading" && <div className="preview-state">正在读取本地预览与列画像…</div>}
-      {preview.kind === "failed" && <div className="preview-state error-text">{preview.message}</div>}
-      {preview.kind === "loaded" && (
-        <section className="preview-panel">
-          <header className="preview-header">
-            <div><p className="hero-kicker">LOCAL PREVIEW</p><h3>前 {preview.value.rows.length} 行</h3></div>
-            <span>共 {numberFormat.format(preview.value.totalRows)} 行</span>
-          </header>
-          <div className="table-scroll">
-            <table>
-              <thead><tr>{preview.value.columns.map((column) => (
-                <th key={column.ordinal}><span>{column.name}</span><small>{typeLabels[column.inferredType]}</small></th>
-              ))}</tr></thead>
-              <tbody>{preview.value.rows.map((row, rowIndex) => (
-                <tr key={`${preview.value.offset + rowIndex}`}>
-                  {preview.value.columns.map((column, columnIndex) => (
-                    <td key={column.ordinal}>{row[columnIndex] == null ? <span className="null-value">—</span> : String(row[columnIndex])}</td>
-                  ))}
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </section>
-      )}
       <ConversationWorkbench
         target={{ kind: "dataset", id: dataset.id }}
         title="数据对话"
         subtitle="每条对话都是一个可审查的数据任务。"
-        inspector={(threadId) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">DATA INSPECTOR</p><h3>数据健康与结构</h3></div><span>本地检查</span></header><DatasetQualityPanel datasetId={dataset.id} versionId={dataset.versionId} /></>} />}
+        inspector={(threadId) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} fallback={<DatasetContextInspector dataset={dataset} preview={preview} />} />}
       >
         {(threadId) => <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} threadId={threadId} />}
       </ConversationWorkbench>
