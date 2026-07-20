@@ -7,10 +7,10 @@ import type {
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
-import { WorkflowPanel } from "./WorkflowPanel.js";
 import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
 import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
+import { TaskRunStatus } from "./TaskRunStatus.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -123,6 +123,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
         </div>
         <span className="mode-pill">计划批准后才查询</span>
       </header>
+      <TaskRunStatus state={state} />
 
       <ConversationHistory thread={history} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
 
@@ -214,10 +215,6 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId }: { readonly
         </button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
-      <WorkflowPanel
-        target={{ kind: "dataset", id: datasetId }}
-        draft={proposal ? { kind: "dataset-query", plan: proposal.plan } : undefined}
-      />
     </section>
   );
 }

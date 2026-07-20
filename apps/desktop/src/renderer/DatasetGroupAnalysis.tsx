@@ -8,10 +8,10 @@ import type {
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
-import { WorkflowPanel } from "./WorkflowPanel.js";
 import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
 import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
+import { TaskRunStatus } from "./TaskRunStatus.js";
 
 type GroupAnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -107,6 +107,7 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
         <div><p className="hero-kicker">PRIVATE MULTI-TABLE CHAT</p><h3>和群组对话</h3></div>
         <span className="mode-pill">等值关联 · 禁止笛卡尔积</span>
       </header>
+      <TaskRunStatus state={state} />
       <ConversationHistory thread={history} group={group} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
       <div className="group-source-order">
         {group.members.map((member, index) => <span key={member.id}><strong>{index + 1}</strong>{member.displayName}</span>)}
@@ -180,10 +181,6 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
         <button type="submit" disabled={state === "planning" || state === "executing" || question.trim().length === 0}>{state === "planning" ? "生成中…" : "先生成关联计划"}</button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
       </form>
-      <WorkflowPanel
-        target={{ kind: "group", id: group.id }}
-        draft={proposal ? { kind: "group-query", groupPlan: proposal.plan } : undefined}
-      />
     </section>
   );
 }

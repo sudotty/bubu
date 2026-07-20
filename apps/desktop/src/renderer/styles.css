@@ -208,9 +208,14 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .artifact-plan dt { font-size: 10px; color: #817a70; }.artifact-plan dd { margin: 3px 0 0; font-size: 12px; font-weight: 700; }
 .artifact-table { max-height: 460px; border: 1px solid #ded8cc; border-radius: 12px; background: #fffdf9; }
 .artifact-inspector .result-visualization { margin: 0; }
+.artifact-inspector .workflow-panel { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.artifact-inspector .workflow-header { align-items: flex-start; }.artifact-inspector .workflow-save-controls { flex-wrap: wrap; justify-content: flex-end; }.artifact-inspector .workflow-save-controls select { max-width: 140px; }.artifact-inspector .workflow-row { align-items: flex-start; flex-direction: column; }.artifact-inspector .workflow-row > div:last-child { width: 100%; }.artifact-inspector .workflow-row button { flex: 1; }
 .analysis-panel { display: grid; gap: 16px; min-height: 100%; margin: 0; padding: 24px; border: 0; border-radius: 0; background: #f8f6f1; }
 .analysis-header, .plan-card > header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .analysis-header h3, .plan-card h4 { margin-bottom: 0; }
+.task-run-status { padding: 11px 13px; border: 1px solid #ded8cc; border-radius: 13px; background: #fffdf9; }
+.task-run-status header { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 11px; }.task-run-status header span { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: #514a40; }.task-run-status header small { color: #817a70; }
+.task-run-status ol { display: flex; gap: 12px; margin: 10px 0 0; padding: 0; list-style: none; }.task-run-status li { display: inline-flex; align-items: center; gap: 5px; color: #9b9489; font-size: 11px; }.task-run-status li svg { flex: 0 0 auto; }.task-run-status .task-step-done { color: #397457; }.task-run-status .task-step-active { color: #9a6a2e; font-weight: 700; }.task-planning .task-step-active svg, .task-executing .task-step-active svg { animation: task-spin 1s linear infinite; }@keyframes task-spin { to { transform: rotate(360deg); } }
 .question-bubble { justify-self: end; max-width: 72%; padding: 12px 15px; border-radius: 15px 15px 4px 15px; color: #fff; background: #4b463e; }
 .question-bubble small { color: #d8d0c5; }
 .question-bubble p { margin: 4px 0 0; line-height: 1.5; }
