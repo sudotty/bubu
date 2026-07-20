@@ -98,6 +98,8 @@ capabilities:
   conversation-thread-archive: implemented
   append-only-local-conversation-history: implemented
   conversation-artifact-workbench: implemented
+  visible-conversation-task-status: implemented
+  thread-bound-aggregate-approvals: implemented
   typed-conversation-artifacts: implemented
   visualizations: in-progress
   local-result-visualizations: implemented
