@@ -12,6 +12,7 @@ import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
 import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
+import { ChatAssistantMessage, ChatRecoveryMessage, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
 
 type AnalysisState = "idle" | "planning" | "proposed" | "executing" | "complete" | "failed";
 
@@ -140,7 +141,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
     <section className="analysis-panel" aria-label={`与 ${datasetName} 对话`}>
       <header className="analysis-header">
         <div>
-          <p className="hero-kicker">PRIVACY-SAFE DATA CHAT</p>
+          <p className="chat-context-label">私密数据对话</p>
           <h3>和「{datasetName}」对话</h3>
         </div>
         <span className="mode-pill">计划批准后才查询</span>
@@ -150,19 +151,16 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
       <ConversationHistory thread={history} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
 
       {submittedQuestion && (
-        <div className="question-bubble">
-          <small>你</small>
-          <p>{submittedQuestion}</p>
-        </div>
+        <ChatUserMessage><p>{submittedQuestion}</p></ChatUserMessage>
       )}
-      {state === "planning" && <div className="analysis-progress">正在用结构和合成示例生成受限查询计划…</div>}
-      {error && <div className="task-error" role="alert"><strong>这一步没有完成</strong><p>{error}</p><div><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></div></div>}
+      {state === "planning" && <ChatToolEvent busy>正在用结构和合成示例生成受限查询计划…</ChatToolEvent>}
+      {error && <ChatRecoveryMessage message={error} actions={<><button type="button" className="primary-action" onClick={() => void propose(submittedQuestion)} disabled={!submittedQuestion}>重试生成计划</button><button type="button" className="secondary-action" onClick={() => { setQuestion(submittedQuestion ?? question); setSubmittedQuestion(undefined); setProposal(undefined); setResult(undefined); setError(undefined); setState("idle"); }}>修改问题</button></>} />}
 
       {proposal && (
-        <article className="plan-card">
+        <article className="plan-card chat-approval-card">
           <header>
             <div>
-              <p className="hero-kicker">REVIEW BEFORE EXECUTION</p>
+              <p className="chat-context-label">需要你的批准</p>
               <h4>{proposal.plan.purpose}</h4>
             </div>
             <span className={state === "complete" ? "plan-state plan-complete" : "plan-state"}>
@@ -198,23 +196,23 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
 
       {result && (
         <>
-        <article className="query-result">
+        <article className="query-result chat-result-preview">
           <header className="preview-header">
-            <div><p className="hero-kicker">LOCAL QUERY RESULT</p><h3>结果</h3></div>
+            <div><small>本地结果预览</small><h3>结果</h3></div>
             <span>{result.rows.length} 行{result.truncated ? " · 已按计划截断" : ""}</span>
           </header>
           <div className="table-scroll">
             <table>
               <thead><tr>{result.columns.map((column) => <th key={column.label}>{column.label}<small>{column.type}</small></th>)}</tr></thead>
               <tbody>
-                {result.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}
+                {result.rows.slice(0, 5).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}
               </tbody>
             </table>
           </div>
           {result.rows.length === 0 && <p className="empty-copy">这个计划没有找到匹配的数据。</p>}
         </article>
         <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "查询结果"} />
-        <article className="assistant-conclusion"><p className="hero-kicker">BUBU · LOCAL RESULT</p><strong>结果已准备好。</strong><p>我已在本地执行经过审查的计划。右侧可继续查看数据、图表、计划与审计证据。</p></article>
+        <ChatAssistantMessage title="结果已准备好"><p>我已在本地执行经过审查的计划。完整数据、图表、计划与审计证据都在结果区。</p></ChatAssistantMessage>
         </>
       )}
 

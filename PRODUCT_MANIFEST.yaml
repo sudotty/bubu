@@ -113,6 +113,7 @@ capabilities:
   keyboard-first-conversation-composer: implemented
   compact-conversation-drawers: implemented
   adaptive-conversation-panes: implemented
+  semantic-chat-message-grammar: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   reduced-motion-interface: implemented
