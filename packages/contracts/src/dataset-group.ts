@@ -2,11 +2,14 @@ import { z } from "zod";
 import { datasetIdSchema, datasetSummarySchema } from "./dataset.js";
 
 export const datasetGroupIdSchema = z.string().regex(/^[0-9a-f]{32}$/u);
+export const datasetGroupCadenceSchema = z.enum(["one-off", "daily", "weekly", "monthly", "dataset-version"]);
 
 export const datasetGroupSchema = z
   .object({
     id: datasetGroupIdSchema,
     name: z.string().trim().min(1).max(100),
+    description: z.string().trim().max(240),
+    cadence: datasetGroupCadenceSchema,
     members: z.array(datasetSummarySchema).min(2).max(8),
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
@@ -20,6 +23,8 @@ export const datasetGroupSaveInputSchema = z
   .object({
     id: datasetGroupIdSchema.optional(),
     name: z.string().trim().min(1).max(100),
+    description: z.string().trim().max(240).default(""),
+    cadence: datasetGroupCadenceSchema.default("one-off"),
     datasetIds: z.array(datasetIdSchema).min(2).max(8),
   })
   .strict()
@@ -34,6 +39,7 @@ export const datasetGroupSaveInputSchema = z
   });
 
 export type DatasetGroupId = z.infer<typeof datasetGroupIdSchema>;
+export type DatasetGroupCadence = z.infer<typeof datasetGroupCadenceSchema>;
 export type DatasetGroup = z.infer<typeof datasetGroupSchema>;
 export type DatasetGroupSaveInput = z.infer<typeof datasetGroupSaveInputSchema>;
 

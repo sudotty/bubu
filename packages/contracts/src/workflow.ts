@@ -35,7 +35,7 @@ export const workflowTriggerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("manual") }).strict(),
   z.object({
     kind: z.literal("interval"),
-    everyMinutes: z.number().int().min(60).max(7 * 24 * 60),
+    everyMinutes: z.number().int().min(60).max(31 * 24 * 60),
   }).strict(),
   z.object({ kind: z.literal("dataset-version") }).strict(),
 ]);

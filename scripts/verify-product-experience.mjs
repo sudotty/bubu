@@ -23,7 +23,13 @@ requireText(conversations, [
   'event.key === "Escape"',
   "workbench-pane-backdrop",
   'aria-controls="conversation-artifact-inspector"',
+  'toggleCompactPane("workflow"',
+  "ContextMenu",
+  "查看任务历史",
 ], "conversation lifecycle");
+requireText(read("apps/desktop/src/renderer/App.tsx"), ["DatasetNameDialog", "DatasetVersions", "onContextMenu", "groupEditRequest"], "data object and business topic actions");
+requireText(read("apps/desktop/src/renderer/DatasetGroupWorkspace.tsx"), ["cadence-picker", '"dataset-version"', "workflowCadence={group.cadence}"], "business topic cadence");
+requireText(read("apps/desktop/src/renderer/WorkflowPanel.tsx"), ["workflow-graph", "graphMode", "收尾为工作流", "workflows.runs", 'value="monthly"'], "workflow graph and finalization");
 if (read("apps/desktop/src/renderer/DatasetAnalysis.tsx").includes("请先在左侧") || read("apps/desktop/src/renderer/DatasetGroupAnalysis.tsx").includes("请先在左侧")) {
   failures.push("empty task guidance must not reference a pane that adaptive layout can hide");
 }
@@ -65,7 +71,7 @@ requireText(artifacts, [
   "pinnedArtifactKey",
   "exportReport",
 ], "artifact workbench");
-requireText(read("apps/desktop/src/main.ts"), ["04-artifact.png", "结果抽屉或图表超出工作台", "inspector.getAnimations()", "inspectorScrollWidth - measurements.inspectorClientWidth", "useContentSize: true"], "settled packaged Artifact evidence");
+requireText(read("apps/desktop/src/main.ts"), ["04-artifact.png", "05-workflow.png", "动态工作流节点图", "结果抽屉或图表超出工作台", "inspector.getAnimations()", "inspectorScrollWidth - measurements.inspectorClientWidth", "useContentSize: true"], "settled packaged Artifact evidence");
 const artifactBoundary = read("apps/desktop/src/main/artifact-api.ts");
 requireText(artifactBoundary, ["parseArtifactTableActionInput", "clipboard.writeText", "showSaveDialog", "artifactCsv", "artifactTsv", "artifactHtmlReport"], "artifact desktop boundary");
 const visualization = read("packages/contracts/src/visualization.ts");
@@ -149,6 +155,13 @@ requireText(manifest, [
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
   "intentional-artifact-drawer: implemented",
+  "custom-dataset-display-names: implemented",
+  "dataset-version-history-popover: implemented",
+  "business-topic-group-cadence: implemented",
+  "conversation-context-menus: implemented",
+  "top-right-history-result-workflow-controls: implemented",
+  "static-dynamic-workflow-graph: implemented",
+  "conversation-workflow-finalization: implemented",
 ], "product manifest");
 
 if (failures.length > 0) {

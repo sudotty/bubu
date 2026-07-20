@@ -4,7 +4,7 @@ Status: executable design contract for the current Electron product. Visual pref
 
 ## Product model
 
-BuBu is a calm, conversation-first local data workspace, not a generic chat shell or a dense BI dashboard. A dataset is a data contact; a 2–8 member collection is a data group; a conversation thread is the durable local trail connecting a user question, visible disclosure, typed plan, bounded result, chart, workflow, and audit.
+BuBu is a calm, conversation-first local data workspace, not a generic chat shell or a dense BI dashboard. Imported Excel/CSV files become locally named data objects; a 2–8 member collection is a business topic with a one-off or periodic rhythm; a conversation thread is the durable local trail connecting a user question, visible disclosure, typed plan, bounded result, chart, workflow, and audit.
 
 The primary journey is import → inspect → ask → review → approve → use a local result. The UI must preserve that causal chain. It must not hide the dataset/version being queried, make a model answer look like deterministic output, or collapse disclosure approval into a generic confirmation.
 
@@ -12,8 +12,8 @@ The primary journey is import → inspect → ask → review → approve → use
 
 - The narrow rail switches among datasets, groups, and settings with semantic Lucide icons, text alternatives, `aria-pressed`, and visible keyboard focus.
 - Dataset and group contacts appear only where they are relevant. Within a dataset or group, a thread list makes the current task explicit; users can create, rename, resume, and archive independent local conversations without mixing their evidence. Settings uses the full workspace width and must not retain an unrelated contact list.
-- The conversation workbench has three responsibilities: threads choose a task, the center carries the readable dialogue and sticky composer, and the right inspector carries durable artifacts or local data health. Results must not force the user to choose between reading the chat and inspecting evidence.
-- Workbench panes respond to available container width: wide shows tasks, chat, and Artifact; medium keeps tasks beside chat and opens Artifact as a supporting panel; compact keeps chat primary and exposes task/result drawers. The Artifact workspace may expand for data or automation work, but closing it must return to the current task.
+- The conversation workbench keeps the center for readable dialogue and a bottom composer. New task, history, result, and workflow controls live in the top-right toolbar; history and inspectors open as bounded overlay drawers at every width so the chat is always primary. The same actions are available in a right-click context menu.
+- Artifact may expand for data or automation work, but closing it must return to the current task. Its workflow view supports static definition and dynamic run state, with explicit trigger, data processing, conversation delivery, and reminder nodes.
 - Dataset and group identity remain in a compact context bar. Export, replacement, deletion, and membership management are secondary object operations and must not visually outrank starting or continuing a task.
 - A task status strip exposes the current causal step—understanding, review, local execution—without pretending that an in-progress model call has already produced a result. Automation belongs in the Artifact inspector, where a reviewed plan can be made repeatable without leaving the task context.
 - Message form communicates authority: user input is a right-side bubble, assistant narrative is visually quiet, tool activity is a compact event row, approval is a unique card, failure is a recovery surface, and result data is a bounded preview. Full tables and evidence belong to Artifact instead of being repeated in the dialogue.
@@ -21,7 +21,7 @@ The primary journey is import → inspect → ask → review → approve → use
 - Result actions state their scope. “复制” and “导出当前视图” use the Artifact table after its current filter/sort; source-dataset export remains a separate dataset operation. Pinned state is local UI orientation, not a new data copy or audit claim.
 - A chart is shown only when a pure suitability rule can explain it without inventing aggregation or hiding high cardinality. The UI always states the recommendation reason and supplies the exact plotted points as a table. Local HTML reports remain bounded, static, escaped, and free of hidden source rows.
 - Settings begins with ordered, actionable findings rather than equal-weight status tiles. Blockers, required setup, and optional integrations have different language; each routes to a stable list–detail section, and the user can rerun diagnostics after a change.
-- Compact task/result panels move focus into the opened surface, close on Escape, and return focus to the invoking control. Artifact tabs support left/right arrow navigation. Packaged smoke validates these journeys at the minimum viewport instead of treating screenshots as interaction proof.
+- History/result/workflow panels move focus into the opened surface, close on Escape, and return focus to the invoking control. Artifact tabs support left/right arrow navigation. Packaged smoke validates these journeys at the minimum viewport instead of treating screenshots as interaction proof.
 - Local product metrics may contain only whitelisted event names, target kind, outcome, bounded duration, and row/column counts. They never contain task IDs, questions, prompts, outputs, paths, credentials, or data values and never leave the local workspace.
 - At the supported packaged smoke viewport of 920 × 640, every primary journey must remain readable without horizontal page overflow. Dense tables, schema, JSON, and audit content may scroll inside bounded regions.
 
@@ -57,7 +57,7 @@ Conversation task state is a typed product lifecycle rather than component-speci
 
 ## Visual system
 
-Build on the existing warm neutral surfaces, amber accent, restrained radii, thin borders, compact type scale, and generous whitespace. Avoid adding a competing dashboard palette or decorative hero treatment. Use the current components and tokens before inventing a variant. Product density should come from progressive disclosure (`details`, bounded tables, review panels), not smaller text or compressed controls.
+Build on the graphite rail, warm-white canvas, muted green trust/action accent, restrained radii, thin borders, compact type scale, and generous whitespace. The density follows WeChat-style navigation efficiency and Codex-style calm without cloning either product. Avoid decorative hero treatments. Product density should come from progressive disclosure (`details`, drawers, bounded tables, review panels), not smaller text or compressed controls.
 
 ## Current-run audit and resolved findings
 
@@ -79,6 +79,10 @@ Packaged synthetic screenshots are generated by `npm run capture:ui`; the harnes
 | Chat message hierarchy | Plans, progress, results, errors, and narration all looked like interchangeable cards, while large result tables duplicated Artifact | Give every message authority a stable visual grammar and limit dialogue results to five-row previews | `ChatMessage.tsx`, packaged screenshots, and product verifier |
 | Compact result readability | The supporting result drawer reserved 250 px for chat, leaving charts and long result labels visibly clipped at the minimum viewport; screenshot capture also froze the closing transition and made the panel appear broken | Use a 520 px capped overlay sheet with a 48 px orientation edge, retain backdrop/Escape/focus return, capture only settled states, and keep the full-width drawer below 430 px | current `04-artifact.png`, packaged smoke, and product verifier |
 | Decorative hierarchy | English all-caps kickers competed with Chinese task labels and made settings/results feel like a template rather than one coherent product | Keep technical names such as MCP/AI where meaningful, but express navigation, trust, result, and settings hierarchy in concise Chinese | current product screenshots and product verifier |
+| Data object identity | Imported files were presented only by source filename and version history occupied management space | Ask for a local business name after import; keep original filename for audit; expose immutable versions from the object header and right-click menu | contracts, Go regression test, packaged dataset journey |
+| Business topics | Groups had membership but no business meaning or temporal product model | Persist a description and one-off/daily/weekly/monthly/data-update cadence, and use that cadence as the default workflow trigger | group contract tests and group screenshot |
+| Chat workspace controls | Task/result navigation competed with the conversation and workflow was buried inside Artifact | Keep new task, history, result, and workflow in the top-right toolbar and mirror them in a context menu | packaged drawer smoke and `verify:product-experience` |
+| Workflow comprehension | Saved automation was a list with no processing or delivery model | Render the typed definition as a static/dynamic node graph with latest persisted run state, conversation delivery, and next-update reminder | `docs/assets/product/05-workflow.png` and workflow smoke |
 
 ![Dataset workspace](../assets/product/01-datasets.png)
 
@@ -89,6 +93,8 @@ Packaged synthetic screenshots are generated by `npm run capture:ui`; the harnes
 ![Focused settings workspace](../assets/product/03-settings.png)
 
 ![Settled local result workspace](../assets/product/04-artifact.png)
+
+![Static and dynamic workflow nodes](../assets/product/05-workflow.png)
 
 ## Review checklist
 

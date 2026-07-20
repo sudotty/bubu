@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import {
   app,
   BrowserWindow,
@@ -158,7 +159,7 @@ async function verifySmokeRenderer(
         "本地任务状态",
         "本地结果",
         "先生成计划",
-        "任务记录",
+        "之前的消息",
         "结果已准备好"
       ];
       const deadline = Date.now() + 5000;
@@ -195,10 +196,11 @@ async function verifySmokeRenderer(
     new Promise(async (resolve) => {
       const workbench = document.querySelector(".conversation-workbench");
       const buttons = Array.from(document.querySelectorAll(".workbench-compact-nav button"));
-      const taskButton = buttons.find((button) => button.textContent?.includes("任务"));
+      const taskButton = buttons.find((button) => button.textContent?.includes("历史"));
       const resultButton = buttons.find((button) => button.textContent?.includes("结果"));
-      if (!(workbench instanceof HTMLElement) || !(taskButton instanceof HTMLButtonElement) || !(resultButton instanceof HTMLButtonElement)) {
-        return resolve({ ok: false, missing: ["紧凑任务/结果导航"] });
+      const workflowButton = buttons.find((button) => button.textContent?.includes("工作流"));
+      if (!(workbench instanceof HTMLElement) || !(taskButton instanceof HTMLButtonElement) || !(resultButton instanceof HTMLButtonElement) || !(workflowButton instanceof HTMLButtonElement)) {
+        return resolve({ ok: false, missing: ["紧凑历史/结果/工作流导航"] });
       }
       taskButton.click();
       await new Promise((next) => setTimeout(next, 50));
@@ -224,10 +226,14 @@ async function verifySmokeRenderer(
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const visualTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("可视化"));
       const arrowNavigation = visualTab?.getAttribute("aria-selected") === "true";
-      visualTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      resultButton.click();
+      workflowButton.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open");
-      resolve({ ok: taskOpened && resultOpened && reportAvailable && copyAvailable && exportAvailable && pinToggled && arrowNavigation && closed, missing: [
+      const workflowOpened = workbench.classList.contains("compact-workflow-open") && workflowButton.getAttribute("aria-expanded") === "true" && Boolean(document.querySelector(".workflow-panel"));
+      workbench.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open") && !workbench.classList.contains("compact-workflow-open");
+      resolve({ ok: taskOpened && resultOpened && reportAvailable && copyAvailable && exportAvailable && pinToggled && arrowNavigation && workflowOpened && closed, missing: [
         ...(!taskOpened ? ["任务抽屉状态"] : []),
         ...(!resultOpened ? ["结果抽屉状态"] : []),
         ...(!reportAvailable ? ["轻报告导出"] : []),
@@ -235,6 +241,7 @@ async function verifySmokeRenderer(
         ...(!exportAvailable ? ["导出当前结果"] : []),
         ...(!pinToggled ? ["固定结果状态"] : []),
         ...(!arrowNavigation ? ["结果页签方向键"] : []),
+        ...(!workflowOpened ? ["工作流抽屉状态"] : []),
         ...(!closed ? ["抽屉关闭状态"] : []),
       ] });
     })
@@ -242,6 +249,20 @@ async function verifySmokeRenderer(
   if (!compactDrawerResult.ok) {
     throw new Error(`Packaged renderer compact drawers failed: ${compactDrawerResult.missing.join(", ")}`);
   }
+  const conversationMenu = await window.webContents.executeJavaScript(`
+    new Promise(async (resolve) => {
+      const workbench = document.querySelector(".conversation-workbench");
+      if (!(workbench instanceof HTMLElement)) return resolve({ ok: false });
+      workbench.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 620, clientY: 220 }));
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const menu = document.querySelector('.context-menu[aria-label="对话操作"]');
+      const opened = menu?.textContent?.includes("查看任务历史") && menu.textContent.includes("查看工作流");
+      menu?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      resolve({ ok: Boolean(opened) && document.querySelector('.context-menu[aria-label="对话操作"]') === null });
+    })
+  `) as { readonly ok: boolean };
+  if (!conversationMenu.ok) throw new Error("Packaged renderer conversation context menu failed");
   await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const composer = document.querySelector(".analysis-composer");
@@ -262,6 +283,9 @@ async function verifySmokeRenderer(
       resultButton.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const inspector = workbench.querySelector(".artifact-inspector");
+      const visualTab = Array.from(inspector?.querySelectorAll('[role="tab"]') ?? []).find((button) => button.textContent?.includes("可视化"));
+      if (visualTab instanceof HTMLButtonElement) visualTab.click();
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const chart = inspector?.querySelector(".result-visualization");
       if (!(inspector instanceof HTMLElement) || !(chart instanceof HTMLElement)) return resolve({ ok: false, missing: ["结果抽屉或可视化"] });
       await Promise.all(inspector.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
@@ -291,6 +315,45 @@ async function verifySmokeRenderer(
       setTimeout(resolve, 220);
     })
   `);
+  const workflowGraph = await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const workflowButton = Array.from(document.querySelectorAll(".workbench-compact-nav button")).find((button) => button.textContent?.includes("工作流"));
+      if (!(workflowButton instanceof HTMLButtonElement)) return resolve({ ok: false, missing: ["工作流按钮"] });
+      workflowButton.click();
+      const deadline = Date.now() + 5000;
+      const inspect = () => {
+        const graph = document.querySelector(".workflow-graph");
+        const contents = graph?.textContent ?? "";
+        const panel = document.querySelector(".workflow-panel");
+        const inspector = document.querySelector(".artifact-inspector");
+        const workbench = document.querySelector(".conversation-workbench");
+        const panelBounds = panel?.getBoundingClientRect();
+        const inspectorBounds = inspector?.getBoundingClientRect();
+        const workbenchBounds = workbench?.getBoundingClientRect();
+        const contained = panel instanceof HTMLElement && inspector instanceof HTMLElement && workbench instanceof HTMLElement && panelBounds && inspectorBounds && workbenchBounds
+          && panel.scrollWidth - panel.clientWidth <= 1
+          && panelBounds.left >= inspectorBounds.left - 1
+          && panelBounds.right <= inspectorBounds.right + 1
+          && inspectorBounds.left >= workbenchBounds.left - 1
+          && inspectorBounds.right <= workbenchBounds.right + 1;
+        const ok = graph instanceof HTMLElement && contained && contents.includes("每周区域销售汇总") && contents.includes("发送结果到当前对话") && graph.querySelectorAll(".workflow-node").length >= 4;
+        const measurements = panelBounds && inspectorBounds && workbenchBounds ? { panelLeft: panelBounds.left, panelRight: panelBounds.right, inspectorLeft: inspectorBounds.left, inspectorRight: inspectorBounds.right, workbenchLeft: workbenchBounds.left, workbenchRight: workbenchBounds.right, panelClientWidth: panel.clientWidth, panelScrollWidth: panel.scrollWidth } : {};
+        if (ok) return resolve({ ok: true, missing: [], measurements });
+        if (Date.now() >= deadline) return resolve({ ok: false, missing: ["动态工作流节点图"], measurements });
+        setTimeout(inspect, 50);
+      };
+      inspect();
+    })
+  `) as { readonly ok: boolean; readonly missing: readonly string[]; readonly measurements?: Readonly<Record<string, number>> };
+  if (!workflowGraph.ok) throw new Error(`Packaged renderer Workflow graph failed: ${workflowGraph.missing.join(", ")} ${JSON.stringify(workflowGraph.measurements ?? {})}`);
+  await captureSmokeStep(window, screenshotDirectory, "05-workflow.png");
+  await window.webContents.executeJavaScript(`
+    new Promise((resolve) => {
+      const closeButton = document.querySelector(".workbench-close-pane");
+      if (closeButton instanceof HTMLButtonElement) closeButton.click();
+      setTimeout(resolve, 220);
+    })
+  `);
   const groupResult = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const groupButton = document.querySelector('button[title="数据群组"]');
@@ -298,7 +361,7 @@ async function verifySmokeRenderer(
         return resolve({ ok: false, missing: ["数据群组按钮"] });
       }
       groupButton.click();
-      const expected = ["synthetic-group", "2 个数据联系人", "群组只保存成员关系", "先生成关联计划"];
+      const expected = ["synthetic-group", "2 个数据对象", "每周更新", "先生成关联计划"];
       const deadline = Date.now() + 5000;
       const inspect = () => {
         const contents = document.body.innerText;
@@ -378,6 +441,8 @@ void app
       const imported = await sidecars.importFiles([launchMode.sourcePath, launchMode.secondSourcePath]);
       await sidecars.saveGroup({
         name: "synthetic-group",
+        description: "每周对照订单与经营目标",
+        cadence: "weekly",
         datasetIds: imported.datasets.map(({ id }) => id),
       });
       for (const dataset of imported.datasets) {
@@ -395,7 +460,7 @@ void app
         };
         const target = { kind: "dataset" as const, id: dataset.id };
         const question = "Smoke sum by region";
-        await sidecars.appendConversation({
+        const thread = await sidecars.appendConversation({
           target,
           entry: { kind: "question", role: "user", payload: { question } },
         });
@@ -412,6 +477,17 @@ void app
           target,
           entry: { kind: "result", role: "assistant", payload: { result, sourcePlan: plan } },
         });
+        if (dataset.displayName === "synthetic-sales") {
+          const workflow = await sidecars.saveWorkflow({
+            name: "每周区域销售汇总",
+            target,
+            threadId: thread.id,
+            trigger: { kind: "interval", everyMinutes: 7 * 24 * 60 },
+            timeoutMs: 60_000,
+            steps: [{ id: "approved-query", kind: "dataset-query", plan, maxAttempts: 2 }],
+          });
+          await sidecars.runWorkflow(workflow.id, randomUUID());
+        }
       }
       const smokeBackupPath = join(dirname(launchMode.dataDirectory), "smoke-restore.bubu-backup");
       await sidecars.createBackup(smokeBackupPath);

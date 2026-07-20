@@ -39,12 +39,37 @@ type ImportResult struct {
 	Datasets []DatasetSummary `json:"datasets"`
 }
 
+type DatasetVersionSummary struct {
+	VersionID   string `json:"versionId"`
+	Version     int    `json:"version"`
+	SourceName  string `json:"sourceName"`
+	RowCount    int64  `json:"rowCount"`
+	ColumnCount int    `json:"columnCount"`
+	ImportedAt  string `json:"importedAt"`
+	Current     bool   `json:"current"`
+}
+
+type DatasetRenameInput struct {
+	DatasetID   string `json:"datasetId"`
+	DisplayName string `json:"displayName"`
+}
+
 type DatasetGroup struct {
-	ID        string           `json:"id"`
-	Name      string           `json:"name"`
-	Members   []DatasetSummary `json:"members"`
-	CreatedAt string           `json:"createdAt"`
-	UpdatedAt string           `json:"updatedAt"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Cadence     string           `json:"cadence"`
+	Members     []DatasetSummary `json:"members"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
+}
+
+type DatasetGroupSaveInput struct {
+	ID          string   `json:"id,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Cadence     string   `json:"cadence"`
+	DatasetIDs  []string `json:"datasetIds"`
 }
 
 type ReplacementStatus string

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { BellRing, Check, Clock3, DatabaseZap, MessageSquareText, RotateCcw, Waypoints } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   OperationId,
   SafeGroupQueryPlan,
@@ -11,26 +12,20 @@ import type {
 import { AUTOMATION_POLL_INTERVAL_MILLISECONDS } from "../shared/automation.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { ResultVisualization } from "./ResultVisualization.js";
+import { buildWorkflowGraph, workflowTriggerLabel, type WorkflowGraphNode } from "./workflow-graph.js";
 
 type WorkflowDraft =
   | { readonly kind: "dataset-query"; readonly plan: SafeQueryPlan }
   | { readonly kind: "group-query"; readonly groupPlan: SafeGroupQueryPlan };
 
-type TriggerPreset = "manual" | "daily" | "weekly" | "dataset-version";
+export type TriggerPreset = "manual" | "daily" | "weekly" | "monthly" | "dataset-version";
 
 function triggerFromPreset(preset: TriggerPreset): WorkflowTrigger {
   if (preset === "daily") return { kind: "interval", everyMinutes: 24 * 60 };
   if (preset === "weekly") return { kind: "interval", everyMinutes: 7 * 24 * 60 };
+  if (preset === "monthly") return { kind: "interval", everyMinutes: 30 * 24 * 60 };
   if (preset === "dataset-version") return { kind: "dataset-version" };
   return { kind: "manual" };
-}
-
-function workflowTriggerLabel(workflow: WorkflowDefinition): string {
-  if (workflow.trigger.kind === "dataset-version") return "数据更新后";
-  if (workflow.trigger.kind === "interval") {
-    return workflow.trigger.everyMinutes === 24 * 60 ? "每 24 小时" : "每 7 天";
-  }
-  return "手动";
 }
 
 function runLabel(status: WorkflowRun["status"]): string {
@@ -46,17 +41,21 @@ export function WorkflowPanel({
   target,
   threadId,
   draft,
+  defaultTriggerPreset = "manual",
 }: {
   readonly target: WorkflowTarget;
   readonly threadId: string;
   readonly draft?: WorkflowDraft | undefined;
+  readonly defaultTriggerPreset?: TriggerPreset | undefined;
 }) {
   const [workflows, setWorkflows] = useState<readonly WorkflowDefinition[]>([]);
   const [activeOperationId, setActiveOperationId] = useState<OperationId>();
   const [activeWorkflowId, setActiveWorkflowId] = useState<string>();
   const [latestRun, setLatestRun] = useState<WorkflowRun>();
   const [notice, setNotice] = useState<string>();
-  const [triggerPreset, setTriggerPreset] = useState<TriggerPreset>("manual");
+  const [triggerPreset, setTriggerPreset] = useState<TriggerPreset>(defaultTriggerPreset);
+  const [graphMode, setGraphMode] = useState<"static" | "dynamic">("dynamic");
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>();
 
   async function reload(): Promise<void> {
     setWorkflows(await window.bubu.workflows.list(target));
@@ -67,6 +66,8 @@ export function WorkflowPanel({
     let inFlight = false;
     let hasLoaded = false;
     setWorkflows([]);
+    setSelectedWorkflowId(undefined);
+    setLatestRun(undefined);
     async function load(): Promise<void> {
       if (inFlight) return;
       inFlight = true;
@@ -90,6 +91,26 @@ export function WorkflowPanel({
     };
   }, [target.id, target.kind]);
 
+  useEffect(() => {
+    setTriggerPreset(defaultTriggerPreset);
+  }, [defaultTriggerPreset]);
+
+  useEffect(() => {
+    setSelectedWorkflowId((current) => workflows.some(({ id }) => id === current) ? current : workflows[0]?.id);
+  }, [workflows]);
+
+  useEffect(() => {
+    if (!selectedWorkflowId) {
+      setLatestRun(undefined);
+      return;
+    }
+    let active = true;
+    void window.bubu.workflows.runs(selectedWorkflowId)
+      .then((runs) => { if (active) setLatestRun(runs[0]); })
+      .catch((error: unknown) => { if (active) setNotice(operationErrorMessage(error, "读取工作流运行记录失败")); });
+    return () => { active = false; };
+  }, [selectedWorkflowId]);
+
   async function saveDraft(): Promise<void> {
     if (!draft) return;
     setNotice(undefined);
@@ -107,6 +128,7 @@ export function WorkflowPanel({
         steps: [step],
       });
       await reload();
+      setSelectedWorkflowId(saved.id);
       setNotice(`已保存“${saved.name}”v${saved.version}，后续会自动绑定当前数据版本。`);
     } catch (error) {
       setNotice(operationErrorMessage(error, "保存工作流失败"));
@@ -150,27 +172,34 @@ export function WorkflowPanel({
   }
 
   const artifact = latestRun?.steps.findLast(({ result }) => result !== null)?.result;
+  const selectedWorkflow = workflows.find(({ id }) => id === selectedWorkflowId) ?? workflows[0];
+  const graphNodes = useMemo(() => buildWorkflowGraph(selectedWorkflow, latestRun, graphMode), [graphMode, latestRun, selectedWorkflow]);
 
   return (
     <section className="workflow-panel" aria-label="可重复工作流">
       <header className="workflow-header">
-        <div><p className="hero-kicker">可复用的本地自动化</p><h3>工作流</h3></div>
+        <div><p className="hero-kicker">业务流程</p><h3>工作流与更新</h3></div>
         {draft && <div className="workflow-save-controls">
-          <select value={triggerPreset} onChange={(event) => setTriggerPreset(event.target.value as TriggerPreset)} aria-label="工作流触发方式">
-            <option value="manual">仅手动运行</option>
-            <option value="daily">每 24 小时</option>
-            <option value="weekly">每 7 天</option>
-            <option value="dataset-version">数据版本更新后</option>
-          </select>
-          <button type="button" className="secondary-action" onClick={() => void saveDraft()}>保存当前计划</button>
+          <label><span>新工作流节奏</span><select value={triggerPreset} onChange={(event) => setTriggerPreset(event.target.value as TriggerPreset)} aria-label="工作流触发方式">
+              <option value="manual">仅手动运行</option>
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+              <option value="monthly">每月（30 天）</option>
+              <option value="dataset-version">数据版本更新后</option>
+            </select></label>
+          <button type="button" className="primary-action" onClick={() => void saveDraft()}><Waypoints size={14} />收尾为工作流</button>
         </div>}
       </header>
-      <p className="settings-copy">保存的是经过审查的类型化计划，不是模型生成的 SQL。运行时会绑定当前兼容版本，并写入幂等运行记录与步骤检查点。</p>
+      <p className="settings-copy">把已审查计划收尾为本地工作流。按业务周期运行，并把结果送回当前对话。</p>
       {notice && <div className="notice" role="status">{notice}</div>}
       {workflows.length === 0 && <p className="empty-copy">审查一个查询计划后，可以把它保存为可重复工作流。</p>}
+      {selectedWorkflow && <section className="workflow-graph" aria-label="工作流节点图">
+        <header><div><strong>{selectedWorkflow.name}</strong><small>{graphMode === "dynamic" ? "实时状态" : "流程定义"}</small></div><div className="seg-toggle"><button type="button" aria-pressed={graphMode === "static"} onClick={() => setGraphMode("static")}>静态</button><button type="button" aria-pressed={graphMode === "dynamic"} onClick={() => setGraphMode("dynamic")}>动态</button></div></header>
+        <ol>{graphNodes.map((node, index) => <li className={`workflow-node workflow-node-${node.status}`} key={node.id}><span className="workflow-node-icon">{workflowNodeIcon(node)}</span><div><strong>{node.label}</strong><small>{node.detail}</small></div>{index < graphNodes.length - 1 && <span className="workflow-node-line" />}</li>)}</ol>
+      </section>}
       <div className="workflow-list">
         {workflows.map((workflow) => (
-          <article className="workflow-row" key={workflow.id}>
+          <article className={`workflow-row ${selectedWorkflow?.id === workflow.id ? "workflow-row-selected" : ""}`} key={workflow.id} onClick={() => setSelectedWorkflowId(workflow.id)}>
             <div>
               <strong>{workflow.name}</strong>
               <small>v{workflow.version} · {workflow.steps.length} 步 · {workflow.timeoutMs / 1_000} 秒预算 · {workflowTriggerLabel(workflow)}{workflow.nextDueAt ? ` · 下次 ${new Date(workflow.nextDueAt).toLocaleString("zh-CN")}` : ""}</small>
@@ -200,4 +229,11 @@ export function WorkflowPanel({
       </>}
     </section>
   );
+}
+
+function workflowNodeIcon(node: WorkflowGraphNode) {
+  if (node.kind === "trigger") return <Clock3 size={16} />;
+  if (node.kind === "data") return <DatabaseZap size={16} />;
+  if (node.kind === "delivery") return node.status === "succeeded" ? <Check size={16} /> : <MessageSquareText size={16} />;
+  return node.status === "failed" ? <RotateCcw size={16} /> : <BellRing size={16} />;
 }

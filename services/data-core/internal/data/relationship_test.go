@@ -30,7 +30,7 @@ func TestRelationshipDiscoveryPersistenceAndCurrentVersionValidation(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	group, err := service.SaveGroup(context.Background(), "", "Orders and regions", []string{
+	group, err := service.SaveGroup(context.Background(), "", "Orders and regions", "", "one-off", []string{
 		orders.Datasets[0].ID,
 		regions.Datasets[0].ID,
 	})

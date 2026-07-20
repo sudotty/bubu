@@ -1,7 +1,10 @@
-import { Archive, ArchiveRestore, List, MessageSquarePlus, MoreHorizontal, PanelRight, Pencil, RotateCcw, X } from "lucide-react";
+import { Archive, ArchiveRestore, GitBranch, List, MessageSquarePlus, MoreHorizontal, PanelRight, Pencil, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ConversationTarget, ConversationThreadSummary } from "../shared/product-api.js";
 import { recordProductMetric } from "./product-metrics.js";
+import { ContextMenu } from "./ContextMenu.js";
+
+type WorkbenchView = "artifacts" | "workflow";
 
 function timeLabel(iso: string): string {
   const date = new Date(iso);
@@ -19,7 +22,7 @@ export function ConversationWorkbench({
   readonly target: ConversationTarget;
   readonly title: string;
   readonly subtitle: string;
-  readonly inspector?: (threadId: string | undefined) => ReactNode;
+  readonly inspector?: (threadId: string | undefined, view: WorkbenchView) => ReactNode;
   readonly children: (threadId: string | undefined, createThread: () => Promise<void>, openArtifact: () => void) => ReactNode;
 }) {
   const [threads, setThreads] = useState<readonly ConversationThreadSummary[]>([]);
@@ -30,7 +33,8 @@ export function ConversationWorkbench({
   const [editingTitle, setEditingTitle] = useState("");
   const [lastArchived, setLastArchived] = useState<ConversationThreadSummary>();
   const [notice, setNotice] = useState<string>();
-  const [compactPane, setCompactPane] = useState<"threads" | "artifacts">();
+  const [compactPane, setCompactPane] = useState<"threads" | WorkbenchView>();
+  const [contextMenu, setContextMenu] = useState<{ readonly x: number; readonly y: number }>();
   const workbenchRef = useRef<HTMLElement>(null);
   const compactReturnFocus = useRef<HTMLButtonElement | null>(null);
 
@@ -41,7 +45,7 @@ export function ConversationWorkbench({
     return () => window.clearTimeout(timer);
   }, [compactPane]);
 
-  function toggleCompactPane(pane: "threads" | "artifacts", button: HTMLButtonElement): void {
+  function toggleCompactPane(pane: "threads" | WorkbenchView, button: HTMLButtonElement): void {
     compactReturnFocus.current = button;
     setCompactPane((current) => current === pane ? undefined : pane);
   }
@@ -128,11 +132,19 @@ export function ConversationWorkbench({
     }
   }
 
-  return <section ref={workbenchRef} className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`} onKeyDown={(event) => { if (event.key === "Escape" && compactPane) { event.preventDefault(); closeCompactPane(); } }}>
+  function openPane(pane: "threads" | WorkbenchView): void {
+    setContextMenu(undefined);
+    setCompactPane(pane);
+  }
+
+  return <section ref={workbenchRef} className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`} onContextMenu={(event) => { event.preventDefault(); setContextMenu({ x: event.clientX, y: event.clientY }); }} onKeyDown={(event) => { if (event.key === "Escape" && compactPane) { event.preventDefault(); closeCompactPane(); } }}>
     <nav className="workbench-compact-nav" aria-label="任务工作区面板">
-      <button type="button" className="workbench-task-toggle" aria-controls="conversation-thread-sidebar" aria-expanded={compactPane === "threads"} onClick={(event) => toggleCompactPane("threads", event.currentTarget)}><List size={16} />任务</button>
+      <span className="workbench-identity"><strong>{title}</strong><small>{activeThreadId ? threads.find(({ id }) => id === activeThreadId)?.title ?? "当前任务" : "开始一个新任务"}</small></span>
+      <button type="button" onClick={() => void createThread()} disabled={busy} title="新建对话"><MessageSquarePlus size={16} />新任务</button>
+      <button type="button" className="workbench-task-toggle" aria-controls="conversation-thread-sidebar" aria-expanded={compactPane === "threads"} onClick={(event) => toggleCompactPane("threads", event.currentTarget)}><List size={16} />历史</button>
       <button type="button" aria-controls="conversation-artifact-inspector" aria-expanded={compactPane === "artifacts"} onClick={(event) => toggleCompactPane("artifacts", event.currentTarget)}><PanelRight size={16} />结果</button>
-      {compactPane && <button type="button" className="workbench-close-pane" aria-label={compactPane === "artifacts" ? "关闭结果区" : "关闭任务区"} onClick={closeCompactPane}><X size={16} /><span>关闭</span></button>}
+      <button type="button" aria-controls="conversation-artifact-inspector" aria-expanded={compactPane === "workflow"} onClick={(event) => toggleCompactPane("workflow", event.currentTarget)}><GitBranch size={16} />工作流</button>
+      {compactPane && <button type="button" className="workbench-close-pane" aria-label="关闭侧面板" onClick={closeCompactPane}><X size={16} /><span>关闭</span></button>}
     </nav>
     <div className="conversation-workbench-layout">
     <aside id="conversation-thread-sidebar" className="thread-sidebar" aria-label="对话线程">
@@ -156,7 +168,13 @@ export function ConversationWorkbench({
     </aside>
     <div className="conversation-stage">{children(activeThreadId, createThread, () => { if (document.activeElement instanceof HTMLButtonElement) compactReturnFocus.current = document.activeElement; setCompactPane("artifacts"); recordProductMetric({ name: "artifact_opened", targetKind: target.kind, outcome: "succeeded" }); })}</div>
     {compactPane && <button type="button" className="workbench-pane-backdrop" aria-label="关闭当前侧面板" onClick={closeCompactPane} tabIndex={-1} />}
-    {inspector && <aside id="conversation-artifact-inspector" className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
+    {inspector && <aside id="conversation-artifact-inspector" className="artifact-inspector" aria-label="结果与工作流检查器">{inspector(activeThreadId, compactPane === "workflow" ? "workflow" : "artifacts")}</aside>}
     </div>
+    {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} label="对话操作" onClose={() => setContextMenu(undefined)} items={[
+      { label: "新建数据任务", icon: <MessageSquarePlus size={15} />, onSelect: () => void createThread() },
+      { label: "查看任务历史", icon: <List size={15} />, onSelect: () => openPane("threads") },
+      { label: "打开结果", icon: <PanelRight size={15} />, onSelect: () => openPane("artifacts") },
+      { label: "查看工作流", icon: <GitBranch size={15} />, onSelect: () => openPane("workflow") },
+    ]} />}
   </section>;
 }

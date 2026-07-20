@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   parseDatasetImportResult,
   parseDatasetPreviewRequest,
+  parseDatasetRenameInput,
   parseDatasetReplacementResult,
   parseDatasetReplacementMappingInput,
   parseDatasetReplacementSelectionResult,
   parseDatasetSummary,
+  parseDatasetVersionList,
 } from "./dataset.js";
 
 const summary = {
@@ -29,6 +31,23 @@ describe("dataset boundary", () => {
   it("parses an import result and an explicit canceled selection", () => {
     expect(parseDatasetImportResult({ datasets: [summary] })).toEqual({ datasets: [summary] });
     expect(parseDatasetImportResult({ datasets: [] })).toEqual({ datasets: [] });
+  });
+
+  it("parses bounded contact naming and immutable version history", () => {
+    expect(parseDatasetRenameInput({ datasetId: summary.id, displayName: "  华东销售  " })).toEqual({
+      datasetId: summary.id,
+      displayName: "华东销售",
+    });
+    expect(() => parseDatasetRenameInput({ datasetId: summary.id, displayName: "" })).toThrow();
+    expect(parseDatasetVersionList([{
+      versionId: summary.versionId,
+      version: 1,
+      sourceName: summary.sourceName,
+      rowCount: summary.rowCount,
+      columnCount: summary.columnCount,
+      importedAt: summary.importedAt,
+      current: true,
+    }])).toHaveLength(1);
   });
 
   it("applies bounded preview defaults and rejects malformed ids", () => {

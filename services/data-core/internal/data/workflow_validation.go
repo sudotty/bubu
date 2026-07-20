@@ -16,6 +16,7 @@ const (
 	maximumWorkflowAttempts    = 3
 	maximumWorkflowRuns        = 10_000
 	maximumWorkflowJSONBytes   = 1024 * 1024
+	maximumWorkflowInterval    = 31 * 24 * 60
 )
 
 var workflowStepID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
@@ -41,7 +42,7 @@ func validateWorkflowDefinitionInput(input WorkflowDefinitionInput) error {
 			return errors.New("workflow trigger contains irrelevant schedule fields")
 		}
 	case "interval":
-		if input.Trigger.EveryMinutes < 60 || input.Trigger.EveryMinutes > 7*24*60 {
+		if input.Trigger.EveryMinutes < 60 || input.Trigger.EveryMinutes > maximumWorkflowInterval {
 			return errors.New("workflow interval is outside the bounded range")
 		}
 	default:

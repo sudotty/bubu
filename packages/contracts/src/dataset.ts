@@ -35,6 +35,27 @@ export const datasetImportResultSchema = z
   .object({ datasets: z.array(datasetSummarySchema) })
   .strict();
 
+export const datasetRenameInputSchema = z
+  .object({
+    datasetId: datasetIdSchema,
+    displayName: z.string().trim().min(1).max(100),
+  })
+  .strict();
+
+export const datasetVersionSummarySchema = z
+  .object({
+    versionId: datasetIdSchema,
+    version: z.number().int().positive(),
+    sourceName: z.string().min(1).max(500),
+    rowCount: z.number().int().nonnegative(),
+    columnCount: z.number().int().positive(),
+    importedAt: z.string().datetime({ offset: true }),
+    current: z.boolean(),
+  })
+  .strict();
+
+export const datasetVersionListSchema = z.array(datasetVersionSummarySchema).max(10_000);
+
 export const datasetPreviewRequestSchema = z
   .object({
     datasetId: datasetIdSchema,
@@ -104,6 +125,8 @@ export const datasetReplacementSelectionResultSchema = z.discriminatedUnion("sta
 export type DatasetSummary = z.infer<typeof datasetSummarySchema>;
 export type ColumnProfile = z.infer<typeof columnProfileSchema>;
 export type DatasetImportResult = z.infer<typeof datasetImportResultSchema>;
+export type DatasetRenameInput = z.infer<typeof datasetRenameInputSchema>;
+export type DatasetVersionSummary = z.infer<typeof datasetVersionSummarySchema>;
 export type DatasetPreviewRequest = z.infer<typeof datasetPreviewRequestSchema>;
 export type DatasetPreview = z.infer<typeof datasetPreviewSchema>;
 export type SchemaDrift = z.infer<typeof schemaDriftSchema>;
@@ -122,6 +145,14 @@ export function parseDatasetSummary(value: unknown): DatasetSummary {
 
 export function parseDatasetImportResult(value: unknown): DatasetImportResult {
   return datasetImportResultSchema.parse(value);
+}
+
+export function parseDatasetRenameInput(value: unknown): DatasetRenameInput {
+  return datasetRenameInputSchema.parse(value);
+}
+
+export function parseDatasetVersionList(value: unknown): readonly DatasetVersionSummary[] {
+  return datasetVersionListSchema.parse(value);
 }
 
 export function parseDatasetList(value: unknown): readonly DatasetSummary[] {

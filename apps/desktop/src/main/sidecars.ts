@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { utilityProcess, type UtilityProcess } from "electron";
 import {
   parseDatasetImportResult,
+  parseDatasetSummary,
+  parseDatasetVersionList,
   parseDatasetExportResult,
   parseDatasetDeletionResult,
   parseDataBackupResult,
@@ -45,6 +47,8 @@ import {
   parseMcpToolCallInvocation,
   parseMcpToolCallResult,
   type DatasetImportResult,
+  type DatasetRenameInput,
+  type DatasetVersionSummary,
   type DatasetExportResult,
   type DatasetDeletionResult,
   type DataBackupResult,
@@ -150,6 +154,14 @@ class DataCoreClient implements RuntimeClient {
     return parseDatasetImportResult(
       await this.#broker.request("dataset.import.batch", { sourcePaths }, requestOptions(signal)),
     );
+  }
+
+  async renameDataset(input: DatasetRenameInput): Promise<DatasetSummary> {
+    return parseDatasetSummary(await this.#broker.request("dataset.rename", input));
+  }
+
+  async listDatasetVersions(datasetID: string): Promise<readonly DatasetVersionSummary[]> {
+    return parseDatasetVersionList(await this.#broker.request("dataset.versions.list", { datasetId: datasetID }));
   }
 
   async listDatasets(): Promise<readonly DatasetSummary[]> {
@@ -449,6 +461,8 @@ function unavailable(name: DesktopServiceHealth["name"], error: unknown): Deskto
 export interface SidecarSupervisor {
   readiness(): Promise<ProductReadiness>;
   importFiles(sourcePaths: readonly string[], signal?: AbortSignal): Promise<DatasetImportResult>;
+  renameDataset(input: DatasetRenameInput): Promise<DatasetSummary>;
+  listDatasetVersions(datasetID: string): Promise<readonly DatasetVersionSummary[]>;
   exportDataset(datasetID: string, targetPath: string, signal?: AbortSignal): Promise<DatasetExportResult>;
   deleteDataset(datasetID: string): Promise<DatasetDeletionResult>;
   createBackup(targetPath: string, signal?: AbortSignal): Promise<DataBackupResult>;
@@ -524,6 +538,8 @@ export function startSidecars(dataDirectory: string): SidecarSupervisor {
     async importFiles(sourcePaths, signal) {
       return dataCore.importFiles(sourcePaths, signal);
     },
+    renameDataset: (input) => dataCore.renameDataset(input),
+    listDatasetVersions: (datasetID) => dataCore.listDatasetVersions(datasetID),
     exportDataset: (datasetID, targetPath, signal) => dataCore.exportDataset(datasetID, targetPath, signal),
     deleteDataset: (datasetID) => dataCore.deleteDataset(datasetID),
     createBackup: (targetPath, signal) => dataCore.createBackup(targetPath, signal),
