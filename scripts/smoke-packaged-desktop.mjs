@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { packagedSmokeTimeoutMs } from "./native-installer-policy.mjs";
 
 const platformDirectory = `BuBu-${process.platform}-${process.arch}`;
 const executableByPlatform = {
@@ -45,7 +46,7 @@ writeFileSync(
 
 const result = spawnSync(executable, ["--bubu-smoke-test"], {
   encoding: "utf8",
-  timeout: 20_000,
+  timeout: packagedSmokeTimeoutMs(process.platform),
   env: {
     ...process.env,
     BUBU_SMOKE_DATA_DIR: dataDirectory,
