@@ -28,6 +28,10 @@ output/
 .env
 .env.*
 !.env.example
+*.p8
+*.p12
+*.pfx
+electron-windows-sign.log
 config.yaml
 **/config.yaml
 !**/config.example.yaml

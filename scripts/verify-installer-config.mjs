@@ -12,6 +12,7 @@ for (const value of ["appBundleId", "appCategoryType", "win32metadata", "MakerDM
 for (const dependency of ["@electron-forge/maker-dmg", "@electron-forge/maker-squirrel", "@electron-forge/maker-zip"]) {
   if (desktop.devDependencies?.[dependency] !== "7.11.2") failures.push(`desktop must pin ${dependency} to Forge 7.11.2`);
 }
+if (desktop.devDependencies?.["@electron/windows-sign"] !== "2.0.6") failures.push("desktop must pin @electron/windows-sign to 2.0.6");
 if (!desktop.author || !desktop.description || desktop.productName !== "BuBu") failures.push("desktop release metadata is incomplete");
 
 const png = read("apps/desktop/resources/icons/bubu.png");

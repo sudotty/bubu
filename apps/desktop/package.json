@@ -30,15 +30,16 @@
     "@electron-forge/plugin-fuses": "7.11.2",
     "@electron-forge/plugin-vite": "7.11.2",
     "@electron/fuses": "1.8.0",
+    "@electron/windows-sign": "2.0.6",
     "@types/electron-squirrel-startup": "1.0.2",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "6.0.3",
     "electron": "43.1.1",
+    "png-to-ico": "3.0.1",
     "typescript": "7.0.2",
     "vite": "8.1.5",
-    "vitest": "4.1.10",
-    "png-to-ico": "3.0.1"
+    "vitest": "4.1.10"
   }
 }
