@@ -136,6 +136,7 @@ capabilities:
   legacy-retirement-verifier: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
+  intentional-artifact-drawer: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented

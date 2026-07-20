@@ -189,7 +189,7 @@ th small { margin-top: 4px; font-size: 10px; font-weight: 500; color: #927246; }
 td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841; }
 .null-value { color: #b3ada3; }
 .conversation-workbench { container: workbench / inline-size; position: relative; width: 100%; max-width: 100%; min-width: 0; height: calc(100vh - 205px); min-height: 480px; margin-top: 12px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 20px; background: #f4f1eb; box-shadow: 0 18px 45px rgba(44, 39, 30, .07); }
-.conversation-workbench-layout { position: relative; display: grid; grid-template-columns: minmax(210px, 250px) minmax(440px, 1fr) minmax(280px, 360px); width: 100%; max-width: 100%; min-width: 0; height: 100%; overflow: hidden; }
+.conversation-workbench-layout { position: relative; display: grid; grid-template-columns: minmax(190px, 220px) minmax(480px, 1fr) minmax(320px, 400px); width: 100%; max-width: 100%; min-width: 0; height: 100%; overflow: hidden; }
 .workbench-compact-nav { display: none; }
 .thread-sidebar { display: flex; flex-direction: column; min-width: 0; padding: 18px 12px; border-right: 1px solid #ded8cc; background: #eeece6; }
 .thread-sidebar > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px; }
@@ -235,8 +235,9 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .context-preview-heading small { color: #817a70; }
 .context-preview .table-scroll { max-height: 230px; border: 1px solid #ded8cc; border-radius: 12px; background: #fffdf9; }
 .artifact-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 19px 20px 12px; }
-.artifact-header h3 { margin: 0; font-size: 17px; line-height: 1.3; }
-.artifact-header-actions { display: flex; align-items: center; gap: 6px; }
+.artifact-header > div:first-child { min-width: 0; }
+.artifact-header h3 { margin: 0; overflow-wrap: anywhere; font-size: 17px; line-height: 1.3; }
+.artifact-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
 .artifact-header-actions > span { padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; color: #336d50; background: #dfeee4; white-space: nowrap; }
 .artifact-header-actions button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid #d8d1c5; border-radius: 8px; color: #5e574e; background: #fffdf9; cursor: pointer; }
 .artifact-tabs { display: flex; gap: 2px; padding: 0 12px 12px; border-bottom: 1px solid #ded8cc; overflow: auto; }
@@ -553,11 +554,13 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
   .conversation-workbench-layout { grid-template-columns: 230px minmax(0, 1fr); }
   .workbench-compact-nav { position: absolute; z-index: 8; top: 0; right: 0; left: 230px; display: flex; align-items: center; gap: 6px; height: 48px; padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); background: rgba(248, 246, 241, .96); backdrop-filter: blur(12px); }
   .workbench-compact-nav button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 7px 10px; border: 1px solid #d8d1c5; border-radius: 9px; color: #514b42; background: var(--surface-panel); cursor: pointer; }
-  .workbench-compact-nav button[aria-pressed="true"] { color: #2f6749; border-color: #a9c8b4; background: #e4f0e8; }
-  .workbench-compact-nav button:last-child { margin-left: auto; }
+  .workbench-compact-nav button[aria-expanded="true"] { color: #2f6749; border-color: #a9c8b4; background: #e4f0e8; }
+  .workbench-close-pane { margin-left: auto; }
   .workbench-task-toggle { display: none !important; }
   .conversation-stage { grid-column: 2; padding-top: 48px; }
-  .artifact-inspector { position: absolute; z-index: 7; top: 48px; right: 0; bottom: 0; width: min(430px, calc(100% - 270px)); transition: transform .18s ease, visibility .18s ease; visibility: hidden; transform: translateX(102%); pointer-events: none; box-shadow: 0 18px 48px rgba(35, 31, 25, .2); }
+  .workbench-pane-backdrop { position: absolute; z-index: 6; top: 48px; right: 0; bottom: 0; left: 230px; display: none; width: auto; padding: 0; border: 0; border-radius: 0; background: rgba(40, 36, 30, .18); cursor: default; }
+  .compact-artifacts-open .workbench-pane-backdrop, .compact-threads-open .workbench-pane-backdrop { display: block; }
+  .artifact-inspector { position: absolute; z-index: 7; top: 48px; right: 0; bottom: 0; width: min(520px, calc(100% - 250px)); transition: transform .18s ease, visibility .18s ease; visibility: hidden; transform: translateX(102%); pointer-events: none; box-shadow: -18px 0 48px rgba(35, 31, 25, .18); }
   .compact-artifacts-open .artifact-inspector { visibility: visible; transform: translateX(0); pointer-events: auto; }
   .analysis-panel { padding: 20px; }
 }
@@ -567,10 +570,17 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
   .workbench-compact-nav { left: 0; }
   .workbench-task-toggle { display: inline-flex !important; }
   .conversation-stage { grid-column: 1; }
-  .thread-sidebar, .artifact-inspector { position: absolute; z-index: 7; top: 48px; bottom: 0; width: min(360px, calc(100% - 32px)); transition: transform .18s ease, visibility .18s ease; visibility: hidden; pointer-events: none; box-shadow: 0 18px 48px rgba(35, 31, 25, .2); }
+  .workbench-pane-backdrop { left: 0; }
+  .thread-sidebar, .artifact-inspector { position: absolute; z-index: 7; top: 48px; bottom: 0; width: min(400px, calc(100% - 24px)); transition: transform .18s ease, visibility .18s ease; visibility: hidden; pointer-events: none; box-shadow: 0 18px 48px rgba(35, 31, 25, .2); }
   .thread-sidebar { left: 0; transform: translateX(-102%); }
   .artifact-inspector { right: 0; transform: translateX(102%); }
   .compact-threads-open .thread-sidebar, .compact-artifacts-open .artifact-inspector { visibility: visible; transform: translateX(0); pointer-events: auto; }
+}
+
+@container workbench (max-width: 430px) {
+  .workbench-close-pane span { display: none; }
+  .thread-sidebar, .artifact-inspector { width: 100%; }
+  .artifact-header { padding-right: 14px; padding-left: 14px; }
 }
 
 @media (max-width: 1040px) {

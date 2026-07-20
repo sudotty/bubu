@@ -21,6 +21,8 @@ requireText(conversations, [
   "thread-undo",
   "compactReturnFocus",
   'event.key === "Escape"',
+  "workbench-pane-backdrop",
+  'aria-controls="conversation-artifact-inspector"',
 ], "conversation lifecycle");
 if (read("apps/desktop/src/renderer/DatasetAnalysis.tsx").includes("请先在左侧") || read("apps/desktop/src/renderer/DatasetGroupAnalysis.tsx").includes("请先在左侧")) {
   failures.push("empty task guidance must not reference a pane that adaptive layout can hide");
@@ -76,6 +78,8 @@ requireText(styles, [
   "@container workbench (max-width: 760px)",
   "compact-threads-open",
   "compact-artifacts-open",
+  "workbench-pane-backdrop",
+  ".artifact-header > div:first-child { min-width: 0; }",
   "@media (prefers-reduced-motion: reduce)",
   "--focus-ring",
 ], "responsive and accessible styling");
@@ -117,6 +121,7 @@ requireText(manifest, [
   "product-metrics-content-verifier: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
+  "intentional-artifact-drawer: implemented",
 ], "product manifest");
 
 if (failures.length > 0) {
