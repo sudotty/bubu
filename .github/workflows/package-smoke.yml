@@ -39,14 +39,14 @@ jobs:
             installer: apps/desktop/out/make/squirrel.windows/x64/BuBu-Setup.exe
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: services/data-core/go.mod
           cache-dependency-path: services/data-core/go.sum
@@ -64,7 +64,7 @@ jobs:
       - name: Stage deterministic package evidence
         run: node scripts/stage-release-assets.mjs --version=$(node -p "require('./package.json').version") --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
       - name: Upload native package evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-package-${{ matrix.platform }}-${{ matrix.arch }}
           path: ${{ runner.temp }}/release-stage
