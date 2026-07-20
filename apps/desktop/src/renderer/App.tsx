@@ -384,11 +384,12 @@ export function App() {
             <SettingsHealthOverview onNavigate={setSettingsSection} />
             <nav className="settings-nav" aria-label="设置分类">
               <p className="hero-kicker">SETTINGS</p>
-              <button type="button" className={settingsSection === "models" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "models"} onClick={() => setSettingsSection("models")}>模型与提供商<small>连接与默认模型</small></button>
-              <button type="button" className={settingsSection === "connectors" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "connectors"} onClick={() => setSettingsSection("connectors")}>本地连接器<small>MCP 与单次授权</small></button>
-              <button type="button" className={settingsSection === "privacy" ? "settings-nav-active" : ""} aria-pressed={settingsSection === "privacy"} onClick={() => setSettingsSection("privacy")}>隐私与恢复<small>审计、备份、恢复</small></button>
+              <button type="button" className={settingsSection === "models" ? "settings-nav-active" : ""} aria-current={settingsSection === "models" ? "page" : undefined} onClick={() => setSettingsSection("models")}>模型与提供商<small>连接与默认模型</small></button>
+              <button type="button" className={settingsSection === "connectors" ? "settings-nav-active" : ""} aria-current={settingsSection === "connectors" ? "page" : undefined} onClick={() => setSettingsSection("connectors")}>本地连接器<small>MCP 与单次授权</small></button>
+              <button type="button" className={settingsSection === "privacy" ? "settings-nav-active" : ""} aria-current={settingsSection === "privacy" ? "page" : undefined} onClick={() => setSettingsSection("privacy")}>隐私与恢复<small>审计、备份、恢复</small></button>
             </nav>
             <div className="settings-content">
+              <header className="settings-content-context"><small>当前设置</small><strong>{settingsSection === "models" ? "模型与提供商" : settingsSection === "connectors" ? "本地连接器" : "隐私与恢复"}</strong><span>{settingsSection === "models" ? "先在列表选择配置，再在详情区编辑、测试或设为当前。" : settingsSection === "connectors" ? "保存连接不会启动进程；发现、读取与调用仍分别批准。" : "查看本地审计，并创建或恢复独立的数据快照。"}</span></header>
               {settingsSection === "models" && <ProviderSettings />}
               {settingsSection === "connectors" && <McpSettings />}
               {settingsSection === "privacy" && <DataProtectionPanel onRestored={reloadCatalogAfterRestore} />}

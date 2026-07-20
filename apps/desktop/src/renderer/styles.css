@@ -338,15 +338,18 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .settings-health { grid-column: 1 / -1; display: grid; gap: 14px; padding: 18px 20px; border: 1px solid #ded8cc; border-radius: 16px; background: #fffdf9; }
 .settings-health > header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .settings-health h3 { margin: 0; }
-.settings-health > header > span { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-.settings-health .health-ready { color: #336d50; background: #dfeee4; }
-.settings-health .health-warning { color: #8e4b38; background: #f3dfd8; }
-.settings-health > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.settings-health > div > button, .settings-health > div > div { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 11px; border: 1px solid #e0d9cd; border-radius: 11px; text-align: left; color: #514b42; background: #f7f4ee; }
-.settings-health > div > button { cursor: pointer; }
-.settings-health > div > button:hover { border-color: #bcae98; background: #fffdf9; }
-.settings-health > div span { display: grid; gap: 3px; min-width: 0; }
-.settings-health > div small { font-size: 10px; line-height: 1.4; color: #817a70; }
+.settings-health-refresh { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 7px 9px; border: 1px solid #d8d1c5; border-radius: 8px; color: #5b544b; background: #fffdf9; cursor: pointer; }
+.settings-findings { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.settings-finding { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 10px 11px; border: 1px solid #e0d9cd; border-radius: 11px; color: #514b42; background: #f7f4ee; }
+.settings-finding > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #e9e4db; }
+.settings-finding > div { display: grid; gap: 2px; min-width: 0; }
+.settings-finding small { font-size: 10px; line-height: 1.45; color: #817a70; }
+.settings-finding button { min-height: 32px; padding: 6px 9px; border: 1px solid #cfc5b7; border-radius: 8px; font-weight: 700; color: #5a5044; background: #fffdf9; cursor: pointer; }
+.settings-finding-blocker { border-color: #e0b7ac; background: #fbefeb; }.settings-finding-blocker > span { color: #914f3d; background: #f2dcd5; }
+.settings-finding-action { border-color: #ddc69f; background: #fff8eb; }.settings-finding-action > span { color: #805d27; background: #f2e5cf; }
+.settings-finding-ready { border-color: #bad0bf; background: #eef6ef; }.settings-finding-ready > span { color: #397052; background: #daeade; }
+.settings-health-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.settings-health-metrics span { display: flex; align-items: baseline; gap: 5px; padding: 8px 10px; border-radius: 9px; font-size: 10px; color: #817a70; background: #f3f0e9; }.settings-health-metrics strong { font-size: 13px; color: #514b42; }
 .recovery-guidance { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: #f1eee7; }
 .recovery-guidance ol { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: #625c53; }
 .recovery-guidance p { margin: 0; color: #7a7165; }
@@ -356,6 +359,7 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .settings-nav button small { font-size: 11px; color: #817a70; }
 .settings-nav .settings-nav-active { color: #302d28; background: #fffdf9; box-shadow: 0 1px 4px rgba(44,39,30,.08); }
 .settings-content { min-width: 0; }
+.settings-content-context { display: grid; gap: 3px; margin-bottom: 10px; padding: 0 2px; }.settings-content-context small { font-size: 10px; font-weight: 800; color: #8b6a39; }.settings-content-context strong { font-size: 14px; }.settings-content-context span { font-size: 11px; line-height: 1.45; color: #817a70; }
 .settings-content > .data-protection-panel { margin-top: 0; }
 .provider-list-panel, .provider-form { min-width: 0; padding: 24px; border: 1px solid #ded8cc; border-radius: 20px; background: #fffdf9; }
 .settings-section-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -587,7 +591,7 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
   .conversation { padding: 20px 18px; }
   .conversation-workbench { height: calc(100vh - 190px); min-height: 460px; }
   .dataset-summary h3 { font-size: 18px; }
-  .settings-health > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settings-health-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

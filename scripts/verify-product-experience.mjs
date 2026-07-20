@@ -84,7 +84,9 @@ requireText(workflowContract, ["threadId: workflowIdSchema"], "workflow contract
 requireText(workflowDelivery, ["definitions.thread_id", "appendConversationEntryToThread"], "workflow delivery");
 
 const settings = read("apps/desktop/src/renderer/SettingsHealthOverview.tsx");
-requireText(settings, ["LOCAL CONFIG HEALTH", "encryptionAvailable", "备份与恢复"], "settings health");
+requireText(settings, ["deriveSettingsHealth", "settings-findings", "重新检查", "navigateToFinding(finding.section)"], "settings health");
+requireText(read("apps/desktop/src/renderer/settings-health.ts"), ["blocker", "action", "optional", "ready", "系统加密不可用", "需要选择当前模型"], "settings diagnostic policy");
+requireText(read("apps/desktop/src/renderer/App.tsx"), ['aria-current={settingsSection === "models"', "settings-content-context"], "settings list detail navigation");
 
 const manifest = read("PRODUCT_MANIFEST.yaml");
 requireText(manifest, [
@@ -104,6 +106,9 @@ requireText(manifest, [
   "deterministic-chart-suitability: implemented",
   "accessible-chart-data-alternative: implemented",
   "bounded-local-html-report: implemented",
+  "actionable-settings-health: implemented",
+  "refreshable-settings-diagnostics: implemented",
+  "settings-list-detail-navigation: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
 ], "product manifest");

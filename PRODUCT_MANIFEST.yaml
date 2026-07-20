@@ -124,6 +124,9 @@ capabilities:
   deterministic-chart-suitability: implemented
   accessible-chart-data-alternative: implemented
   bounded-local-html-report: implemented
+  actionable-settings-health: implemented
+  refreshable-settings-diagnostics: implemented
+  settings-list-detail-navigation: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
   reduced-motion-interface: implemented
