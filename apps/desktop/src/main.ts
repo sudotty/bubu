@@ -154,7 +154,7 @@ async function verifySmokeRenderer(
         "替换数据版本",
         "数据对话",
         "本地任务状态",
-        "LOCAL ARTIFACT",
+        "本地结果",
         "先生成计划",
         "任务记录",
         "结果已准备好"
@@ -200,11 +200,11 @@ async function verifySmokeRenderer(
       }
       taskButton.click();
       await new Promise((next) => setTimeout(next, 50));
-      const taskOpened = workbench.classList.contains("compact-threads-open") && taskButton.getAttribute("aria-pressed") === "true";
+      const taskOpened = workbench.classList.contains("compact-threads-open") && taskButton.getAttribute("aria-expanded") === "true";
       taskButton.click();
       resultButton.click();
       await new Promise((next) => setTimeout(next, 50));
-      const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-pressed") === "true";
+      const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-expanded") === "true";
       const reportAvailable = Array.from(document.querySelectorAll(".artifact-summary-actions button")).some((button) => button.textContent?.includes("导出轻报告"));
       const dataTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("数据"));
       if (dataTab instanceof HTMLButtonElement) dataTab.click();

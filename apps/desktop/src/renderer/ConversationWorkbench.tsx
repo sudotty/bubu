@@ -129,11 +129,15 @@ export function ConversationWorkbench({
   }
 
   return <section ref={workbenchRef} className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`} onKeyDown={(event) => { if (event.key === "Escape" && compactPane) { event.preventDefault(); closeCompactPane(); } }}>
-    <nav className="workbench-compact-nav" aria-label="任务工作区面板"><button type="button" className="workbench-task-toggle" aria-pressed={compactPane === "threads"} onClick={(event) => toggleCompactPane("threads", event.currentTarget)}><List size={16} />任务</button><button type="button" aria-pressed={compactPane === "artifacts"} onClick={(event) => toggleCompactPane("artifacts", event.currentTarget)}><PanelRight size={16} />结果</button>{compactPane && <button type="button" aria-label="关闭侧面板" onClick={closeCompactPane}><X size={16} /></button>}</nav>
+    <nav className="workbench-compact-nav" aria-label="任务工作区面板">
+      <button type="button" className="workbench-task-toggle" aria-controls="conversation-thread-sidebar" aria-expanded={compactPane === "threads"} onClick={(event) => toggleCompactPane("threads", event.currentTarget)}><List size={16} />任务</button>
+      <button type="button" aria-controls="conversation-artifact-inspector" aria-expanded={compactPane === "artifacts"} onClick={(event) => toggleCompactPane("artifacts", event.currentTarget)}><PanelRight size={16} />{compactPane === "artifacts" ? "关闭结果" : "结果"}</button>
+      {compactPane && <button type="button" className="workbench-close-pane" aria-label={compactPane === "artifacts" ? "关闭结果区" : "关闭任务区"} onClick={closeCompactPane}><X size={16} /><span>关闭</span></button>}
+    </nav>
     <div className="conversation-workbench-layout">
-    <aside className="thread-sidebar" aria-label="对话线程">
+    <aside id="conversation-thread-sidebar" className="thread-sidebar" aria-label="对话线程">
       <header>
-        <div><p className="hero-kicker">CONVERSATIONS</p><h3>{title}</h3></div>
+        <div><p className="hero-kicker">任务历史</p><h3>{title}</h3></div>
         <button type="button" className="icon-action" onClick={() => void createThread()} disabled={busy} title="新建对话"><MessageSquarePlus size={17} /></button>
       </header>
       <p className="thread-sidebar-subtitle">{subtitle}</p>
@@ -151,7 +155,8 @@ export function ConversationWorkbench({
       {archivedThreads.length > 0 && <details className="archived-threads"><summary><ArchiveRestore size={14} />已归档（{archivedThreads.length}）</summary><div>{archivedThreads.map((thread) => <button type="button" key={thread.id} onClick={() => void restoreThread(thread.id)} disabled={busy}><span><strong>{thread.title}</strong><small>{timeLabel(thread.updatedAt)}</small></span><ArchiveRestore size={14} /></button>)}</div></details>}
     </aside>
     <div className="conversation-stage">{children(activeThreadId, createThread, () => { if (document.activeElement instanceof HTMLButtonElement) compactReturnFocus.current = document.activeElement; setCompactPane("artifacts"); recordProductMetric({ name: "artifact_opened", targetKind: target.kind, outcome: "succeeded" }); })}</div>
-    {inspector && <aside className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
+    {compactPane && <button type="button" className="workbench-pane-backdrop" aria-label="关闭当前侧面板" onClick={closeCompactPane} tabIndex={-1} />}
+    {inspector && <aside id="conversation-artifact-inspector" className="artifact-inspector" aria-label="结果与数据检查器">{inspector(activeThreadId)}</aside>}
     </div>
   </section>;
 }
