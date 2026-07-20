@@ -81,6 +81,7 @@ import {
   type ArtifactTableActionInput,
   type ArtifactCopyResult,
   type ArtifactExportResult,
+  type ProductMetricInput,
 } from "./shared/product-api.js";
 
 const desktopApi: BuBuDesktopApi = {
@@ -169,6 +170,9 @@ const desktopApi: BuBuDesktopApi = {
     copyTable: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.copyArtifactTable, value) as Promise<ArtifactCopyResult>,
     exportTable: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.exportArtifactTable, value) as Promise<ArtifactExportResult>,
     exportReport: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.exportArtifactReport, value) as Promise<ArtifactExportResult>,
+  },
+  metrics: {
+    record: (value: ProductMetricInput) => ipcRenderer.invoke(desktopChannels.recordProductMetric, value) as Promise<void>,
   },
   analysis: {
     propose: (value: QueryPlanRequest, operationId: OperationId) =>

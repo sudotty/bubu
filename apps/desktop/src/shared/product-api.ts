@@ -78,6 +78,7 @@ import type {
   ArtifactTableActionInput,
   ArtifactCopyResult,
   ArtifactExportResult,
+  ProductMetricInput,
 } from "@bubu/contracts";
 
 export const desktopChannels = {
@@ -147,6 +148,7 @@ export const desktopChannels = {
   copyArtifactTable: "bubu:artifacts:copy-table",
   exportArtifactTable: "bubu:artifacts:export-table",
   exportArtifactReport: "bubu:artifacts:export-report",
+  recordProductMetric: "bubu:metrics:record",
 } as const;
 
 export type DesktopServiceName = "ai-runtime" | "data-core";
@@ -217,6 +219,9 @@ export interface BuBuDesktopApi {
     copyTable(value: ArtifactTableActionInput): Promise<ArtifactCopyResult>;
     exportTable(value: ArtifactTableActionInput): Promise<ArtifactExportResult>;
     exportReport(value: ArtifactTableActionInput): Promise<ArtifactExportResult>;
+  };
+  readonly metrics: {
+    record(value: ProductMetricInput): Promise<void>;
   };
   readonly analysis: {
     propose(value: QueryPlanRequest, operationId: OperationId): Promise<QueryPlanProposal>;
@@ -355,4 +360,5 @@ export type {
   ArtifactTableActionInput,
   ArtifactCopyResult,
   ArtifactExportResult,
+  ProductMetricInput,
 } from "@bubu/contracts";

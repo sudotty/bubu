@@ -15,6 +15,7 @@ import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
 import { ChatAssistantMessage, ChatRecoveryMessage, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
 import { derivePersistedTaskState, isCancellation, type TaskLifecycleState } from "./task-lifecycle.js";
+import { recordProductMetric } from "./product-metrics.js";
 
 function messageFrom(error: unknown): string {
   return operationErrorMessage(error, "群组分析失败，请重试");
@@ -80,6 +81,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread, onOpenAr
     setError(undefined);
     setState("planning");
     setStartedAt(Date.now());
+    recordProductMetric({ name: "task_question_submitted", targetKind: "group", outcome: "started" });
     setCompletedAt(undefined);
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
@@ -89,6 +91,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread, onOpenAr
         nextOperationId,
       ));
       setState("awaiting-approval");
+      recordProductMetric({ name: "task_plan_ready", targetKind: "group", outcome: "succeeded" });
     } catch (reason) {
       setError(isCancellation(reason) ? undefined : messageFrom(reason));
       setState(isCancellation(reason) ? "cancelled" : "needs-attention");
@@ -102,13 +105,16 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread, onOpenAr
     if (!proposal) return;
     setError(undefined);
     setState("executing");
+    recordProductMetric({ name: "task_plan_approved", targetKind: "group", outcome: "started" });
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
     try {
       if (!threadId) throw new Error("请先创建或选择一个对话任务");
-      setResult(await window.bubu.analysis.executeGroup({ plan: proposal.plan, threadId }, nextOperationId));
+      const nextResult = await window.bubu.analysis.executeGroup({ plan: proposal.plan, threadId }, nextOperationId);
+      setResult(nextResult);
       setState("completed");
       setCompletedAt(Date.now());
+      recordProductMetric({ name: "task_result_ready", targetKind: "group", outcome: "succeeded", rowCount: nextResult.rows.length, columnCount: nextResult.columns.length });
     } catch (reason) {
       setError(isCancellation(reason) ? undefined : messageFrom(reason));
       setState(isCancellation(reason) ? "cancelled" : "needs-attention");

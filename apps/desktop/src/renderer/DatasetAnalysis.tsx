@@ -14,6 +14,7 @@ import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
 import { ChatAssistantMessage, ChatRecoveryMessage, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
 import { derivePersistedTaskState, isCancellation, type TaskLifecycleState } from "./task-lifecycle.js";
+import { recordProductMetric } from "./product-metrics.js";
 
 function messageFrom(error: unknown): string {
   return operationErrorMessage(error, "数据分析失败，请重试");
@@ -91,7 +92,9 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
     setResult(undefined);
     setError(undefined);
     setState("planning");
-    setStartedAt(Date.now());
+    const nextStartedAt = Date.now();
+    setStartedAt(nextStartedAt);
+    recordProductMetric({ name: "task_question_submitted", targetKind: "dataset", outcome: "started" });
     setCompletedAt(undefined);
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
@@ -102,6 +105,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
       );
       setProposal(next);
       setState("awaiting-approval");
+      recordProductMetric({ name: "task_plan_ready", targetKind: "dataset", outcome: "succeeded", durationMs: Math.max(0, Date.now() - nextStartedAt) });
     } catch (reason) {
       setError(isCancellation(reason) ? undefined : messageFrom(reason));
       setState(isCancellation(reason) ? "cancelled" : "needs-attention");
@@ -114,14 +118,17 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
   async function execute(): Promise<void> {
     if (!proposal) return;
     setState("executing");
+    recordProductMetric({ name: "task_plan_approved", targetKind: "dataset", outcome: "started" });
     setError(undefined);
     const nextOperationId = createOperationId();
     setOperationId(nextOperationId);
     try {
       if (!threadId) throw new Error("请先创建或选择一个对话任务");
-      setResult(await window.bubu.analysis.execute({ plan: proposal.plan, threadId }, nextOperationId));
+      const nextResult = await window.bubu.analysis.execute({ plan: proposal.plan, threadId }, nextOperationId);
+      setResult(nextResult);
       setState("completed");
       setCompletedAt(Date.now());
+      recordProductMetric({ name: "task_result_ready", targetKind: "dataset", outcome: "succeeded", rowCount: nextResult.rows.length, columnCount: nextResult.columns.length });
     } catch (reason) {
       setError(isCancellation(reason) ? undefined : messageFrom(reason));
       setState(isCancellation(reason) ? "cancelled" : "needs-attention");
@@ -165,7 +172,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
       )}
       {state === "planning" && <ChatToolEvent busy>正在用结构和合成示例生成受限查询计划…</ChatToolEvent>}
       {state === "cancelled" && <ChatAssistantMessage title="当前操作已取消"><p>已保存的任务记录没有变化。你可以修改问题，或直接重新生成计划。</p></ChatAssistantMessage>}
-      {state === "needs-attention" && <ChatRecoveryMessage message={error ?? "上次运行在生成计划前中断，任务记录已保留。"} actions={<><button type="button" className="primary-action" onClick={() => void propose(recoverableQuestion)} disabled={!recoverableQuestion}>重新生成计划</button><button type="button" className="secondary-action" onClick={editRecoverableQuestion}>修改问题</button></>} />}
+      {state === "needs-attention" && <ChatRecoveryMessage message={error ?? "上次运行在生成计划前中断，任务记录已保留。"} actions={<><button type="button" className="primary-action" onClick={() => { recordProductMetric({ name: "task_recovery_selected", targetKind: "dataset", outcome: "started" }); void propose(recoverableQuestion); }} disabled={!recoverableQuestion}>重新生成计划</button><button type="button" className="secondary-action" onClick={() => { recordProductMetric({ name: "task_recovery_selected", targetKind: "dataset", outcome: "started" }); editRecoverableQuestion(); }}>修改问题</button></>} />}
 
       {proposal && (
         <article className="plan-card chat-approval-card">

@@ -21,6 +21,8 @@ The primary journey is import → inspect → ask → review → approve → use
 - Result actions state their scope. “复制” and “导出当前视图” use the Artifact table after its current filter/sort; source-dataset export remains a separate dataset operation. Pinned state is local UI orientation, not a new data copy or audit claim.
 - A chart is shown only when a pure suitability rule can explain it without inventing aggregation or hiding high cardinality. The UI always states the recommendation reason and supplies the exact plotted points as a table. Local HTML reports remain bounded, static, escaped, and free of hidden source rows.
 - Settings begins with ordered, actionable findings rather than equal-weight status tiles. Blockers, required setup, and optional integrations have different language; each routes to a stable list–detail section, and the user can rerun diagnostics after a change.
+- Compact task/result panels move focus into the opened surface, close on Escape, and return focus to the invoking control. Artifact tabs support left/right arrow navigation. Packaged smoke validates these journeys at the minimum viewport instead of treating screenshots as interaction proof.
+- Local product metrics may contain only whitelisted event names, target kind, outcome, bounded duration, and row/column counts. They never contain task IDs, questions, prompts, outputs, paths, credentials, or data values and never leave the local workspace.
 - At the supported packaged smoke viewport of 920 × 640, every primary journey must remain readable without horizontal page overflow. Dense tables, schema, JSON, and audit content may scroll inside bounded regions.
 
 ## State and copy

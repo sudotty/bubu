@@ -145,6 +145,7 @@ async function verifySmokeRenderer(
   window: BrowserWindow,
   screenshotDirectory?: string,
 ): Promise<void> {
+  window.webContents.focus();
   const result = await window.webContents.executeJavaScript(`
     new Promise((resolve) => {
       const expected = [
@@ -198,11 +199,11 @@ async function verifySmokeRenderer(
         return resolve({ ok: false, missing: ["紧凑任务/结果导航"] });
       }
       taskButton.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      await new Promise((next) => setTimeout(next, 50));
       const taskOpened = workbench.classList.contains("compact-threads-open") && taskButton.getAttribute("aria-pressed") === "true";
       taskButton.click();
       resultButton.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      await new Promise((next) => setTimeout(next, 50));
       const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-pressed") === "true";
       const reportAvailable = Array.from(document.querySelectorAll(".artifact-summary-actions button")).some((button) => button.textContent?.includes("导出轻报告"));
       const dataTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("数据"));
@@ -216,16 +217,22 @@ async function verifySmokeRenderer(
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const pinToggled = pinButton?.getAttribute("aria-pressed") === "true";
       if (pinButton instanceof HTMLButtonElement) pinButton.click();
-      resultButton.click();
+      dataTab?.focus();
+      dataTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const visualTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("可视化"));
+      const arrowNavigation = visualTab?.getAttribute("aria-selected") === "true";
+      visualTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open");
-      resolve({ ok: taskOpened && resultOpened && reportAvailable && copyAvailable && exportAvailable && pinToggled && closed, missing: [
+      resolve({ ok: taskOpened && resultOpened && reportAvailable && copyAvailable && exportAvailable && pinToggled && arrowNavigation && closed, missing: [
         ...(!taskOpened ? ["任务抽屉状态"] : []),
         ...(!resultOpened ? ["结果抽屉状态"] : []),
         ...(!reportAvailable ? ["轻报告导出"] : []),
         ...(!copyAvailable ? ["复制当前结果"] : []),
         ...(!exportAvailable ? ["导出当前结果"] : []),
         ...(!pinToggled ? ["固定结果状态"] : []),
+        ...(!arrowNavigation ? ["结果页签方向键"] : []),
         ...(!closed ? ["抽屉关闭状态"] : []),
       ] });
     })
@@ -325,6 +332,7 @@ void app
       mcpConnectionStore,
       mcpAuditStore,
       mcpRuntimeDirectory: join(launchMode.dataDirectory, "mcp", "runtimes"),
+      metricsDirectory: join(launchMode.dataDirectory, "metrics"),
       developmentServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
     });
     if (launchMode.kind === "smoke") {
