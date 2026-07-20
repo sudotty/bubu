@@ -10,6 +10,10 @@ import {
   parseDatasetRelationshipSaveInput,
   parseDatasetPreviewRequest,
   parseConversationTarget,
+  parseConversationId,
+  parseConversationCreateInput,
+  parseConversationRenameInput,
+  parseConversationArchiveInput,
   parseProviderConfigurationInput,
   parseProviderConnectionResult,
   parseProviderId,
@@ -287,6 +291,26 @@ export function registerDesktopApi({
   ipcMain.handle(desktopChannels.getConversation, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     return sidecars.getConversation(parseConversationTarget(value));
+  });
+  ipcMain.handle(desktopChannels.getConversationById, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.getConversationByID(parseConversationId(value));
+  });
+  ipcMain.handle(desktopChannels.listConversations, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.listConversations(parseConversationTarget(value));
+  });
+  ipcMain.handle(desktopChannels.createConversation, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.createConversation(parseConversationCreateInput(value));
+  });
+  ipcMain.handle(desktopChannels.renameConversation, (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    return sidecars.renameConversation(parseConversationRenameInput(value));
+  });
+  ipcMain.handle(desktopChannels.archiveConversation, async (event, value: unknown) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    await sidecars.archiveConversation(parseConversationArchiveInput(value));
   });
   ipcMain.handle(desktopChannels.getGroupRelationships, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

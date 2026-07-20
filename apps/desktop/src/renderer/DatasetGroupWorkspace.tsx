@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { DatasetGroup, DatasetSummary } from "../shared/product-api.js";
 import { DatasetGroupAnalysis } from "./DatasetGroupAnalysis.js";
 import { DatasetRelationshipPanel } from "./DatasetRelationshipPanel.js";
+import { ConversationWorkbench } from "./ConversationWorkbench.js";
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "数据群组操作失败";
@@ -108,8 +109,10 @@ export function DatasetGroupWorkspace({
           {group && <button type="button" className="secondary-action" onClick={() => void remove()} disabled={busy}>删除群组</button>}
         </div>
       </div>
-      {group && <DatasetRelationshipPanel group={group} />}
-      {group && <DatasetGroupAnalysis group={group} />}
+      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联与查询计划会保存在各自的任务中。">
+        {(threadId) => <DatasetGroupAnalysis group={group} threadId={threadId} />}
+      </ConversationWorkbench>}
+      {group && <section className="group-inspector"><DatasetRelationshipPanel group={group} /></section>}
     </section>
   );
 }

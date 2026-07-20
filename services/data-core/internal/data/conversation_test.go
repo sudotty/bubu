@@ -113,6 +113,50 @@ func TestConversationPersistsAnAppendOnlyTypedTimeline(t *testing.T) {
 	}
 }
 
+func TestConversationThreadsAreIndependentForOneDataset(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "sales.csv")
+	if err := os.WriteFile(source, []byte("Region,Amount\nNorth,10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := ConversationTarget{Kind: "dataset", ID: imported.Datasets[0].ID}
+	first, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target, Title: "按区域统计"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target, Title: "检查异常"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.AppendConversationEntry(context.Background(), ConversationAppendInput{Target: target, ThreadID: first.ID, Entry: ConversationEntryInput{Kind: "question", Role: "user", Payload: json.RawMessage(`{"question":"按区域统计"}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	loadedFirst, err := service.GetConversationByID(context.Background(), first.ID)
+	if err != nil || loadedFirst == nil || len(loadedFirst.Entries) != 1 {
+		t.Fatalf("first thread was not isolated: %#v, %v", loadedFirst, err)
+	}
+	loadedSecond, err := service.GetConversationByID(context.Background(), second.ID)
+	if err != nil || loadedSecond == nil || len(loadedSecond.Entries) != 0 {
+		t.Fatalf("second thread changed unexpectedly: %#v, %v", loadedSecond, err)
+	}
+	threads, err := service.ListConversations(context.Background(), target)
+	if err != nil || len(threads) != 2 {
+		t.Fatalf("expected two active threads, got %#v, %v", threads, err)
+	}
+	if err := service.ArchiveConversation(context.Background(), ConversationArchiveInput{ThreadID: second.ID, Archived: true}); err != nil {
+		t.Fatal(err)
+	}
+	threads, err = service.ListConversations(context.Background(), target)
+	if err != nil || len(threads) != 1 || threads[0].ID != first.ID {
+		t.Fatalf("archive did not hide one thread: %#v, %v", threads, err)
+	}
+}
+
 func TestConversationRejectsInvalidTargetsRolesAndPayloads(t *testing.T) {
 	service := openTestService(t, filepath.Join(t.TempDir(), "data"))
 	missing := ConversationTarget{Kind: "dataset", ID: strings.Repeat("f", 32)}

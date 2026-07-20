@@ -116,6 +116,7 @@ export const queryPlanProposalSchema = z
 export const queryPlanRequestSchema = z
   .object({
     datasetId: datasetIdSchema,
+    threadId: z.string().regex(/^[0-9a-f]{32}$/u).optional(),
     question: z.string().trim().min(1).max(20_000),
   })
   .strict();

@@ -47,12 +47,29 @@ func (service *Service) GetConversation(
 	if err := validateConversationTarget(target); err != nil {
 		return nil, err
 	}
+	var threadID string
+	err := service.database.QueryRowContext(ctx, `
+SELECT id FROM conversation_threads
+WHERE target_kind = ? AND target_id = ? AND archived_at IS NULL
+ORDER BY updated_at DESC, id DESC LIMIT 1`, target.Kind, target.ID).Scan(&threadID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load conversation: %w", err)
+	}
+	return service.GetConversationByID(ctx, threadID)
+}
+
+func (service *Service) GetConversationByID(ctx context.Context, threadID string) (*ConversationThread, error) {
+	if !objectID.MatchString(threadID) {
+		return nil, errors.New("conversation thread id is invalid")
+	}
 	var thread ConversationThread
 	err := service.database.QueryRowContext(ctx, `
-SELECT id, title, created_at, updated_at
-FROM conversation_threads
-WHERE target_kind = ? AND target_id = ?`, target.Kind, target.ID).Scan(
-		&thread.ID, &thread.Title, &thread.CreatedAt, &thread.UpdatedAt,
+SELECT id, target_kind, target_id, title, created_at, updated_at
+FROM conversation_threads WHERE id = ?`, threadID).Scan(
+		&thread.ID, &thread.Target.Kind, &thread.Target.ID, &thread.Title, &thread.CreatedAt, &thread.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -60,7 +77,6 @@ WHERE target_kind = ? AND target_id = ?`, target.Kind, target.ID).Scan(
 	if err != nil {
 		return nil, fmt.Errorf("load conversation: %w", err)
 	}
-	thread.Target = target
 	rows, err := service.database.QueryContext(ctx, `
 SELECT id, ordinal, kind, role, payload_json, created_at
 FROM conversation_entries
@@ -108,14 +124,32 @@ func (service *Service) AppendConversationEntry(
 	if err := validateConversationTargetExists(ctx, transaction, input.Target); err != nil {
 		return nil, err
 	}
-	var threadID string
+	threadID := input.ThreadID
 	var nextOrdinal int
-	err = transaction.QueryRowContext(ctx, `
+	if threadID != "" {
+		if !objectID.MatchString(threadID) {
+			return nil, errors.New("conversation thread id is invalid")
+		}
+		var targetKind, targetID string
+		err = transaction.QueryRowContext(ctx, `SELECT target_kind, target_id FROM conversation_threads WHERE id = ? AND archived_at IS NULL`, threadID).Scan(&targetKind, &targetID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("conversation thread was not found or is archived")
+		}
+		if err != nil {
+			return nil, fmt.Errorf("load conversation thread: %w", err)
+		}
+		if targetKind != input.Target.Kind || targetID != input.Target.ID {
+			return nil, errors.New("conversation thread does not belong to target")
+		}
+		err = transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(ordinal), 0) + 1 FROM conversation_entries WHERE thread_id = ?`, threadID).Scan(&nextOrdinal)
+	} else {
+		err = transaction.QueryRowContext(ctx, `
 SELECT t.id, COALESCE(MAX(e.ordinal), 0) + 1
 FROM conversation_threads t
 LEFT JOIN conversation_entries e ON e.thread_id = t.id
-WHERE t.target_kind = ? AND t.target_id = ?
-GROUP BY t.id`, input.Target.Kind, input.Target.ID).Scan(&threadID, &nextOrdinal)
+WHERE t.target_kind = ? AND t.target_id = ? AND t.archived_at IS NULL
+GROUP BY t.id ORDER BY t.updated_at DESC, t.id DESC LIMIT 1`, input.Target.Kind, input.Target.ID).Scan(&threadID, &nextOrdinal)
+	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	if errors.Is(err, sql.ErrNoRows) {
 		if input.Entry.Kind != "question" {
@@ -156,7 +190,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, entryID, threadID, nextOrdinal, input.Entry.Kind,
 	if err := transaction.Commit(); err != nil {
 		return nil, fmt.Errorf("commit conversation append: %w", err)
 	}
-	return service.GetConversation(ctx, input.Target)
+	return service.GetConversationByID(ctx, threadID)
 }
 
 func validateConversationTargetExists(ctx context.Context, transaction *sql.Tx, target ConversationTarget) error {

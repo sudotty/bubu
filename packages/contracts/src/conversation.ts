@@ -100,8 +100,26 @@ export const conversationThreadSchema = z.object({
   updatedAt: z.string().datetime({ offset: true }),
 }).strict();
 
+export const conversationThreadSummarySchema = conversationThreadSchema.omit({ entries: true });
+
+export const conversationCreateInputSchema = z.object({
+  target: conversationTargetSchema,
+  title: z.string().trim().min(1).max(100).optional(),
+}).strict();
+
+export const conversationRenameInputSchema = z.object({
+  threadId: conversationIdSchema,
+  title: z.string().trim().min(1).max(100),
+}).strict();
+
+export const conversationArchiveInputSchema = z.object({
+  threadId: conversationIdSchema,
+  archived: z.boolean(),
+}).strict();
+
 export const conversationAppendInputSchema = z.object({
   target: conversationTargetSchema,
+  threadId: conversationIdSchema.optional(),
   entry: conversationEntryInputSchema,
 }).strict();
 
@@ -109,10 +127,18 @@ export type ConversationTarget = z.infer<typeof conversationTargetSchema>;
 export type ConversationEntryInput = z.infer<typeof conversationEntryInputSchema>;
 export type ConversationEntry = z.infer<typeof conversationEntrySchema>;
 export type ConversationThread = z.infer<typeof conversationThreadSchema>;
+export type ConversationThreadSummary = z.infer<typeof conversationThreadSummarySchema>;
+export type ConversationCreateInput = z.infer<typeof conversationCreateInputSchema>;
+export type ConversationRenameInput = z.infer<typeof conversationRenameInputSchema>;
+export type ConversationArchiveInput = z.infer<typeof conversationArchiveInputSchema>;
 export type ConversationAppendInput = z.infer<typeof conversationAppendInputSchema>;
 
 export function parseConversationTarget(value: unknown): ConversationTarget {
   return conversationTargetSchema.parse(value);
+}
+
+export function parseConversationId(value: unknown): string {
+  return conversationIdSchema.parse(value);
 }
 
 export function parseConversationThread(value: unknown): ConversationThread {
@@ -121,6 +147,22 @@ export function parseConversationThread(value: unknown): ConversationThread {
 
 export function parseOptionalConversationThread(value: unknown): ConversationThread | null {
   return conversationThreadSchema.nullable().parse(value);
+}
+
+export function parseConversationThreadSummaryList(value: unknown): readonly ConversationThreadSummary[] {
+  return z.array(conversationThreadSummarySchema).parse(value);
+}
+
+export function parseConversationCreateInput(value: unknown): ConversationCreateInput {
+  return conversationCreateInputSchema.parse(value);
+}
+
+export function parseConversationRenameInput(value: unknown): ConversationRenameInput {
+  return conversationRenameInputSchema.parse(value);
+}
+
+export function parseConversationArchiveInput(value: unknown): ConversationArchiveInput {
+  return conversationArchiveInputSchema.parse(value);
 }
 
 export function parseConversationAppendInput(value: unknown): ConversationAppendInput {

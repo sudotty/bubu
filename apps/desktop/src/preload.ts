@@ -13,9 +13,13 @@ import {
   type ColumnDistribution,
   type ColumnDistributionRequest,
   type ConversationTarget,
+  type ConversationCreateInput,
+  type ConversationRenameInput,
+  type ConversationArchiveInput,
   type DataBackupSelectionResult,
   type DataRestoreSelectionResult,
   type ConversationThread,
+  type ConversationThreadSummary,
   type DatasetPreview,
   type DatasetPreviewRequest,
   type DatasetReplacementSelectionResult,
@@ -189,6 +193,16 @@ const desktopApi: BuBuDesktopApi = {
   conversations: {
     get: (target: ConversationTarget) =>
       ipcRenderer.invoke(desktopChannels.getConversation, target) as Promise<ConversationThread | null>,
+    getById: (threadId: string) =>
+      ipcRenderer.invoke(desktopChannels.getConversationById, threadId) as Promise<ConversationThread | null>,
+    list: (target: ConversationTarget) =>
+      ipcRenderer.invoke(desktopChannels.listConversations, target) as Promise<readonly ConversationThreadSummary[]>,
+    create: (input: ConversationCreateInput) =>
+      ipcRenderer.invoke(desktopChannels.createConversation, input) as Promise<ConversationThread>,
+    rename: (input: ConversationRenameInput) =>
+      ipcRenderer.invoke(desktopChannels.renameConversation, input) as Promise<ConversationThread>,
+    archive: (input: ConversationArchiveInput) =>
+      ipcRenderer.invoke(desktopChannels.archiveConversation, input) as Promise<void>,
   },
   datasetRelationships: {
     overview: (groupId: DatasetGroupId) =>
