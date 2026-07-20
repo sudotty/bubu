@@ -81,6 +81,7 @@ async function createMainWindow(
   const window = new BrowserWindow({
     width: initialSize.width,
     height: initialSize.height,
+    useContentSize: true,
     minWidth: 920,
     minHeight: 640,
     backgroundColor: "#f4f2ed",
