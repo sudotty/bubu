@@ -5,8 +5,9 @@ Status: **BLOCKED**. The repository produces a hardened development package, but
 ## Implemented release engineering
 
 - Electron packages use ASAR, embedded ASAR integrity validation, restricted fuses, a custom application protocol, and packaged sidecars.
-- macOS signing and notarization are configured only when `BUBU_MAC_SIGN_IDENTITY`, `BUBU_APPLE_ID`, `BUBU_APPLE_APP_PASSWORD`, and `BUBU_APPLE_TEAM_ID` are supplied outside Git.
-- The entitlements file is minimal for Electron's JIT runtime. No credential or certificate belongs in the repository.
+- macOS signing and notarization are configured only when `BUBU_MAC_SIGN_IDENTITY`, `BUBU_APPLE_API_KEY_PATH`, `BUBU_APPLE_API_KEY_ID`, and `BUBU_APPLE_API_ISSUER` are supplied outside Git. Notarization uses a scoped App Store Connect API key rather than an Apple ID password.
+- Windows signing supports the official Azure Artifact Signing path and a provider-specific cloud-HSM SignTool path. Partial signing variables fail at configuration load; self-signed and unsigned packages cannot satisfy the public-beta gate.
+- Forge's maintained default Electron entitlements are used instead of adding custom privileges. No credential, API key, certificate, or signing log belongs in the repository.
 - `npm run verify:release-readiness` checks configuration and capability truth. `npm run release:preflight` additionally fails closed when the signing environment is absent.
 
 ## Remaining external evidence

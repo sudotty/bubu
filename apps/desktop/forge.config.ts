@@ -6,14 +6,13 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { resolve } from "node:path";
+import { resolveMacSigning, resolveWindowsSigning } from "./release-signing.js";
 
 const dataCoreBinary = process.platform === "win32" ? "bubu-data-core.exe" : "bubu-data-core";
 const appIcon = resolve("resources", "icons", process.platform === "win32" ? "bubu.ico" : "bubu.icns");
 
-const macSignIdentity = process.env.BUBU_MAC_SIGN_IDENTITY?.trim();
-const appleId = process.env.BUBU_APPLE_ID?.trim();
-const appleIdPassword = process.env.BUBU_APPLE_APP_PASSWORD?.trim();
-const appleTeamId = process.env.BUBU_APPLE_TEAM_ID?.trim();
+const macSigning = resolveMacSigning();
+const windowsSign = resolveWindowsSigning();
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -31,8 +30,8 @@ const config: ForgeConfig = {
       ProductName: "BuBu",
     },
     electronZipDir: resolve("..", "..", ".cache", "electron"),
-    ...(macSignIdentity ? { osxSign: { identity: macSignIdentity, optionsForFile: () => ({ hardenedRuntime: true, entitlements: "resources/entitlements.mac.plist" }) } } : {}),
-    ...(appleId && appleIdPassword && appleTeamId ? { osxNotarize: { appleId, appleIdPassword, teamId: appleTeamId } } : {}),
+    ...macSigning,
+    ...(windowsSign ? { windowsSign } : {}),
     extraResource: [
       "../../services/ai-runtime/dist",
       `../../services/data-core/bin/${dataCoreBinary}`,
@@ -50,6 +49,8 @@ const config: ForgeConfig = {
       setupExe: "BuBu-Setup.exe",
       setupIcon: resolve("resources", "icons", "bubu.ico"),
       noMsi: true,
+      // MakerSquirrel currently exposes the CJS copy of the same hash enum used by Packager's ESM types.
+      ...(windowsSign ? { windowsSign: windowsSign as never } : {}),
     }, ["win32"]),
   ],
   plugins: [

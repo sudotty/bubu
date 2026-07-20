@@ -155,6 +155,9 @@ capabilities:
   platform-aware-data-core-sidecar: implemented
   native-application-icons: implemented
   native-installer-makers: implemented
+  fail-closed-release-signing-config: implemented
+  app-store-connect-api-key-notarization: implemented
+  dual-backend-windows-signing-config: implemented
   reduced-motion-interface: implemented
   keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented
