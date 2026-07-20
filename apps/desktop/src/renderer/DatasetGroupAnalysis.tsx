@@ -35,7 +35,7 @@ function resultLabel(group: DatasetGroup, label: string): string {
   });
 }
 
-export function DatasetGroupAnalysis({ group, threadId }: { readonly group: DatasetGroup; readonly threadId?: string | undefined }) {
+export function DatasetGroupAnalysis({ group, threadId, onCreateThread }: { readonly group: DatasetGroup; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void> }) {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<GroupQueryPlanProposal>();
@@ -197,7 +197,7 @@ export function DatasetGroupAnalysis({ group, threadId }: { readonly group: Data
       {result && proposal && threadId && <AggregateAgentPanel plan={proposal.plan} threadId={threadId} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
-        {!threadId && <p className="composer-thread-note">请先在左侧开始一个新任务，再生成关联计划。</p>}
+        {!threadId && <div className="composer-thread-note"><span>先创建一个群组任务，再生成关联计划。</span><button type="button" onClick={() => void onCreateThread()}>开始群组分析</button></div>}
         <details className="composer-trust"><summary><ShieldCheck size={13} />当前上下文：结构、合成示例与有效关系</summary><p>你的问题文本会原样发送给当前模型；请不要粘贴敏感原始行或值。群组数据只自动发送结构、合成示例和有效关系。</p></details>
         <label className="sr-only" htmlFor={`group-question-${group.id}`}>向数据群组提问</label>
         <textarea id={`group-question-${group.id}`} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="例如：用第 1 个表的 Product ID 左关联第 2 个表，按类别统计订单数" maxLength={20_000} rows={2} disabled={!threadId} />

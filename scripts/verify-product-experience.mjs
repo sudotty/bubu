@@ -20,6 +20,9 @@ requireText(conversations, [
   "archived: false",
   "thread-undo",
 ], "conversation lifecycle");
+if (read("apps/desktop/src/renderer/DatasetAnalysis.tsx").includes("请先在左侧") || read("apps/desktop/src/renderer/DatasetGroupAnalysis.tsx").includes("请先在左侧")) {
+  failures.push("empty task guidance must not reference a pane that adaptive layout can hide");
+}
 
 const artifacts = read("apps/desktop/src/renderer/ArtifactInspector.tsx");
 requireText(artifacts, [
@@ -33,7 +36,9 @@ requireText(artifacts, [
 
 const styles = read("apps/desktop/src/renderer/styles.css");
 requireText(styles, [
-  "@media (max-width: 1280px)",
+  "container: workbench / inline-size",
+  "@container workbench (max-width: 1180px)",
+  "@container workbench (max-width: 760px)",
   "compact-threads-open",
   "compact-artifacts-open",
   "@media (prefers-reduced-motion: reduce)",
@@ -54,6 +59,9 @@ requireText(manifest, [
   "persisted-conversation-task-resume: implemented",
   "expandable-artifact-workspace: implemented",
   "compact-conversation-drawers: implemented",
+  "adaptive-conversation-panes: implemented",
+  "compact-entity-context-bar: implemented",
+  "direct-empty-task-actions: implemented",
 ], "product manifest");
 
 if (failures.length > 0) {

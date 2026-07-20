@@ -21,7 +21,7 @@ Errors retain a recovery path: retry plan generation or return the submitted tex
 - **Artifact:** summary metrics, local result data with filtering and sorting, deterministic visualization, and an event evidence timeline.
 - **Automation:** an expanded work area launched from the Artifact summary. A workflow stores the source `threadId`; target-only fallback delivery is forbidden.
 
-At wide widths the three responsibilities may appear together. At compact widths, the central chat remains visible while **任务** and **结果** open as keyboard-accessible drawers. The product contract requires bounded internal scrolling and no page-level horizontal overflow at the packaged 920 × 640 minimum.
+The workbench adapts to its own available width rather than a device label. Wide mode keeps tasks, chat, and Artifact together. Medium mode keeps tasks beside chat and opens Artifact as a supporting panel. Compact mode preserves chat as the primary pane and opens **任务** or **结果** as keyboard-accessible drawers. Empty chat states include a direct task-creation action and never refer to a possibly hidden “left side.” The product contract requires bounded internal scrolling and no page-level horizontal overflow at the packaged 920 × 640 minimum.
 
 ## Trust model
 
