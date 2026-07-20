@@ -8,6 +8,7 @@ Contracts are security boundaries, not convenience types:
 - Keep limits explicit and test malformed, oversized, stale, and drifted inputs.
 - Generated or duplicated bindings must agree before a capability is marked implemented.
 - Do not expose generic commands, raw SQL, credentials, or unbounded JSON through a contract.
+- Bind reusable workflow definitions to the conversation thread that owns their reviewed plan and future result evidence.
 
 ```bash
 npm test -w @bubu/contracts

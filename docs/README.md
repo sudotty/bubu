@@ -5,6 +5,8 @@ Documentation describes the current product only when it agrees with runtime beh
 ## Start here
 
 - [Product and UI/UX constraints](product/ui-ux-guidelines.md)
+- [Conversation workbench](product/conversation-workbench.md)
+- [Conversation workbench eight-stage completion](plans/2026-07-20-conversation-workbench-eight-stage-completion.md)
 - [Local data kernel](architecture/local-data-kernel.md)
 - [Privacy and model providers](architecture/privacy-and-model-providers.md)
 - [MCP host security](architecture/mcp-host-security.md)

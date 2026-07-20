@@ -1,0 +1,30 @@
+# Conversation workbench
+
+BuBu treats a conversation as a durable local data task, not a disposable model transcript. One dataset or group can own multiple independent threads without mixing questions, reviewed plans, results, explanations, automated runs, or audit evidence.
+
+## Primary flow
+
+1. Select a dataset contact or a 2–8 member group.
+2. Start or resume a task. The first question becomes the default title; the title can be edited later.
+3. Ask a question. Enter submits and Shift+Enter adds a line break.
+4. Review the exact typed plan and disclosure boundary.
+5. Approve once. The Go data core validates and executes the bounded plan locally.
+6. Read the concise response in the chat and inspect the durable result in the Artifact workspace.
+7. Optionally save the reviewed plan as a workflow. The definition and every triggered result remain bound to the originating thread.
+
+Errors retain a recovery path: retry plan generation or return the submitted text to the composer for editing. Reopening a thread derives its task status from its append-only history, so a completed task does not appear idle after restart.
+
+## Workspace responsibilities
+
+- **Tasks:** create, select, rename, archive, undo archive, browse archived threads, and restore.
+- **Chat:** questions, plan review, approval, execution state, failure recovery, and a sticky composer.
+- **Artifact:** summary metrics, local result data with filtering and sorting, deterministic visualization, and an event evidence timeline.
+- **Automation:** an expanded work area launched from the Artifact summary. A workflow stores the source `threadId`; target-only fallback delivery is forbidden.
+
+At wide widths the three responsibilities may appear together. At compact widths, the central chat remains visible while **任务** and **结果** open as keyboard-accessible drawers. The product contract requires bounded internal scrolling and no page-level horizontal overflow at the packaged 920 × 640 minimum.
+
+## Trust model
+
+The question text is model input and must not contain pasted sensitive rows. Automatically prepared context is limited to the disclosure shown in the review. Remote model planning, deterministic local execution, and optional aggregate explanation are different events with separate authority and audit records.
+
+The Artifact evidence timeline is append-only orientation, not permission. Reusing a plan through automation does not broaden its data target, disclosure level, thread ownership, retry budget, or execution authority.
