@@ -184,6 +184,17 @@ INSERT INTO conversation_entries(id, thread_id, ordinal, kind, role, payload_jso
 VALUES (?, ?, ?, ?, ?, ?, ?)`, entryID, threadID, nextOrdinal, input.Entry.Kind, input.Entry.Role, string(input.Entry.Payload), now); err != nil {
 		return nil, fmt.Errorf("append conversation entry: %w", err)
 	}
+	if nextOrdinal == 1 && input.Entry.Kind == "question" {
+		title, titleErr := questionTitle(input.Entry.Payload)
+		if titleErr != nil {
+			return nil, titleErr
+		}
+		if _, titleErr = transaction.ExecContext(ctx, `
+UPDATE conversation_threads SET title = ?
+WHERE id = ? AND title = '新数据对话'`, title, threadID); titleErr != nil {
+			return nil, fmt.Errorf("name conversation from first question: %w", titleErr)
+		}
+	}
 	if _, err := transaction.ExecContext(ctx, "UPDATE conversation_threads SET updated_at = ? WHERE id = ?", now, threadID); err != nil {
 		return nil, fmt.Errorf("touch conversation: %w", err)
 	}

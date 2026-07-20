@@ -227,7 +227,7 @@ export interface BuBuDesktopApi {
   readonly conversations: {
     get(target: ConversationTarget): Promise<ConversationThread | null>;
     getById(threadId: string): Promise<ConversationThread | null>;
-    list(target: ConversationTarget): Promise<readonly ConversationThreadSummary[]>;
+    list(target: ConversationTarget, archived?: boolean): Promise<readonly ConversationThreadSummary[]>;
     create(input: ConversationCreateInput): Promise<ConversationThread>;
     rename(input: ConversationRenameInput): Promise<ConversationThread>;
     archive(input: ConversationArchiveInput): Promise<void>;

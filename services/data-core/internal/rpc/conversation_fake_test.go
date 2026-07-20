@@ -8,7 +8,7 @@ import (
 func (fake *fakeDatasets) GetConversationByID(_ context.Context, threadID string) (*data.ConversationThread, error) {
 	return &data.ConversationThread{ID: threadID, Entries: []data.ConversationEntry{}}, nil
 }
-func (fake *fakeDatasets) ListConversations(_ context.Context, target data.ConversationTarget) ([]data.ConversationThreadSummary, error) {
+func (fake *fakeDatasets) ListConversations(_ context.Context, target data.ConversationTarget, _ bool) ([]data.ConversationThreadSummary, error) {
 	return []data.ConversationThreadSummary{{ID: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", Target: target, Title: "测试对话"}}, nil
 }
 func (fake *fakeDatasets) CreateConversation(_ context.Context, input data.ConversationCreateInput) (*data.ConversationThread, error) {

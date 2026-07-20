@@ -74,7 +74,7 @@ type DatasetService interface {
 	DeleteRelationship(ctx context.Context, relationshipID string) error
 	GetConversation(ctx context.Context, target data.ConversationTarget) (*data.ConversationThread, error)
 	GetConversationByID(ctx context.Context, threadID string) (*data.ConversationThread, error)
-	ListConversations(ctx context.Context, target data.ConversationTarget) ([]data.ConversationThreadSummary, error)
+	ListConversations(ctx context.Context, target data.ConversationTarget, archived bool) ([]data.ConversationThreadSummary, error)
 	CreateConversation(ctx context.Context, input data.ConversationCreateInput) (*data.ConversationThread, error)
 	RenameConversation(ctx context.Context, input data.ConversationRenameInput) (*data.ConversationThread, error)
 	ArchiveConversation(ctx context.Context, input data.ConversationArchiveInput) error
