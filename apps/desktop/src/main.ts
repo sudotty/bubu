@@ -135,10 +135,11 @@ async function verifySmokeRenderer(
             return;
           }
         }
-        const contents = document.body.innerText;
+        const contents = document.body.textContent ?? "";
+        const visibleContents = document.body.innerText;
         const missing = expected.filter((value) => !contents.includes(value));
         const loading = ["正在读取本地预览与列画像…", "正在生成本地质量报告…"]
-          .filter((value) => contents.includes(value));
+          .filter((value) => visibleContents.includes(value));
         if (missing.length === 0 && loading.length === 0) return resolve({ ok: true, missing: [] });
         if (Date.now() >= deadline) return resolve({ ok: false, missing });
         setTimeout(inspect, 50);

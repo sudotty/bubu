@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, MessageSquarePlus, MoreHorizontal, Pencil, RotateCcw } from "lucide-react";
+import { Archive, ArchiveRestore, List, MessageSquarePlus, MoreHorizontal, PanelRight, Pencil, RotateCcw, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ConversationTarget, ConversationThreadSummary } from "../shared/product-api.js";
 
@@ -29,6 +29,7 @@ export function ConversationWorkbench({
   const [editingTitle, setEditingTitle] = useState("");
   const [lastArchived, setLastArchived] = useState<ConversationThreadSummary>();
   const [notice, setNotice] = useState<string>();
+  const [compactPane, setCompactPane] = useState<"threads" | "artifacts">();
 
   async function load(): Promise<void> {
     const [next, archived] = await Promise.all([
@@ -107,7 +108,8 @@ export function ConversationWorkbench({
     }
   }
 
-  return <section className="conversation-workbench" aria-label={`${title} 对话工作台`}>
+  return <section className={`conversation-workbench ${compactPane ? `compact-${compactPane}-open` : ""}`} aria-label={`${title} 对话工作台`}>
+    <nav className="workbench-compact-nav" aria-label="任务工作区面板"><button type="button" aria-pressed={compactPane === "threads"} onClick={() => setCompactPane((current) => current === "threads" ? undefined : "threads")}><List size={16} />任务</button><button type="button" aria-pressed={compactPane === "artifacts"} onClick={() => setCompactPane((current) => current === "artifacts" ? undefined : "artifacts")}><PanelRight size={16} />结果</button>{compactPane && <button type="button" aria-label="关闭侧面板" onClick={() => setCompactPane(undefined)}><X size={16} /></button>}</nav>
     <aside className="thread-sidebar" aria-label="对话线程">
       <header>
         <div><p className="hero-kicker">CONVERSATIONS</p><h3>{title}</h3></div>
@@ -118,7 +120,7 @@ export function ConversationWorkbench({
       {lastArchived && <div className="thread-undo" role="status"><span>已归档“{lastArchived.title}”</span><button type="button" onClick={() => void restoreThread(lastArchived.id)} disabled={busy}><RotateCcw size={13} />撤销</button></div>}
       <div className="thread-list">
         {threads.map((thread) => <article className={`thread-item ${thread.id === activeThreadId ? "thread-item-active" : ""}`} key={thread.id}>
-          {editingThreadId === thread.id ? <form className="thread-rename" onSubmit={(event) => { event.preventDefault(); void renameThread(thread.id); }}><label className="sr-only" htmlFor={`thread-title-${thread.id}`}>对话名称</label><input id={`thread-title-${thread.id}`} value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} maxLength={100} autoFocus /><button type="submit" disabled={busy || editingTitle.trim().length === 0}>保存</button></form> : <button type="button" onClick={() => setActiveThreadId(thread.id)} aria-pressed={thread.id === activeThreadId}>
+          {editingThreadId === thread.id ? <form className="thread-rename" onSubmit={(event) => { event.preventDefault(); void renameThread(thread.id); }}><label className="sr-only" htmlFor={`thread-title-${thread.id}`}>对话名称</label><input id={`thread-title-${thread.id}`} value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} maxLength={100} autoFocus /><button type="submit" disabled={busy || editingTitle.trim().length === 0}>保存</button></form> : <button type="button" onClick={() => { setActiveThreadId(thread.id); setCompactPane(undefined); }} aria-pressed={thread.id === activeThreadId}>
             <strong>{thread.title}</strong><small>{timeLabel(thread.updatedAt)}</small>
           </button>}
           {editingThreadId !== thread.id && <details className="thread-menu"><summary aria-label={`${thread.title} 的操作`}><MoreHorizontal size={16} /></summary><div><button type="button" onClick={() => { setEditingThreadId(thread.id); setEditingTitle(thread.title); }} disabled={busy}><Pencil size={14} />重命名</button><button type="button" onClick={() => void archiveThread(thread.id)} disabled={busy}><Archive size={14} />归档</button></div></details>}

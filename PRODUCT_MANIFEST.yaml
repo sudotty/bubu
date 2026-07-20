@@ -111,6 +111,9 @@ capabilities:
   timed-conversation-task-status: implemented
   recoverable-conversation-errors: implemented
   keyboard-first-conversation-composer: implemented
+  compact-conversation-drawers: implemented
+  reduced-motion-interface: implemented
+  keyboard-artifact-tabs: implemented
   thread-bound-aggregate-approvals: implemented
   thread-bound-workflow-definitions: implemented
   deterministic-workflow-thread-delivery: implemented
