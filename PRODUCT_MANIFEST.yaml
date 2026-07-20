@@ -101,6 +101,9 @@ capabilities:
   conversation-thread-restore: implemented
   append-only-local-conversation-history: implemented
   conversation-artifact-workbench: implemented
+  expandable-artifact-workspace: implemented
+  filterable-sortable-result-artifacts: implemented
+  conversation-evidence-timeline: implemented
   visible-conversation-task-status: implemented
   persisted-conversation-task-resume: implemented
   timed-conversation-task-status: implemented
