@@ -25,6 +25,8 @@ The workbench adapts to its own available width rather than a device label. Wide
 
 The center timeline uses one stable message grammar: user prompts are right-aligned bubbles; assistant narration is a calm, unboxed response with a BuBu marker; transient system/tool activity is a compact status row; typed plans are the only warm approval cards; failures are recovery cards with the next safe actions; and local results appear as five-row previews that point to the durable Artifact workspace. English decorative kickers are not used to simulate product hierarchy.
 
+Result narration opens the Artifact workspace directly. In the data tab, copy and CSV export operate on the current filtered and sorted view rather than silently exporting the source dataset. The desktop main process parses the bounded table payload, neutralizes spreadsheet formulas, and owns clipboard/save-dialog access. Pinning is a parsed local presentation preference scoped to the task; it does not duplicate rows or alter the append-only evidence trail.
+
 ## Trust model
 
 The question text is model input and must not contain pasted sensitive rows. Automatically prepared context is limited to the disclosure shown in the review. Remote model planning, deterministic local execution, and optional aggregate explanation are different events with separate authority and audit records.

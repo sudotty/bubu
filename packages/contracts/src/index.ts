@@ -1,4 +1,5 @@
 export * from "./backup.js";
+export * from "./artifact.js";
 export * from "./aggregate-explanation.js";
 export * from "./aggregate-agent.js";
 export * from "./conversation.js";

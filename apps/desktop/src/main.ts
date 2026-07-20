@@ -204,12 +204,26 @@ async function verifySmokeRenderer(
       resultButton.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-pressed") === "true";
+      const dataTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("数据"));
+      if (dataTab instanceof HTMLButtonElement) dataTab.click();
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const actionButtons = Array.from(document.querySelectorAll(".artifact-data-toolbar button"));
+      const copyAvailable = actionButtons.some((button) => button.textContent?.includes("复制"));
+      const exportAvailable = actionButtons.some((button) => button.textContent?.includes("导出当前视图"));
+      const pinButton = actionButtons.find((button) => button.textContent?.includes("固定"));
+      if (pinButton instanceof HTMLButtonElement) pinButton.click();
+      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+      const pinToggled = pinButton?.getAttribute("aria-pressed") === "true";
+      if (pinButton instanceof HTMLButtonElement) pinButton.click();
       resultButton.click();
       await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
       const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open");
-      resolve({ ok: taskOpened && resultOpened && closed, missing: [
+      resolve({ ok: taskOpened && resultOpened && copyAvailable && exportAvailable && pinToggled && closed, missing: [
         ...(!taskOpened ? ["任务抽屉状态"] : []),
         ...(!resultOpened ? ["结果抽屉状态"] : []),
+        ...(!copyAvailable ? ["复制当前结果"] : []),
+        ...(!exportAvailable ? ["导出当前结果"] : []),
+        ...(!pinToggled ? ["固定结果状态"] : []),
         ...(!closed ? ["抽屉关闭状态"] : []),
       ] });
     })

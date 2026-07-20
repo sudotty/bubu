@@ -56,7 +56,12 @@ requireText(artifacts, [
   "ArrowLeft",
   "artifact-shell-expanded",
   "WorkflowPanel target={target} threadId={threadId}",
+  "copyTable(actionInput)",
+  "exportTable(actionInput)",
+  "pinnedArtifactKey",
 ], "artifact workbench");
+const artifactBoundary = read("apps/desktop/src/main/artifact-api.ts");
+requireText(artifactBoundary, ["parseArtifactTableActionInput", "clipboard.writeText", "showSaveDialog", "artifactCsv", "artifactTsv"], "artifact desktop boundary");
 
 const styles = read("apps/desktop/src/renderer/styles.css");
 requireText(styles, [
@@ -88,6 +93,10 @@ requireText(manifest, [
   "typed-conversation-task-lifecycle: implemented",
   "interrupted-task-recovery: implemented",
   "cancellation-aware-task-state: implemented",
+  "artifact-current-view-copy: implemented",
+  "artifact-current-view-csv-export: implemented",
+  "local-artifact-pinning: implemented",
+  "chat-to-artifact-navigation: implemented",
   "compact-entity-context-bar: implemented",
   "direct-empty-task-actions: implemented",
 ], "product manifest");

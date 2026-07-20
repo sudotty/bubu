@@ -18,6 +18,7 @@ The primary journey is import → inspect → ask → review → approve → use
 - A task status strip exposes the current causal step—understanding, review, local execution—without pretending that an in-progress model call has already produced a result. Automation belongs in the Artifact inspector, where a reviewed plan can be made repeatable without leaving the task context.
 - Message form communicates authority: user input is a right-side bubble, assistant narrative is visually quiet, tool activity is a compact event row, approval is a unique card, failure is a recovery surface, and result data is a bounded preview. Full tables and evidence belong to Artifact instead of being repeated in the dialogue.
 - The workspace header states the active entity and current product state. Primary actions belong near the object they affect; destructive actions require explicit language and confirmation.
+- Result actions state their scope. “复制” and “导出当前视图” use the Artifact table after its current filter/sort; source-dataset export remains a separate dataset operation. Pinned state is local UI orientation, not a new data copy or audit claim.
 - At the supported packaged smoke viewport of 920 × 640, every primary journey must remain readable without horizontal page overflow. Dense tables, schema, JSON, and audit content may scroll inside bounded regions.
 
 ## State and copy

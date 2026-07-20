@@ -47,7 +47,7 @@ function filterLabel(filter: QueryPlanProposal["plan"]["filters"][number]): stri
     : `${filter.column} ${operators[filter.operator]}`;
 }
 
-export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThread }: { readonly datasetId: string; readonly datasetName: string; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void> }) {
+export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThread, onOpenArtifact }: { readonly datasetId: string; readonly datasetName: string; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void>; readonly onOpenArtifact: () => void }) {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<QueryPlanProposal>();
@@ -223,7 +223,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
           {result.rows.length === 0 && <p className="empty-copy">这个计划没有找到匹配的数据。</p>}
         </article>
         <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "查询结果"} />
-        <ChatAssistantMessage title="结果已准备好"><p>我已在本地执行经过审查的计划。完整数据、图表、计划与审计证据都在结果区。</p></ChatAssistantMessage>
+        <ChatAssistantMessage title="结果已准备好"><p>我已在本地执行经过审查的计划。完整数据、图表、计划与审计证据都在结果区。</p><button type="button" className="chat-artifact-link" onClick={onOpenArtifact}>打开结果区</button></ChatAssistantMessage>
         </>
       )}
 
