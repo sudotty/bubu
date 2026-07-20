@@ -246,6 +246,8 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .artifact-summary, .artifact-plan, .artifact-audit { display: grid; gap: 10px; padding: 15px; border: 1px solid #e0d9cd; border-radius: 13px; background: #fffdf9; }
 .artifact-summary strong, .artifact-plan strong, .artifact-audit strong { font-size: 14px; }
 .artifact-summary p, .artifact-plan p, .artifact-audit p { margin: 0; font-size: 12px; line-height: 1.65; color: #716a60; }
+.artifact-summary-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.artifact-summary-actions .secondary-action { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
 .artifact-plan dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 0; }
 .artifact-plan dl > div { padding: 8px; border-radius: 8px; background: #f3f0e9; }
 .artifact-plan dt { font-size: 10px; color: #817a70; }.artifact-plan dd { margin: 3px 0 0; font-size: 12px; font-weight: 700; }
@@ -521,6 +523,11 @@ td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #4d4841
 .result-visualization h4 { margin: 0; }
 .result-visualization figcaption > span, .result-visualization > small { font-size: 11px; color: #777168; }
 .result-visualization svg { display: block; width: 100%; max-height: 320px; margin-top: 10px; overflow: visible; }
+.visualization-reason, .visualization-guidance p { margin: 8px 0 0; font-size: 11px; line-height: 1.55; color: #716a60; }
+.visualization-guidance { padding: 14px; border: 1px solid #ddd6ca; border-radius: 12px; background: #fffdf9; }
+.chart-data-alternative { margin-top: 10px; padding-top: 9px; border-top: 1px solid #e2dcd2; }
+.chart-data-alternative summary { font-size: 11px; font-weight: 700; cursor: pointer; }
+.chart-data-alternative .table-scroll { max-height: 220px; margin-top: 8px; }
 .chart-axis { stroke: #bdb4a7; stroke-width: 1; }
 .chart-bar { fill: #ba8848; }
 .chart-line { fill: none; stroke: #9b6c35; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }

@@ -168,6 +168,7 @@ const desktopApi: BuBuDesktopApi = {
   artifacts: {
     copyTable: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.copyArtifactTable, value) as Promise<ArtifactCopyResult>,
     exportTable: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.exportArtifactTable, value) as Promise<ArtifactExportResult>,
+    exportReport: (value: ArtifactTableActionInput) => ipcRenderer.invoke(desktopChannels.exportArtifactReport, value) as Promise<ArtifactExportResult>,
   },
   analysis: {
     propose: (value: QueryPlanRequest, operationId: OperationId) =>

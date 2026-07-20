@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveVisualizationSpec, parseVisualizationSpec } from "./visualization.js";
+import { deriveVisualizationSpec, parseVisualizationSpec, recommendVisualization } from "./visualization.js";
 
 describe("local result visualization", () => {
   it("derives a bounded bar chart from a categorical aggregate", () => {
@@ -17,18 +17,16 @@ describe("local result visualization", () => {
     });
   });
 
-  it("derives a line chart for time and omits invalid/overflow points", () => {
+  it("keeps high-cardinality time results as a complete table", () => {
     const rows = Array.from({ length: 22 }, (_, index) => [
       `2026-07-${String(index + 1).padStart(2, "0")}`,
       index === 3 ? "not-a-number" : index,
     ] as const);
-    const spec = deriveVisualizationSpec({
+    const recommendation = recommendVisualization({
       columns: [{ label: "Date", type: "datetime" }, { label: "Value", type: "real" }],
       rows,
     }, "趋势");
-    expect(spec?.kind).toBe("line");
-    expect(spec?.points).toHaveLength(20);
-    expect(spec?.omittedPointCount).toBe(1);
+    expect(recommendation).toMatchObject({ kind: "table", reason: expect.stringContaining("21 个分类") });
   });
 
   it("does not invent a chart without a numeric series and rejects extra fields", () => {
