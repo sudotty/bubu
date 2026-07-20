@@ -10,7 +10,7 @@ The interaction model is conversation-first: a dataset or related dataset collec
 
 - Atomic CSV, TSV, and XLSX import; local SQLite catalog; immutable replacement versions; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
 - Single-dataset and multi-table lookup analysis through typed plans. A conversation can be created, renamed, and archived locally; the user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
-- Deterministic local bar and time-series charts, local conversation history, reusable manual workflows, interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion.
+- Deterministic local bar and time-series charts, local conversation history, a visible task-state strip, Artifact inspection (data/chart/plan/automation/audit), reusable manual workflows, interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion.
 - OS-encrypted provider and stdio MCP configuration. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
 - A packaged Electron desktop with a sandboxed React renderer, typed preload, supervised Node AI runtime, authoritative Go data core, synthetic UI smoke capture, and a 100 MiB reference performance gate.
 

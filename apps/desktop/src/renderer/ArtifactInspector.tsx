@@ -2,10 +2,11 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { ConversationThread } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { useConversationThread } from "./useConversationThread.js";
+import { WorkflowPanel } from "./WorkflowPanel.js";
 
-type InspectorTab = "summary" | "data" | "chart" | "plan" | "audit";
+type InspectorTab = "summary" | "data" | "chart" | "plan" | "automation" | "audit";
 
-const labels: Record<InspectorTab, string> = { summary: "摘要", data: "数据", chart: "图表", plan: "计划", audit: "审计" };
+const labels: Record<InspectorTab, string> = { summary: "摘要", data: "数据", chart: "图表", plan: "计划", automation: "自动化", audit: "审计" };
 
 function latestArtifacts(thread: ConversationThread | null | undefined) {
   const entries = thread?.entries ?? [];
@@ -32,6 +33,7 @@ export function ArtifactInspector({ target, threadId, fallback }: { readonly tar
       {tab === "data" && (result ? <div className="table-scroll artifact-table"><table><thead><tr>{result.columns.map((column) => <th key={column.label}>{column.label}<small>{column.type}</small></th>)}</tr></thead><tbody>{result.rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={result.columns[cellIndex]?.label ?? cellIndex}>{cell === null ? "—" : String(cell)}</td>)}</tr>)}</tbody></table></div> : <p className="empty-copy">批准执行后，受限结果会出现在这里。</p>)}
       {tab === "chart" && (result ? <ResultVisualization result={result} title={plan?.plan.purpose ?? thread.title} /> : <p className="empty-copy">查询结果生成后才会提供确定性图表。</p>)}
       {tab === "plan" && (plan ? <section className="artifact-plan"><strong>{plan.plan.purpose}</strong><dl><div><dt>维度</dt><dd>{plan.plan.dimensions.length || "无"}</dd></div><div><dt>计算</dt><dd>{plan.plan.measures.length || "明细"}</dd></div><div><dt>最多返回</dt><dd>{plan.plan.limit} 行</dd></div></dl><p>模型仅接收可见的结构与本地合成示例；执行只接受经过确定性验证的类型化计划。</p></section> : <p className="empty-copy">本线程尚未生成查询计划。</p>)}
+      {tab === "automation" && <WorkflowPanel target={target} draft={plan ? ("datasetId" in plan.plan ? { kind: "dataset-query", plan: plan.plan } : { kind: "group-query", groupPlan: plan.plan }) : undefined} />}
       {tab === "audit" && <section className="artifact-audit"><strong>可追溯的本地证据</strong><p>{thread.entries.length} 条追加记录 · 所有计划、结果与错误都保存在当前设备。</p><p>远程模型输入与结果执行分别受披露审计和 Go 数据内核约束。</p></section>}
     </div>
   </>;
