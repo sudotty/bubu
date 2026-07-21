@@ -14,6 +14,7 @@ Documentation describes the current product only when it agrees with runtime beh
 - [Conversation workbench eight-stage completion](plans/2026-07-20-conversation-workbench-eight-stage-completion.md)
 - [BuBu productization execution contract](plans/2026-07-20-bubu-productization-execution.md)
 - [Cross-platform release engineering contract](plans/2026-07-20-cross-platform-release-engineering.md)
+- [Competitive strategy and scorecard](strategy/2026-07-21-bubu-competitive-strategy-scorecard.md)
 - [Local data kernel](architecture/local-data-kernel.md)
 - [Privacy and model providers](architecture/privacy-and-model-providers.md)
 - [MCP host security](architecture/mcp-host-security.md)
