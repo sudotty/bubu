@@ -4,6 +4,9 @@
 **日期：** 2026-07-21  
 **事实基线：** `PRODUCT_MANIFEST.yaml` 是能力是否交付的唯一依据；Planned 和 In Progress 能力不得提前包装为已上线。
 
+> 文档入口：[`2026-07-21-bubu-strategy-index.md`](./2026-07-21-bubu-strategy-index.md)  
+> 执行手册：[`2026-07-21-bubu-execution-playbook.md`](./2026-07-21-bubu-execution-playbook.md)
+
 ## 1. 核心定位
 
 BuBu 不应被定义为“AI Excel”或“自然语言转 SQL 工具”。Microsoft Copilot 已进入 Excel 的编辑、规划和聊天流程；Gemini 已进入 Sheets；Quadratic 正以 AI Spreadsheet、数据库连接、MCP 和 API 扩张；Equals 用“No AI Math”建立可信分析；Hex 以企业语义上下文和 Agent 评测构建企业壁垒。
