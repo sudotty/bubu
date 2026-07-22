@@ -8,6 +8,8 @@ The repository-owned GitHub Actions environment `release` is restricted to the `
 
 `npm run verify:github:remote` treats a missing environment or missing tag restriction as a release failure. This public repository has Secret Scanning and Push Protection enabled; local secret verification and the human draft-review checklist remain independent controls. Never bypass unavailable environment protection by moving release secrets to repository scope.
 
+The default branch is protected against deletion and force-pushes, including by administrators. It intentionally does not require the path-filtered native package job as a merge check: that would leave documentation-only pull requests pending forever. `Verify` and native package smoke remain required operational evidence before release work.
+
 Configure these environment secrets for both macOS native jobs:
 
 | Secret | Value |

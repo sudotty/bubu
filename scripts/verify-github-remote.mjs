@@ -22,8 +22,22 @@ if (!/^[^/\s]+\/[^/\s]+$/u.test(repository)) throw new Error(`Unable to resolve 
 
 const repositoryMetadata = apiJson(`repos/${repository}`);
 if (repositoryMetadata.delete_branch_on_merge !== true) failures.push("merged pull-request branches must be deleted automatically");
-if (repositoryMetadata.security_and_analysis?.secret_scanning?.status !== "enabled") {
-  warnings.push("GitHub secret scanning and push protection are unavailable for this private repository; local secret verification remains mandatory");
+const secretScanningEnabled = repositoryMetadata.security_and_analysis?.secret_scanning?.status === "enabled";
+const pushProtectionEnabled = repositoryMetadata.security_and_analysis?.secret_scanning_push_protection?.status === "enabled";
+if (!secretScanningEnabled || !pushProtectionEnabled) {
+  const message = "GitHub Secret Scanning and Push Protection must remain enabled; local secret verification remains mandatory";
+  if (repositoryMetadata.private === false) failures.push(message);
+  else warnings.push(message);
+}
+
+const mainProtection = gh(["api", `repos/${repository}/branches/${repositoryMetadata.default_branch}/protection`], { allowFailure: true });
+if (mainProtection.status !== 0) {
+  failures.push("the default branch must be protected from deletion and force-pushes");
+} else {
+  const protection = JSON.parse(mainProtection.stdout);
+  if (protection.enforce_admins?.enabled !== true) failures.push("default-branch protection must apply to administrators");
+  if (protection.allow_force_pushes?.enabled !== false) failures.push("default branch must reject force-pushes");
+  if (protection.allow_deletions?.enabled !== false) failures.push("default branch must reject deletion");
 }
 
 const actionPermissions = apiJson(`repos/${repository}/actions/permissions`);
@@ -48,6 +62,7 @@ const workflows = apiJson(`repos/${repository}/actions/workflows?per_page=100`).
 for (const path of [
   ".github/workflows/verify.yml",
   ".github/workflows/package-smoke.yml",
+  ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
 ]) {
   const workflow = workflows.find((candidate) => candidate.path === path);
@@ -68,5 +83,5 @@ if (failures.length > 0) {
   for (const warning of warnings) console.warn(`Warning: ${warning}`);
   process.exit(1);
 }
-console.log(`Remote GitHub settings verified for ${repository}: read-only tokens, immutable Action pins, read-only vulnerability alerts, automatic merged-branch cleanup, no automatic dependency branches, no open dependency alerts, and active workflows.`);
+console.log(`Remote GitHub settings verified for ${repository}: protected default branch, read-only tokens, immutable Action pins, vulnerability alerts, automatic merged-branch cleanup, no automatic dependency branches, no open dependency alerts, and active workflows.`);
 for (const warning of warnings) console.warn(`Warning: ${warning}`);
