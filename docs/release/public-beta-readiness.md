@@ -21,6 +21,6 @@ Status: **BLOCKED ON EXTERNAL EVIDENCE**. The repository implements hardened nat
 2. Run the exact-tag workflow and inspect its signed draft artifacts, signatures, notarization, stapling, checksums, both SBOMs, lifecycle JSON, and actual attestation state.
 3. Complete clean-device Gatekeeper/SmartScreen, install, launch, import, task, backup, upgrade, restore, rollback, and uninstall acceptance on every stable target. Hosted CI evidence does not replace this observed acceptance.
 4. Design and verify signed update discovery, metadata trust, upgrade, and rollback before enabling in-app updates. Generated Squirrel/ZIP inputs are not an update claim.
-5. Resolve every `bubu-bi` migration slice, then delete the legacy Wails runtime and generated bridge only from a clean, reviewed tree.
+5. The legacy Wails runtime and generated bridge have been retired; retain the isolated deletion evidence and do not reintroduce a second desktop runtime.
 
 The product choices are settled: GitHub draft releases, DMG+ZIP, Squirrel, API-key notarization, Azure OIDC signing, no ia32/Linux stable target, no automatic updates, and no unsigned fallback. The remaining items are owner credentials and observed external validation, not unresolved design choices or hidden green checks. `signed-installers` remains planned in `PRODUCT_MANIFEST.yaml` until the evidence is attached to a reviewed release.

@@ -10,7 +10,6 @@ This repository builds a local-first AI data workspace. Product behavior and exe
 - `packages/contracts`: versioned process-boundary messages and generated bindings.
 - `packages/product-core`: pure TypeScript product state and policy calculations.
 - `services/hub`: optional server; it must never be required for local mode.
-- `bubu-bi`: migration source only. New product behavior must not add Wails dependencies.
 
 The renderer never accesses Node, generic IPC, files, credentials, providers, or sidecars directly. Electron main supervises processes but does not own business rules. The Go data core is the final authority for raw-data disclosure and database execution.
 
@@ -22,7 +21,7 @@ The renderer never accesses Node, generic IPC, files, credentials, providers, or
 - Never execute model-authored SQL without typed planning and deterministic validation.
 - Never commit credentials, user data, databases, uploads, build output, or desktop metadata.
 - Do not hide an unavailable capability. UI and docs must distinguish implemented, disabled, and planned behavior.
-- Delete the Wails runtime and generated bridge after the final migrated vertical slice passes.
+- Do not reintroduce Wails, generated bridges, or a second desktop runtime.
 
 ## Required commands
 
@@ -37,4 +36,4 @@ Go packages additionally run `go test ./...`. Desktop security changes require a
 
 ## Completion
 
-A capability is complete only when its product state in `PRODUCT_MANIFEST.yaml`, documentation, runtime, and verifier agree. Work happens directly on `main`; only commit and push after all relevant checks pass.
+A capability is complete only when its product state in `PRODUCT_MANIFEST.yaml`, documentation, runtime, and verifier agree. Preserve the current branch and unrelated changes; commit or publish only when the user requests it and relevant checks pass.

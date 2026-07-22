@@ -2,7 +2,7 @@
 
 ## Supported code
 
-Security fixes target the current Electron product on `main`. The Wails prototype under `bubu-bi/` is migration source only and is not a supported runtime.
+Security fixes target the current Electron product on `main`. The retired Wails prototype is not a supported runtime; it remains available only through Git history and must not be restored into the repository.
 
 ## Data and credentials
 

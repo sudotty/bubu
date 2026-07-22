@@ -65,9 +65,8 @@ The renderer has no Node, filesystem, credential, provider, sidecar, or generic 
 | `packages/contracts` | Versioned process-boundary schemas and parsers | [contracts README](packages/contracts/README.md) |
 | `docs` | Architecture decisions, product guides, plans, and evidence | [documentation index](docs/README.md) |
 | `scripts` | Executable repository, architecture, smoke, and performance contracts | [scripts README](scripts/README.md) |
-| `bubu-bi` | Historical Wails migration source only | [legacy notice](bubu-bi/README.md) |
 
-`packages/product-core`, `services/hub`, and remote sync are architectural destinations, not current directories. New code must not create placeholder implementations or imply they already exist.
+`packages/product-core`, `services/hub`, and remote sync are architectural destinations, not current directories. New code must not create placeholder implementations or imply they already exist. The retired Wails prototype remains only in Git history and the documented retirement record.
 
 ## Desktop targets and release status
 

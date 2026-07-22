@@ -25,7 +25,6 @@ architecture:
   dataCore: go-sidecar
   localDatabase: sqlite
   enterpriseDatabase: postgresql
-  legacyRuntime: wails
 privacy:
   defaultDisclosure: schema-synthetic
   allowedDisclosureLevels:

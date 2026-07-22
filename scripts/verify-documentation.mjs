@@ -15,7 +15,6 @@ const requiredReadmes = [
   "docs/release/README.md",
   "docs/product/conversation-workbench.md",
   "scripts/README.md",
-  "bubu-bi/README.md",
   ".github/README.md",
 ];
 
@@ -38,11 +37,6 @@ for (const marker of [
   "services/ai-runtime/README.md",
 ]) {
   if (!root.includes(marker)) failures.push(`root README does not route readers to ${marker}`);
-}
-
-const legacy = readFileSync(resolve("bubu-bi/README.md"), "utf8");
-if (!legacy.includes("Migration source only") || !legacy.includes("npm run dev")) {
-  failures.push("legacy README must identify migration-only status and route active development to the root");
 }
 
 const desktop = readFileSync(resolve("apps/desktop/README.md"), "utf8");

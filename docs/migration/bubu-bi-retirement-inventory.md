@@ -1,13 +1,13 @@
 # bubu-bi retirement inventory
 
-Status: **RETIREMENT DECISION RECORDED**. The last user-owned Wails exploration is preserved in a local snapshot branch; it is not active product work. The active Electron/Node/Go product already forbids new Wails dependencies. Final deletion waits for the isolated deletion gate and current-product behavior evidence in [the final disposition](bubu-bi-final-disposition.md).
+Status: **WAILS RETIRED**. The tracked Wails runtime and generated bridge have been removed. The final user-owned exploration is preserved only in a local recovery snapshot; the active Electron/Node/Go product forbids Wails dependencies. [The final disposition](bubu-bi-final-disposition.md) records the retirement decision.
 
 | Legacy slice | Current disposition | Retirement proof |
 | --- | --- | --- |
-| Go data and file services | Replace with `services/data-core`; retain only as migration comparison | import, replacement, export, deletion, quality, backup and performance gates pass without legacy runtime |
-| Model and prompt runtime | Replace with `services/ai-runtime` and audited desktop orchestration | provider, cancellation, disclosure, agent and MCP tests pass without legacy imports |
-| React and Redux renderer | Replace with `apps/desktop/src/renderer`; do not port dashboard density or broad bridge access | packaged product journeys and screenshots pass at the minimum viewport |
-| Generated Wails bridge | Delete with the final legacy directory; never copy into active packages | `npm run verify:legacy-retirement` reports zero active Wails dependency |
-| Wails build metadata and binary | Delete after all preceding slices are accepted | clean Git diff, no required migration evidence left, full verify green |
+| Go data and file services | Retired; current ownership is `services/data-core` | import, replacement, export, deletion, quality, backup and performance gates pass without legacy runtime |
+| Model and prompt runtime | Retired; current ownership is `services/ai-runtime` and audited desktop orchestration | provider, cancellation, disclosure, agent and MCP tests pass without legacy imports |
+| React and Redux renderer | Retired; current ownership is `apps/desktop/src/renderer` | packaged product journeys and screenshots pass at the minimum viewport |
+| Generated Wails bridge | Removed; never copy into active packages | `npm run verify:legacy-retirement` reports zero active Wails dependency and no tracked legacy runtime |
+| Wails build metadata and binary | Removed with the legacy directory | full verify green and no tracked Wails dependency |
 
-The deletion commit must be isolated and recoverable. It must not be combined with product behavior changes or overwrite uncommitted legacy work.
+The deletion commit is isolated and recoverable through the local snapshot branch. It does not overwrite ignored local configuration, uploads, or task records.

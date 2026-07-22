@@ -12,6 +12,9 @@ dist/
 .vite/
 out/
 .cache/
+.tasks/
+**/.tasks/
+bubu-bi/
 
 # Go and desktop build output
 bin/
@@ -21,8 +24,6 @@ apps/desktop/out/
 services/data-core/bubu-data-core
 services/data-core/bin/*
 !services/data-core/bin/.gitkeep
-bubu-bi/bubu-bi
-bubu-bi/package-lock.json
 output/
 
 # Local credentials and configuration

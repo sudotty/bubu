@@ -1,6 +1,6 @@
 # Contributing to BuBu
 
-BuBu accepts changes against the current Electron/Go/Node product. `bubu-bi/` is migration evidence, not a second runtime or a destination for new product behavior.
+BuBu accepts changes against the current Electron/Go/Node product. Do not add a second desktop runtime, generated bridge, or Wails dependency.
 
 ## Before changing code
 
@@ -23,4 +23,4 @@ Version changes use `npm run version:set -- --version=<x.y.z>` followed by `npm 
 
 ## Pull requests
 
-Keep changes outcome-focused, preserve unrelated work, and explain privacy, migration, compatibility, and rollback impact. UI changes should regenerate the packaged synthetic screenshots with `npm run capture:ui`. Never attach credentials, user datasets, databases, uploads, local configuration, or build output.
+Keep changes outcome-focused, preserve unrelated work, and explain privacy, migration, compatibility, and rollback impact. UI changes should regenerate the packaged synthetic screenshots with `npm run capture:ui`. Never attach credentials, user datasets, databases, uploads, local configuration, build output, or local `.tasks/` work records.
