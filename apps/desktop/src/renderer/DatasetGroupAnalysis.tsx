@@ -13,7 +13,7 @@ import { useConversationThread } from "./useConversationThread.js";
 import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
 import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
-import { ChatAssistantMessage, ChatRecoveryMessage, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
+import { ChatAssistantMessage, ChatRecoveryMessage, ChatResultFile, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
 import { derivePersistedTaskState, isCancellation, type TaskLifecycleState } from "./task-lifecycle.js";
 import { recordProductMetric } from "./product-metrics.js";
 
@@ -209,7 +209,7 @@ export function DatasetGroupAnalysis({ group, threadId, onCreateThread, onOpenAr
         {result.rows.length === 0 && <p className="empty-copy">这个关联计划没有找到匹配的数据。</p>}
       </article>
       <ResultVisualization result={result} title={proposal?.plan.purpose ?? submittedQuestion ?? "群组查询结果"} />
-      <ChatAssistantMessage title="关联结果已准备好"><p>关联计划已在本地执行。完整数据、图表、计划与审计证据都在结果区。</p><button type="button" className="chat-artifact-link" onClick={onOpenArtifact}>打开结果区</button></ChatAssistantMessage>
+      <ChatAssistantMessage title="关联结果已准备好"><p>关联计划已在本地执行。完整数据、图表、计划与审计证据都在结果区。</p><ChatResultFile title={proposal?.plan.purpose ?? submittedQuestion ?? "群组查询结果"} result={result} /><button type="button" className="chat-artifact-link" onClick={onOpenArtifact}>打开结果区</button></ChatAssistantMessage>
       </>}
 
       {result && proposal && threadId && <AggregateExplanationPanel plan={proposal.plan} threadId={threadId} />}

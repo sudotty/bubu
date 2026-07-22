@@ -14,6 +14,7 @@ export interface WorkflowTriggerRuntime {
 export async function processDueWorkflowTriggers(
   runtime: WorkflowTriggerRuntime,
   now: Date,
+  onFinished: (event: WorkflowTriggerEvent) => void = () => undefined,
 ): Promise<void> {
   const events = await runtime.claimDueWorkflowTriggers(now.toISOString());
   for (const event of events) {
@@ -24,12 +25,13 @@ export async function processDueWorkflowTriggers(
       continue;
     }
     const error = run.error ?? (run.status === "succeeded" ? null : "工作流触发运行没有返回错误说明");
-    await runtime.finishWorkflowTrigger({
+    const finished = await runtime.finishWorkflowTrigger({
       id: event.id,
       status: run.status === "running" ? "failed" : run.status,
       runId: run.id,
       error: run.status === "succeeded" ? null : error,
     });
+    onFinished(finished);
   }
 }
 
@@ -39,6 +41,7 @@ export function startWorkflowTriggerScheduler(
     readonly now?: () => Date;
     readonly intervalMilliseconds?: number;
     readonly onError?: (error: unknown) => void;
+    readonly onFinished?: (event: WorkflowTriggerEvent) => void;
   } = {},
 ): () => void {
   const now = options.now ?? (() => new Date());
@@ -49,7 +52,7 @@ export function startWorkflowTriggerScheduler(
     if (!active || running) return;
     running = true;
     try {
-      await processDueWorkflowTriggers(runtime, now());
+      await processDueWorkflowTriggers(runtime, now(), options.onFinished);
     } catch (error) {
       onError(error);
     } finally {

@@ -8,6 +8,12 @@ type WorkflowTarget struct {
 type WorkflowTrigger struct {
 	Kind         string `json:"kind"`
 	EveryMinutes int    `json:"everyMinutes,omitempty"`
+	Cadence      string `json:"cadence,omitempty"`
+	TimeZone     string `json:"timeZone,omitempty"`
+	Hour         int    `json:"hour,omitempty"`
+	Minute       int    `json:"minute,omitempty"`
+	Weekday      *int   `json:"weekday,omitempty"`
+	DayOfMonth   *int   `json:"dayOfMonth,omitempty"`
 }
 
 type WorkflowStepDefinition struct {

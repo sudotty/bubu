@@ -86,6 +86,38 @@ func TestMonthlyWorkflowIntervalIsBoundedAndPersisted(t *testing.T) {
 	}
 }
 
+func TestCalendarWorkflowUsesLocalBusinessTimeAndCalendarMonths(t *testing.T) {
+	day := 1
+	trigger := WorkflowTrigger{Kind: "calendar", Cadence: "monthly", TimeZone: "Asia/Shanghai", Hour: 9, Minute: 0, DayOfMonth: &day}
+	next, err := nextCalendarWorkflowDue(trigger, time.Date(2026, time.January, 31, 2, 0, 0, 0, time.UTC))
+	if err != nil || next.In(mustLocation(t, "Asia/Shanghai")).Format(time.RFC3339) != "2026-02-01T09:00:00+08:00" {
+		t.Fatalf("calendar month did not select the next local business date: %v, %v", next, err)
+	}
+	service, dataset := importQueryFixture(t)
+	input := datasetWorkflowInput(t, service, dataset, 1)
+	input.Trigger = trigger
+	definition, err := service.SaveWorkflow(context.Background(), input)
+	if err != nil || definition.NextDueAt == nil {
+		t.Fatalf("save calendar workflow: %#v, %v", definition, err)
+	}
+	if _, err := service.database.Exec("UPDATE workflow_definitions SET next_due_at = ? WHERE id = ?", time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano), definition.ID); err != nil {
+		t.Fatal(err)
+	}
+	events, err := service.ClaimDueWorkflowTriggers(context.Background(), time.Now().UTC().Format(time.RFC3339Nano))
+	if err != nil || len(events) != 1 || events[0].TriggerKind != "calendar" {
+		t.Fatalf("calendar trigger was not claimed: %#v, %v", events, err)
+	}
+}
+
+func mustLocation(t *testing.T, name string) *time.Location {
+	t.Helper()
+	location, err := time.LoadLocation(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return location
+}
+
 func TestDatasetVersionTriggerFiresOnlyAfterReplacement(t *testing.T) {
 	service, dataset := importQueryFixture(t)
 	input := datasetWorkflowInput(t, service, dataset, 1)

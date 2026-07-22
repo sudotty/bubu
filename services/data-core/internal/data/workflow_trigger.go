@@ -94,20 +94,29 @@ func claimWorkflowTriggerCandidate(
 	dedupeKey := ""
 	nextDueAt := candidate.nextDueAt
 	nextSignature := candidate.targetSignature
-	if candidate.trigger.Kind == "interval" {
+	if candidate.trigger.Kind == "interval" || candidate.trigger.Kind == "calendar" {
 		if candidate.nextDueAt == nil {
-			return errors.New("interval workflow has no next due time")
+			return errors.New("scheduled workflow has no next due time")
 		}
 		due, err := time.Parse(time.RFC3339Nano, *candidate.nextDueAt)
 		if err != nil {
-			return errors.New("interval workflow has an invalid next due time")
+			return errors.New("scheduled workflow has an invalid next due time")
 		}
 		if due.After(now) {
 			return nil
 		}
 		dueAt = due.UTC().Format(time.RFC3339Nano)
-		dedupeKey = "interval:" + dueAt
-		next := now.Add(time.Duration(candidate.trigger.EveryMinutes) * time.Minute).UTC().Format(time.RFC3339Nano)
+		dedupeKey = candidate.trigger.Kind + ":" + dueAt
+		var next string
+		if candidate.trigger.Kind == "calendar" {
+			nextDue, err := nextCalendarWorkflowDue(candidate.trigger, now)
+			if err != nil {
+				return err
+			}
+			next = nextDue.Format(time.RFC3339Nano)
+		} else {
+			next = now.Add(time.Duration(candidate.trigger.EveryMinutes) * time.Minute).UTC().Format(time.RFC3339Nano)
+		}
 		nextDueAt = &next
 	} else if candidate.trigger.Kind == "dataset-version" {
 		signature, err := currentWorkflowTargetSignature(ctx, transaction, candidate.target)
