@@ -1,7 +1,7 @@
 import type { ConversationThread, DatasetGroup } from "../shared/product-api.js";
 import { AggregateExplanationCard } from "./AggregateExplanationCard.js";
 import { AggregateAgentCard } from "./AggregateAgentCard.js";
-import { ChatAssistantMessage, ChatRecoveryMessage, ChatUserMessage } from "./ChatMessage.js";
+import { ChatAssistantMessage, ChatRecoveryMessage, ChatResultFile, ChatUserMessage } from "./ChatMessage.js";
 
 function localResultLabel(group: DatasetGroup | undefined, label: string): string {
   if (!group) return label;
@@ -55,7 +55,7 @@ export function ConversationHistory({
             <thead><tr>{result.columns.map((column) => <th key={column.label}>{localResultLabel(group, column.label)}<small>{column.type}</small></th>)}</tr></thead>
             <tbody>{result.rows.slice(0, 5).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}</tbody>
           </table></div>
-          <ChatAssistantMessage title="结果仍可继续使用"><p>完整数据、图表、计划与审计证据保存在结果区。</p></ChatAssistantMessage>
+          <ChatAssistantMessage title="结果仍可继续使用"><p>完整数据、图表、计划与审计证据保存在结果区。</p><ChatResultFile title="历史查询结果" result={result} /></ChatAssistantMessage>
         </div>;
       })}
     </section>

@@ -35,8 +35,57 @@ func initialWorkflowTriggerState(
 		next := now.Add(time.Duration(trigger.EveryMinutes) * time.Minute).UTC().Format(time.RFC3339Nano)
 		return string(encoded), &next, "", nil
 	}
+	if trigger.Kind == "calendar" {
+		next, err := nextCalendarWorkflowDue(trigger, now)
+		if err != nil {
+			return "", nil, "", err
+		}
+		nextText := next.Format(time.RFC3339Nano)
+		return string(encoded), &nextText, "", nil
+	}
 	signature, err := currentWorkflowTargetSignature(ctx, query, target)
 	return string(encoded), nil, signature, err
+}
+
+func nextCalendarWorkflowDue(trigger WorkflowTrigger, after time.Time) (time.Time, error) {
+	location, err := time.LoadLocation(trigger.TimeZone)
+	if err != nil {
+		return time.Time{}, errors.New("workflow calendar timezone is invalid")
+	}
+	local := after.In(location)
+	candidate := func(year int, month time.Month, day int) time.Time {
+		return time.Date(year, month, day, trigger.Hour, trigger.Minute, 0, 0, location)
+	}
+	switch trigger.Cadence {
+	case "daily":
+		next := candidate(local.Year(), local.Month(), local.Day())
+		if !next.After(local) {
+			next = candidate(local.Year(), local.Month(), local.Day()+1)
+		}
+		return next.UTC(), nil
+	case "weekly":
+		if trigger.Weekday == nil {
+			return time.Time{}, errors.New("workflow weekly calendar is invalid")
+		}
+		days := (*trigger.Weekday - int(local.Weekday()) + 7) % 7
+		next := candidate(local.Year(), local.Month(), local.Day()+days)
+		if !next.After(local) {
+			next = candidate(local.Year(), local.Month(), local.Day()+days+7)
+		}
+		return next.UTC(), nil
+	case "monthly":
+		if trigger.DayOfMonth == nil {
+			return time.Time{}, errors.New("workflow monthly calendar is invalid")
+		}
+		next := candidate(local.Year(), local.Month(), *trigger.DayOfMonth)
+		if !next.After(local) {
+			nextMonth := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, location).AddDate(0, 1, 0)
+			next = candidate(nextMonth.Year(), nextMonth.Month(), *trigger.DayOfMonth)
+		}
+		return next.UTC(), nil
+	default:
+		return time.Time{}, errors.New("workflow calendar cadence is invalid")
+	}
 }
 
 func decodeWorkflowTrigger(raw string) (WorkflowTrigger, error) {

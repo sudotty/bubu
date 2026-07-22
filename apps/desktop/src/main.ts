@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import {
   app,
   BrowserWindow,
+  Notification,
   net,
   protocol,
   safeStorage,
@@ -516,6 +517,13 @@ void app
 
     stopWorkflowTriggerScheduler = startWorkflowTriggerScheduler(sidecars, {
       onError: (error) => console.warn("BuBu workflow trigger tick failed", error),
+      onFinished: (event) => {
+        if (!Notification.isSupported()) return;
+        const body = event.status === "succeeded"
+          ? "本地工作流已完成，结果已发送到当前对话。"
+          : "本地工作流未完成；请查看当前对话中的记录。";
+        new Notification({ title: "BuBu 工作流提醒", body }).show();
+      },
     });
 
     app.on("activate", () => {

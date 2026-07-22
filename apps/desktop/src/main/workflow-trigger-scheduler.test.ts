@@ -55,4 +55,16 @@ describe("workflow trigger scheduler", () => {
     await processDueWorkflowTriggers(runtime, new Date("2026-07-17T00:00:00Z"));
     expect(finish).not.toHaveBeenCalled();
   });
+
+  it("notifies only after the persisted event reaches a terminal state", async () => {
+    const finished = { ...event, status: "succeeded" as const, runId: run.id, finishedAt: run.finishedAt };
+    const onFinished = vi.fn();
+    const runtime: WorkflowTriggerRuntime = {
+      claimDueWorkflowTriggers: async () => [event],
+      runWorkflow: async () => run,
+      finishWorkflowTrigger: async () => finished,
+    };
+    await processDueWorkflowTriggers(runtime, new Date("2026-07-17T00:00:00Z"), onFinished);
+    expect(onFinished).toHaveBeenCalledWith(finished);
+  });
 });

@@ -8,6 +8,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const (
@@ -44,6 +45,29 @@ func validateWorkflowDefinitionInput(input WorkflowDefinitionInput) error {
 	case "interval":
 		if input.Trigger.EveryMinutes < 60 || input.Trigger.EveryMinutes > maximumWorkflowInterval {
 			return errors.New("workflow interval is outside the bounded range")
+		}
+	case "calendar":
+		if input.Trigger.EveryMinutes != 0 || input.Trigger.TimeZone == "" || len(input.Trigger.TimeZone) > 100 || input.Trigger.Hour < 0 || input.Trigger.Hour > 23 || input.Trigger.Minute < 0 || input.Trigger.Minute > 59 {
+			return errors.New("workflow calendar schedule is invalid")
+		}
+		if _, err := time.LoadLocation(input.Trigger.TimeZone); err != nil {
+			return errors.New("workflow calendar timezone is invalid")
+		}
+		switch input.Trigger.Cadence {
+		case "daily":
+			if input.Trigger.Weekday != nil || input.Trigger.DayOfMonth != nil {
+				return errors.New("daily workflow calendar has irrelevant fields")
+			}
+		case "weekly":
+			if input.Trigger.Weekday == nil || *input.Trigger.Weekday < 0 || *input.Trigger.Weekday > 6 || input.Trigger.DayOfMonth != nil {
+				return errors.New("weekly workflow calendar is invalid")
+			}
+		case "monthly":
+			if input.Trigger.DayOfMonth == nil || *input.Trigger.DayOfMonth < 1 || *input.Trigger.DayOfMonth > 28 || input.Trigger.Weekday != nil {
+				return errors.New("monthly workflow calendar is invalid")
+			}
+		default:
+			return errors.New("workflow calendar cadence is invalid")
 		}
 	default:
 		return errors.New("workflow trigger is unsupported")

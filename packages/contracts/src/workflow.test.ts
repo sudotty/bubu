@@ -46,6 +46,14 @@ describe("workflow contracts", () => {
       ...input,
       trigger: { kind: "interval", everyMinutes: 32 * 24 * 60 },
     })).toThrow();
+    expect(parseWorkflowDefinitionInput({
+      ...input,
+      trigger: { kind: "calendar", cadence: "weekly", timeZone: "Asia/Shanghai", hour: 9, minute: 0, weekday: 1 },
+    }).trigger).toEqual({ kind: "calendar", cadence: "weekly", timeZone: "Asia/Shanghai", hour: 9, minute: 0, weekday: 1 });
+    expect(() => parseWorkflowDefinitionInput({
+      ...input,
+      trigger: { kind: "calendar", cadence: "monthly", timeZone: "Asia/Shanghai", hour: 9, minute: 0 },
+    })).toThrow();
   });
 
   it("parses typed checkpoint results without accepting arbitrary artifacts", () => {

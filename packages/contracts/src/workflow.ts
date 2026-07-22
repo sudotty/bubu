@@ -37,6 +37,20 @@ export const workflowTriggerSchema = z.discriminatedUnion("kind", [
     kind: z.literal("interval"),
     everyMinutes: z.number().int().min(60).max(31 * 24 * 60),
   }).strict(),
+  z.object({
+    kind: z.literal("calendar"),
+    cadence: z.enum(["daily", "weekly", "monthly"]),
+    timeZone: z.string().trim().min(1).max(100),
+    hour: z.number().int().min(0).max(23),
+    minute: z.number().int().min(0).max(59),
+    weekday: z.number().int().min(0).max(6).optional(),
+    dayOfMonth: z.number().int().min(1).max(28).optional(),
+  }).strict().superRefine((trigger, context) => {
+    if (trigger.cadence === "weekly" && trigger.weekday === undefined) context.addIssue({ code: "custom", path: ["weekday"], message: "Weekly schedules require a weekday" });
+    if (trigger.cadence !== "weekly" && trigger.weekday !== undefined) context.addIssue({ code: "custom", path: ["weekday"], message: "Only weekly schedules can contain a weekday" });
+    if (trigger.cadence === "monthly" && trigger.dayOfMonth === undefined) context.addIssue({ code: "custom", path: ["dayOfMonth"], message: "Monthly schedules require a day of month" });
+    if (trigger.cadence !== "monthly" && trigger.dayOfMonth !== undefined) context.addIssue({ code: "custom", path: ["dayOfMonth"], message: "Only monthly schedules can contain a day of month" });
+  }),
   z.object({ kind: z.literal("dataset-version") }).strict(),
 ]);
 
@@ -79,7 +93,7 @@ export const workflowTriggerEventSchema = z.object({
   definitionVersion: z.number().int().positive(),
   operationId: operationIdSchema,
   target: workflowTargetSchema,
-  triggerKind: z.enum(["interval", "dataset-version"]),
+  triggerKind: z.enum(["interval", "calendar", "dataset-version"]),
   dueAt: z.string().datetime({ offset: true }),
   status: z.enum(["pending", "succeeded", "failed", "cancelled"]),
   runId: workflowIdSchema.nullable(),

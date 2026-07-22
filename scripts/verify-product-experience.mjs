@@ -121,6 +121,10 @@ const workflowContract = read("packages/contracts/src/workflow.ts");
 const workflowDelivery = read("services/data-core/internal/data/workflow_trigger_finish.go");
 requireText(workflowContract, ["threadId: workflowIdSchema"], "workflow contract");
 requireText(workflowDelivery, ["definitions.thread_id", "appendConversationEntryToThread"], "workflow delivery");
+requireText(workflowContract, ['kind: z.literal("calendar")', "timeZone", '"calendar"'], "calendar workflow contract");
+requireText(read("apps/desktop/src/main/workflow-trigger-scheduler.ts"), ["onFinished", "finishWorkflowTrigger"], "workflow completion callback");
+requireText(read("apps/desktop/src/main.ts"), ["Notification.isSupported", "BuBu 工作流提醒"], "privacy-safe workflow notification");
+requireText(read("apps/desktop/src/renderer/ChatMessage.tsx"), ["导出本次结果 CSV", "exportTable", "不会发送给模型"], "chat result export");
 
 const settings = read("apps/desktop/src/renderer/SettingsHealthOverview.tsx");
 requireText(settings, ["deriveSettingsHealth", "settings-findings", "重新检查", "navigateToFinding(finding.section)"], "settings health");
@@ -162,6 +166,9 @@ requireText(manifest, [
   "top-right-history-result-workflow-controls: implemented",
   "static-dynamic-workflow-graph: implemented",
   "conversation-workflow-finalization: implemented",
+  "calendar-workflow-triggers: implemented",
+  "os-workflow-notifications: implemented",
+  "chat-result-csv-export: implemented",
 ], "product manifest");
 
 if (failures.length > 0) {

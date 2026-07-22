@@ -171,7 +171,7 @@ func validateWorkflowTriggerEvent(event WorkflowTriggerEvent) error {
 	if !objectID.MatchString(event.ID) || !objectID.MatchString(event.WorkflowID) ||
 		event.DefinitionVersion < 1 || !workflowIdempotencyKey.MatchString(event.OperationID) ||
 		(event.Target.Kind != "dataset" && event.Target.Kind != "group") || !objectID.MatchString(event.Target.ID) ||
-		(event.TriggerKind != "interval" && event.TriggerKind != "dataset-version") {
+		(event.TriggerKind != "interval" && event.TriggerKind != "calendar" && event.TriggerKind != "dataset-version") {
 		return errors.New("stored workflow trigger identity is invalid")
 	}
 	if _, err := time.Parse(time.RFC3339Nano, event.DueAt); err != nil {

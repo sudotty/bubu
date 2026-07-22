@@ -137,6 +137,7 @@ capabilities:
   cancellation-aware-task-state: implemented
   artifact-current-view-copy: implemented
   artifact-current-view-csv-export: implemented
+  chat-result-csv-export: implemented
   local-artifact-pinning: implemented
   chat-to-artifact-navigation: implemented
   deterministic-chart-suitability: implemented
@@ -198,10 +199,12 @@ capabilities:
   cancellable-workflow-runs: implemented
   persistent-workflow-trigger-queue: implemented
   interval-workflow-triggers: implemented
+  calendar-workflow-triggers: implemented
   dataset-version-workflow-triggers: implemented
   restart-recovered-workflow-triggers: implemented
   atomic-trigger-conversation-delivery: implemented
   in-app-automation-reminders: implemented
+  os-workflow-notifications: implemented
   bounded-agents: in-progress
   mcp-host: in-progress
   local-mcp-connection-registry: implemented

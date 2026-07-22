@@ -13,6 +13,12 @@ export interface WorkflowGraphNode {
 
 export function workflowTriggerLabel(workflow: WorkflowDefinition): string {
   if (workflow.trigger.kind === "dataset-version") return "数据更新后";
+  if (workflow.trigger.kind === "calendar") {
+    const time = `${String(workflow.trigger.hour).padStart(2, "0")}:${String(workflow.trigger.minute).padStart(2, "0")}`;
+    if (workflow.trigger.cadence === "weekly") return `每周一 ${time}`;
+    if (workflow.trigger.cadence === "monthly") return `每月 ${workflow.trigger.dayOfMonth} 日 ${time}`;
+    return `每天 ${time}`;
+  }
   if (workflow.trigger.kind === "interval") {
     if (workflow.trigger.everyMinutes === 24 * 60) return "每天";
     if (workflow.trigger.everyMinutes === 7 * 24 * 60) return "每周";

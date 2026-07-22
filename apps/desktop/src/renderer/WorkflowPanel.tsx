@@ -21,9 +21,10 @@ type WorkflowDraft =
 export type TriggerPreset = "manual" | "daily" | "weekly" | "monthly" | "dataset-version";
 
 function triggerFromPreset(preset: TriggerPreset): WorkflowTrigger {
-  if (preset === "daily") return { kind: "interval", everyMinutes: 24 * 60 };
-  if (preset === "weekly") return { kind: "interval", everyMinutes: 7 * 24 * 60 };
-  if (preset === "monthly") return { kind: "interval", everyMinutes: 30 * 24 * 60 };
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  if (preset === "daily") return { kind: "calendar", cadence: "daily", timeZone, hour: 9, minute: 0 };
+  if (preset === "weekly") return { kind: "calendar", cadence: "weekly", timeZone, hour: 9, minute: 0, weekday: 1 };
+  if (preset === "monthly") return { kind: "calendar", cadence: "monthly", timeZone, hour: 9, minute: 0, dayOfMonth: 1 };
   if (preset === "dataset-version") return { kind: "dataset-version" };
   return { kind: "manual" };
 }
@@ -184,13 +185,13 @@ export function WorkflowPanel({
               <option value="manual">仅手动运行</option>
               <option value="daily">每天</option>
               <option value="weekly">每周</option>
-              <option value="monthly">每月（30 天）</option>
+              <option value="monthly">每月（1 日）</option>
               <option value="dataset-version">数据版本更新后</option>
             </select></label>
           <button type="button" className="primary-action" onClick={() => void saveDraft()}><Waypoints size={14} />收尾为工作流</button>
         </div>}
       </header>
-      <p className="settings-copy">把已审查计划收尾为本地工作流。按业务周期运行，并把结果送回当前对话。</p>
+      <p className="settings-copy">把已审查计划收尾为本地工作流。周期按此设备时区的 09:00 触发，并把结果送回当前对话。</p>
       {notice && <div className="notice" role="status">{notice}</div>}
       {workflows.length === 0 && <p className="empty-copy">审查一个查询计划后，可以把它保存为可重复工作流。</p>}
       {selectedWorkflow && <section className="workflow-graph" aria-label="工作流节点图">
