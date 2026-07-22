@@ -9,7 +9,7 @@ Status: **ENGINEERING COMPLETE**. This plan converted the productized local appl
 - Versioning: one SemVer product version and an exact `vX.Y.Z` tag. Internal workspaces do not drift.
 - Signing: Developer ID Application plus App Store Connect API-key notarization on macOS. Windows uses Azure Artifact Signing when identity/region eligibility exists, otherwise an OV cloud-HSM signer; unsigned and self-signed files cannot enter a public release.
 - Updates: metadata may be generated and inspected, but the product stays update-disabled until signed upgrade and rollback evidence exists.
-- Supply chain: immutable action SHAs, least privilege, SHA-256 manifest, component SBOM, and provenance only after final signing. GitHub attestations are conditional because this repository is private and their private-repository availability depends on the account plan.
+- Supply chain: immutable action SHAs, least privilege, SHA-256 manifest, component SBOM, and provenance only after final signing. The repository is now public, but GitHub attestations remain conditional on the repository setting and real workflow evidence; the release manifest must report when they are disabled.
 
 ## Eight commits and acceptance gates
 

@@ -38,7 +38,7 @@ Configure these environment variables for the Windows x64 job. BuBu chooses Azur
 | `BUBU_AZURE_SIGNING_ENDPOINT` | Regional Artifact Signing endpoint |
 | `BUBU_AZURE_SIGNING_ACCOUNT` | Signing account name |
 | `BUBU_AZURE_SIGNING_PROFILE` | Public-trust certificate profile name |
-| `BUBU_ENABLE_ARTIFACT_ATTESTATIONS` | `true` only when private-repository attestations are enabled for the account; otherwise `false` |
+| `BUBU_ENABLE_ARTIFACT_ATTESTATIONS` | `true` only after artifact attestations are enabled and proven for this public repository; otherwise `false` |
 
 Grant the federated identity only the Artifact Signing certificate-profile signer role at the narrowest resource scope. The `release` environment and tag protections are part of the credential boundary, not optional administration.
 
