@@ -51,7 +51,7 @@
     "node": ">=22.18 <23 || >=24 <25"
   },
   "devDependencies": {
-    "@electron/get": "3.1.0"
+    "@electron/get": "5.0.0"
   },
   "overrides": {
     "tar": "7.5.20",
