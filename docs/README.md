@@ -11,6 +11,7 @@ Documentation describes the current product only when it agrees with runtime beh
 - [Release documentation index](release/README.md)
 - [Platform and release support](release/platform-support.md), [signed release runbook](release/release-runbook.md), and [public beta readiness](release/public-beta-readiness.md)
 - [Legacy retirement inventory](migration/bubu-bi-retirement-inventory.md)
+- [Legacy final disposition](migration/bubu-bi-final-disposition.md)
 - [Conversation workbench eight-stage completion](plans/2026-07-20-conversation-workbench-eight-stage-completion.md)
 - [BuBu productization execution contract](plans/2026-07-20-bubu-productization-execution.md)
 - [Cross-platform release engineering contract](plans/2026-07-20-cross-platform-release-engineering.md)

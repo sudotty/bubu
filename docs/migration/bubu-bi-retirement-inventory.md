@@ -1,6 +1,6 @@
 # bubu-bi retirement inventory
 
-Status: **BLOCKED by unrelated working-tree changes**. This stage does not delete or stage the user's current `bubu-bi` work. The active Electron/Node/Go product already forbids new Wails dependencies; final deletion waits for a clean migration decision and behavior evidence.
+Status: **RETIREMENT DECISION RECORDED**. The last user-owned Wails exploration is preserved in a local snapshot branch; it is not active product work. The active Electron/Node/Go product already forbids new Wails dependencies. Final deletion waits for the isolated deletion gate and current-product behavior evidence in [the final disposition](bubu-bi-final-disposition.md).
 
 | Legacy slice | Current disposition | Retirement proof |
 | --- | --- | --- |
