@@ -72,6 +72,12 @@ if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
     if (!workflow.includes(value)) failures.push(`native package workflow missing ${value}`);
   }
 }
+if (existsSync(resolve(".github/workflows/verify.yml"))) {
+  const workflow = readFileSync(resolve(".github/workflows/verify.yml"), "utf8");
+  for (const value of ["fast-contract:", "ubuntu-24.04", "npm run verify:fast", "desktop-integration:", "macos-14", "npm run verify:desktop"]) {
+    if (!workflow.includes(value)) failures.push(`verification workflow missing ${value}`);
+  }
+}
 if (existsSync(resolve(".github/workflows/release.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/release.yml"), "utf8");
   for (const value of [

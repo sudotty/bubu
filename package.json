@@ -49,7 +49,9 @@
     "release:finalize": "node scripts/finalize-release-assets.mjs",
     "release:previous": "node scripts/resolve-previous-release.mjs",
     "capture:ui": "npm run build && node scripts/smoke-packaged-desktop.mjs --screenshots=docs/assets/product",
-    "verify": "npm run verify:toolchain && npm run verify:repository && npm run verify:architecture && npm run verify:dependencies && npm test && npm run test:data-core && npm run lint && npm run build && npm run smoke:data-core && npm run smoke:mcp && npm run smoke:desktop && npm run verify:performance"
+    "verify:fast": "npm run verify:toolchain && npm run verify:repository && npm run verify:architecture && npm run verify:dependencies && npm test && npm run test:data-core && npm run lint && npm run build && npm run smoke:data-core && npm run smoke:mcp",
+    "verify:desktop": "npm run build && npm run smoke:desktop",
+    "verify": "npm run verify:fast && npm run verify:desktop && npm run verify:performance"
   },
   "engines": {
     "node": ">=22.18 <23 || >=24 <25"

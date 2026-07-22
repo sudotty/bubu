@@ -14,6 +14,8 @@ Merged pull-request branches are deleted automatically. This private repository 
 
 GitHub has reported Secret Scanning and Push Protection unavailable for this private repository. `npm run verify` therefore keeps local secret detection mandatory; do not treat the unavailable hosted capability as a substitute for repository hygiene.
 
+`verify.yml` keeps the fast product contract on Ubuntu and packaged Electron integration on macOS. `package-smoke.yml` separately proves native installer lifecycles on supported macOS and Windows targets; `release.yml` is the protected signed-release path.
+
 `npm run verify:github` verifies the versioned workflow contract and allowlisted Action SHAs. `npm run verify:github:remote` audits the authenticated repository settings: read-only workflow defaults, enforced SHA pinning, vulnerability alerts, disabled automatic security-update branches, and active workflow files.
 
 Configure and operate signing through [the release runbook](../docs/release/release-runbook.md). Published releases and remote tags are immutable; failures produce a new patch version rather than a moved tag or overwritten public asset.
