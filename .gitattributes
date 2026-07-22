@@ -1,0 +1,20 @@
+* text=auto eol=lf
+
+# Windows command files require CRLF when they are introduced.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Repository assets must never be line-ending normalized.
+*.dmg binary
+*.exe binary
+*.icns binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.pfx binary
+*.p12 binary
+*.p8 binary
+*.png binary
+*.woff2 binary
+*.zip binary

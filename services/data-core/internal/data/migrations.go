@@ -299,6 +299,10 @@ ON workflow_trigger_events(status, due_at, id);
 		version: 16,
 		sql:     datasetVersionSourceNameMigrationSQL,
 	},
+	{
+		version: 17,
+		sql:     workflowCalendarTriggerMigrationSQL,
+	},
 }
 
 func applyMigrations(ctx context.Context, database *sql.DB) error {

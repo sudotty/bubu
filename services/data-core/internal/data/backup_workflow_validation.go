@@ -113,6 +113,14 @@ func validateBackupWorkflowTriggerState(
 			return errors.New("backup interval workflow due time is invalid")
 		}
 	}
+	if trigger.Kind == "calendar" {
+		if !nextDueAt.Valid || targetSignature != "" {
+			return errors.New("backup calendar workflow trigger state is invalid")
+		}
+		if _, err := time.Parse(time.RFC3339Nano, nextDueAt.String); err != nil {
+			return errors.New("backup calendar workflow due time is invalid")
+		}
+	}
 	if trigger.Kind == "dataset-version" && (nextDueAt.Valid || !validSHA256(targetSignature)) {
 		return errors.New("backup dataset-version workflow signature is invalid")
 	}

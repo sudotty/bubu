@@ -4,7 +4,8 @@ Root scripts are executable product contracts rather than informal utilities.
 
 - `verify-repository.mjs` checks secrets, ignored artifacts, required product files, and manifest alignment.
 - `verify-documentation.mjs` checks the README hierarchy and active/legacy routing.
-- `verify-github.mjs` checks community files, least-privilege CI, and immutable action pins.
+- `verify-github.mjs` checks community files, least-privilege CI, the no-automatic-branch policy, and allowlisted immutable Action pins; `verify-github-remote.mjs` checks the corresponding authenticated GitHub repository settings.
+- `npm run verify:actions` runs Actionlint against every workflow.
 - `verify-architecture.mjs` checks process, privacy, SQL, MCP, preload, and migration boundaries.
 - `verify-product-experience.mjs` checks conversation-first hierarchy, thread/workflow ownership, Artifact semantics, settings health, keyboard behavior, and compact reflow contracts.
 - `set-product-version.mjs` moves every product workspace and lockfile entry to one reviewed stable SemVer value; `verify-version-contract.mjs` rejects drift.

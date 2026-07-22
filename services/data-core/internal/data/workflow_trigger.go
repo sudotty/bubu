@@ -150,10 +150,11 @@ SELECT COUNT(*) FROM workflow_trigger_events WHERE workflow_id = ?`, candidate.w
 	}
 	createdAt := now.Format(time.RFC3339Nano)
 	if _, err := transaction.ExecContext(ctx, `
-INSERT OR IGNORE INTO workflow_trigger_events(
+INSERT INTO workflow_trigger_events(
   id, workflow_id, definition_version, operation_id, trigger_kind,
   dedupe_key, due_at, status, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`, eventID, candidate.workflowID,
+) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+ON CONFLICT(workflow_id, dedupe_key) DO NOTHING`, eventID, candidate.workflowID,
 		candidate.definition, operationID, candidate.trigger.Kind, dedupeKey, dueAt, createdAt); err != nil {
 		return fmt.Errorf("enqueue workflow trigger: %w", err)
 	}

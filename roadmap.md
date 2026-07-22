@@ -437,22 +437,22 @@ Dates are planning hypotheses, not promises. The roadmap advances when acceptanc
 
 ---
 
-# Horizon 0 — Public beta closure
+## Horizon 0 — Public beta closure
 
-## 10. Objective
+### 10. Objective
 
 Turn the current productization branch into a trustworthy installable baseline that can be tested by real users without overstating planned capabilities.
 
-## 11. P0 deliverables
+### 11. P0 deliverables
 
-### 11.1 Branch and product truth
+#### 11.1 Branch and product truth
 
 - Merge or otherwise establish the productization branch as the accepted baseline.
 - Keep `PRODUCT_MANIFEST.yaml`, runtime, tests, screenshots, README, and release evidence aligned.
 - Preserve the rule that planned and in-progress behavior is never presented as shipped.
 - Remove or clearly isolate remaining legacy Wails surfaces.
 
-### 11.2 Signed distribution
+#### 11.2 Signed distribution
 
 - Produce real signed and notarized macOS arm64 and x64 packages.
 - Produce a real signed Windows x64 installer.
@@ -461,7 +461,7 @@ Turn the current productization branch into a trustworthy installable baseline t
 - Publish checksums and SBOMs.
 - Keep automatic updates disabled until update and rollback trust is proven.
 
-### 11.3 Activation-oriented onboarding
+#### 11.3 Activation-oriented onboarding
 
 Replace an abstract empty chat with concrete starting actions:
 
@@ -474,7 +474,7 @@ Replace an abstract empty chat with concrete starting actions:
 
 Retain conversation-first execution after the task is selected.
 
-### 11.4 Optional privacy-preserving telemetry
+#### 11.4 Optional privacy-preserving telemetry
 
 The current local-only metrics contract remains the default.
 
@@ -500,7 +500,7 @@ It must never send:
 - credentials;
 - thread or Artifact content.
 
-### 11.5 Evaluation baseline
+#### 11.5 Evaluation baseline
 
 Create a versioned evaluation corpus containing synthetic and licensed fixtures for:
 
@@ -514,21 +514,21 @@ Create a versioned evaluation corpus containing synthetic and licensed fixtures 
 - MCP approval drift;
 - prompt injection embedded in files, metadata, and tool output.
 
-## 12. Exit gate
+### 12. Exit gate
 
 Horizon 0 is complete when a new user can install a signed package on a clean supported device, import a file, complete one useful local task, inspect the disclosure and evidence, export a result, restart the application, and recover the task without developer assistance.
 
 ---
 
-# Horizon 1 — Clean, Reconcile, Repeat
+## Horizon 1 — Clean, Reconcile, Repeat
 
-## 13. Objective
+### 13. Objective
 
 Deliver the first product users will pay for: a private local tool that replaces recurring spreadsheet cleanup and reconciliation work.
 
-## 14. TransformationPlan
+### 14. TransformationPlan
 
-### 14.1 Contract
+#### 14.1 Contract
 
 Add a versioned typed `TransformationPlan` beside `QueryPlan`.
 
@@ -548,7 +548,7 @@ The model may propose a plan, but the data core validates:
 
 No model-generated Python, JavaScript, SQL, shell, or spreadsheet macro runs as the default transformation path.
 
-### 14.2 Initial transformation operations
+#### 14.2 Initial transformation operations
 
 Column operations:
 
@@ -596,7 +596,7 @@ Shape operations:
 - explode bounded list values;
 - normalize and denormalize approved structures.
 
-### 14.3 Impact preview
+#### 14.3 Impact preview
 
 Before execution, show:
 
@@ -610,9 +610,9 @@ Before execution, show:
 - whether any model or external tool is involved;
 - exact disclosure preview.
 
-## 15. Derived datasets and lineage
+### 15. Derived datasets and lineage
 
-### 15.1 New entities
+#### 15.1 New entities
 
 Introduce durable entities equivalent to:
 
@@ -625,14 +625,14 @@ Introduce durable entities equivalent to:
 - `QualityDelta`;
 - `ExecutionFingerprint`.
 
-### 15.2 Immutability
+#### 15.2 Immutability
 
 - Source dataset versions remain immutable.
 - Transformations create new derived versions.
 - A rerun against a new source version creates a new run and output version.
 - Users may hide, archive, or delete derived data through explicit lifecycle operations.
 
-### 15.3 Lineage view
+#### 15.3 Lineage view
 
 Show:
 
@@ -645,9 +645,9 @@ Show:
 - external capabilities invoked;
 - execution and output hashes where useful.
 
-## 16. BuBu Clean
+### 16. BuBu Clean
 
-### 16.1 First-run experience
+#### 16.1 First-run experience
 
 - Import one or more files.
 - Detect probable type, formatting, missing-value, duplicate, and schema issues locally.
@@ -658,7 +658,7 @@ Show:
 - Create a derived dataset and exportable file.
 - Offer to save the task as a workflow.
 
-### 16.2 Initial templates
+#### 16.2 Initial templates
 
 - Customer-list cleanup.
 - Date and currency normalization.
@@ -667,9 +667,9 @@ Show:
 - Column-name standardization.
 - Multiple monthly CSV append.
 
-## 17. BuBu Reconcile
+### 17. BuBu Reconcile
 
-### 17.1 Reconciliation contract
+#### 17.1 Reconciliation contract
 
 A reconciliation is not a generic join. It records:
 
@@ -684,7 +684,7 @@ A reconciliation is not a generic join. It records:
 - control totals before and after;
 - evidence rows retained locally.
 
-### 17.2 Matching stages
+#### 17.2 Matching stages
 
 1. Exact stable-key match.
 2. Exact normalized composite-key match.
@@ -695,7 +695,7 @@ A reconciliation is not a generic join. It records:
 
 Fuzzy matching must never silently convert an uncertain candidate into a confirmed financial match.
 
-### 17.3 Reconciliation artifacts
+#### 17.3 Reconciliation artifacts
 
 - Summary counts and amounts.
 - Matched records.
@@ -707,7 +707,7 @@ Fuzzy matching must never silently convert an uncertain candidate into a confirm
 - Control-total checks.
 - Lineage and execution evidence.
 
-### 17.4 Initial templates
+#### 17.4 Initial templates
 
 - Sales and refunds.
 - Orders and payments.
@@ -716,7 +716,7 @@ Fuzzy matching must never silently convert an uncertain candidate into a confirm
 - Inventory and sales movements.
 - Customer-list comparison.
 
-## 18. BuBu Compare
+### 18. BuBu Compare
 
 - Compare dataset versions.
 - Compare independently imported files.
@@ -726,9 +726,9 @@ Fuzzy matching must never silently convert an uncertain candidate into a confirm
 - Generate a bounded difference Artifact and export.
 - Save comparison rules for the next version.
 
-## 19. BuBu Repeat
+### 19. BuBu Repeat
 
-### 19.1 Recognition
+#### 19.1 Recognition
 
 When a new file or version arrives, BuBu should:
 
@@ -738,7 +738,7 @@ When a new file or version arrives, BuBu should:
 - recommend the safest reusable workflow;
 - explain required remapping or user decisions.
 
-### 19.2 Execution
+#### 19.2 Execution
 
 - Rebind the workflow to the new version only through a typed reviewed operation.
 - Revalidate all relationships, rules, and budgets.
@@ -747,7 +747,7 @@ When a new file or version arrives, BuBu should:
 - create a new Artifact and derived dataset version.
 - retain previous outputs and evidence.
 
-### 19.3 Triggers
+#### 19.3 Triggers
 
 - Manual.
 - Dataset-version arrival.
@@ -755,7 +755,7 @@ When a new file or version arrives, BuBu should:
 - Daily, weekly, monthly, and business cadence.
 - External approved invocation.
 
-## 20. Reporting and delivery V1
+### 20. Reporting and delivery V1
 
 Add deterministic, evidence-first report bundles:
 
@@ -778,7 +778,7 @@ Initial exports:
 - PNG or SVG chart images;
 - JSON manifest for machine consumption.
 
-## 21. Strict Private Mode and local DLP
+### 21. Strict Private Mode and local DLP
 
 Add a non-bypassable user-selectable mode:
 
@@ -790,21 +790,21 @@ Add a non-bypassable user-selectable mode:
 - clipboard and prompt text are scanned for likely pasted rows, PII, credentials, and secrets;
 - the UI explains why a request was blocked or rerouted.
 
-## 22. Horizon 1 exit gate
+### 22. Horizon 1 exit gate
 
 Horizon 1 is complete when representative users can replace at least three recurring manual spreadsheet processes with reviewed workflows, rerun them against new versions, recover from schema drift, export professional results, and verify that raw rows remained local by default.
 
 ---
 
-# Horizon 2 — Private data agent
+## Horizon 2 — Private data agent
 
-## 23. Objective
+### 23. Objective
 
 Turn the successful local workflow product into a context-aware private data agent without weakening deterministic authority.
 
-## 24. Analytical engine abstraction
+### 24. Analytical engine abstraction
 
-### 24.1 Responsibilities
+#### 24.1 Responsibilities
 
 Keep SQLite as the control and product database for:
 
@@ -829,14 +829,14 @@ Introduce a versioned `AnalyticalEngine` port for:
 - larger transformations;
 - spill-to-disk execution.
 
-### 24.2 Adapters
+#### 24.2 Adapters
 
 - Existing SQLite adapter.
 - DuckDB adapter after contract and benchmark validation.
 
 The product must not perform a rewrite merely to adopt a fashionable engine. Engine selection should remain an internal policy based on operation, format, size, memory, and performance evidence.
 
-### 24.3 Large File Mode
+#### 24.3 Large File Mode
 
 Target capabilities:
 
@@ -848,7 +848,7 @@ Target capabilities:
 - cancellation and checkpointing;
 - progress that reflects actual execution state.
 
-## 25. Expanded analysis plans
+### 25. Expanded analysis plans
 
 Add typed analytical operations after the transformation foundation is stable:
 
@@ -869,9 +869,9 @@ Add typed analytical operations after the transformation foundation is stable:
 
 Statistical and predictive outputs must include assumptions, sample size, limitations, and deterministic source references.
 
-## 26. Local semantic layer
+### 26. Local semantic layer
 
-### 26.1 Semantic entities
+#### 26.1 Semantic entities
 
 - Dataset and business-topic descriptions.
 - Column descriptions and semantic types.
@@ -883,7 +883,7 @@ Statistical and predictive outputs must include assumptions, sample size, limita
 - Report templates.
 - User-confirmed aliases and mappings.
 
-### 26.2 Schema memory
+#### 26.2 Schema memory
 
 BuBu should remember user-confirmed corrections such as:
 
@@ -903,7 +903,7 @@ Memory must be:
 - scoped to a dataset, schema family, workspace, or organization;
 - never inferred into permanent truth without confirmation.
 
-## 27. Local RAG
+### 27. Local RAG
 
 Local RAG should initially index metadata and durable knowledge, not raw rows by default:
 
@@ -927,9 +927,9 @@ Suggested architecture:
 - explicit context builder and budget;
 - citations back to local objects and versions.
 
-## 28. Agent Harness
+### 28. Agent Harness
 
-### 28.1 Runtime entities
+#### 28.1 Runtime entities
 
 Generalize the bounded aggregate agent into explicit entities:
 
@@ -945,11 +945,11 @@ Generalize the bounded aggregate agent into explicit entities:
 - `Budget`;
 - `StopReason`.
 
-### 28.2 Loop
+#### 28.2 Loop
 
 `understand → retrieve context → propose plan → policy check → execute one bounded step → validate observation → checkpoint → continue, replan, request approval, or stop`
 
-### 28.3 Budgets
+#### 28.3 Budgets
 
 Every agent run binds:
 
@@ -963,7 +963,7 @@ Every agent run binds:
 - required verification;
 - cancellation and recovery policy.
 
-### 28.4 Planner, executor, evaluator
+#### 28.4 Planner, executor, evaluator
 
 Use separate roles only for tasks that justify them:
 
@@ -973,7 +973,7 @@ Use separate roles only for tasks that justify them:
 
 Do not multiply agents where a deterministic rule or single bounded planner is sufficient.
 
-## 29. Capability Registry
+### 29. Capability Registry
 
 Unify native operations, models, local skills, MCP tools, connectors, and future agents under a common registry.
 
@@ -996,11 +996,11 @@ Each capability records:
 
 The model receives only a dynamically selected subset relevant to the current task.
 
-## 30. Workflow V2
+### 30. Workflow V2
 
 Expand workflow nodes:
 
-### Data nodes
+#### Data nodes
 
 - source;
 - transform;
@@ -1011,7 +1011,7 @@ Expand workflow nodes:
 - compare;
 - derive;
 
-### Control nodes
+#### Control nodes
 
 - condition;
 - branch;
@@ -1021,7 +1021,7 @@ Expand workflow nodes:
 - human input;
 - checkpoint;
 
-### Intelligence nodes
+#### Intelligence nodes
 
 - bounded planner;
 - classifier;
@@ -1029,7 +1029,7 @@ Expand workflow nodes:
 - explanation;
 - evaluator;
 
-### Delivery nodes
+#### Delivery nodes
 
 - chart;
 - report;
@@ -1037,14 +1037,14 @@ Expand workflow nodes:
 - local notification;
 - email or approved external delivery;
 
-### Integration nodes
+#### Integration nodes
 
 - MCP resource read;
 - approved MCP tool call;
 - connector read;
 - approved external write.
 
-## 31. Reports and visualization V2
+### 31. Reports and visualization V2
 
 - Multi-chart report canvas without becoming a free-form BI designer.
 - KPI cards.
@@ -1058,7 +1058,7 @@ Expand workflow nodes:
 
 Additional supported charts may include line, area, stacked bar, scatter, histogram, box plot, heatmap, waterfall, funnel, cohort, Pareto, treemap, and calendar heatmap where the data semantics justify them.
 
-## 32. Cost router
+### 32. Cost router
 
 Before using a model, decide whether a task can be completed by:
 
@@ -1076,21 +1076,21 @@ Show the user:
 - token or budget ceiling;
 - reason for escalation.
 
-## 33. Horizon 2 exit gate
+### 33. Horizon 2 exit gate
 
 Horizon 2 is complete when BuBu can understand a returning user's business vocabulary, select a bounded set of capabilities, plan and execute multi-step data work, verify the result, produce a professional Artifact, and explain every disclosure and operation without relying on arbitrary code execution.
 
 ---
 
-# Horizon 3 — Agent data runtime and ecosystem
+## Horizon 3 — Agent data runtime and ecosystem
 
-## 34. Objective
+### 34. Objective
 
 Make BuBu callable from the AI tools users already use while preserving local authority and creating distribution leverage.
 
-## 35. BuBu as MCP server
+### 35. BuBu as MCP server
 
-### 35.1 Safe tools
+#### 35.1 Safe tools
 
 Candidate tools:
 
@@ -1109,7 +1109,7 @@ Candidate tools:
 - `open_approval`;
 - `open_artifact`.
 
-### 35.2 Tools not exposed by default
+#### 35.2 Tools not exposed by default
 
 - arbitrary SQL;
 - arbitrary file read;
@@ -1119,7 +1119,7 @@ Candidate tools:
 - implicit approval;
 - generic external write.
 
-### 35.3 Artifact handles
+#### 35.3 Artifact handles
 
 External agents should normally receive a summary and local handle rather than full private data:
 
@@ -1134,7 +1134,7 @@ External agents should normally receive a summary and local handle rather than f
 }
 ```
 
-## 36. CLI and SDK
+### 36. CLI and SDK
 
 Candidate CLI commands:
 
@@ -1152,7 +1152,7 @@ The CLI must use the same contracts, policy, approvals, and data core as the des
 
 The SDK should expose typed local APIs without creating a second authority path.
 
-## 37. Deep links
+### 37. Deep links
 
 Candidate local links:
 
@@ -1165,7 +1165,7 @@ Candidate local links:
 
 Deep links should focus the exact local review or result rather than granting authority.
 
-## 38. External agent packs
+### 38. External agent packs
 
 Produce integration packs for:
 
@@ -1187,7 +1187,7 @@ Each pack may include:
 - evaluation fixtures;
 - privacy and approval guidance.
 
-## 39. Pack format
+### 39. Pack format
 
 Explore a canonical `bubu-pack.yaml` that compiles into host-specific formats:
 
@@ -1219,7 +1219,7 @@ evals:
 
 The canonical format must not claim platform compatibility until a tested adapter exists.
 
-## 40. Skill system
+### 40. Skill system
 
 A Skill packages:
 
@@ -1244,7 +1244,7 @@ Initial skills:
 - Inventory Exceptions.
 - Customer Deduplication.
 
-## 41. Marketplace foundation
+### 41. Marketplace foundation
 
 Only launch a marketplace after packs can be installed, verified, permission-reviewed, versioned, and removed safely.
 
@@ -1269,7 +1269,7 @@ Marketplace items must include:
 - publisher identity;
 - update policy.
 
-## 42. MCP host evolution
+### 42. MCP host evolution
 
 For BuBu consuming external MCP capabilities:
 
@@ -1282,19 +1282,19 @@ For BuBu consuming external MCP capabilities:
 - make model-driven calls policy-bound and observable;
 - keep low-level MCP inspection in advanced or developer mode.
 
-## 43. Horizon 3 exit gate
+### 43. Horizon 3 exit gate
 
 Horizon 3 is complete when a supported external agent can discover a narrowly scoped BuBu capability, propose a local task, send the user to a precise approval, receive a bounded Artifact handle, and continue its larger workflow without receiving unauthorized raw rows or bypassing BuBu policy.
 
 ---
 
-# Horizon 4 — Team and enterprise control
+## Horizon 4 — Team and enterprise control
 
-## 44. Objective
+### 44. Objective
 
 Support organizations that need shared workflows, managed policy, audit, and private deployment while preserving the local-first architecture.
 
-## 45. BuBu Hub
+### 45. BuBu Hub
 
 Potential services:
 
@@ -1308,7 +1308,7 @@ Potential services:
 - entitlement and billing;
 - optional encrypted metadata or snapshot synchronization.
 
-## 46. Identity and policy
+### 46. Identity and policy
 
 - SSO and SCIM.
 - RBAC and ABAC.
@@ -1320,7 +1320,7 @@ Potential services:
 - Export policy.
 - Device trust.
 
-## 47. Enterprise data paths
+### 47. Enterprise data paths
 
 Possible deployment modes:
 
@@ -1333,7 +1333,7 @@ Possible deployment modes:
 
 The local desktop path remains supported and independently useful.
 
-## 48. Enterprise integrations
+### 48. Enterprise integrations
 
 Prioritize business-result connectors rather than building a generic connector catalog first:
 
@@ -1345,7 +1345,7 @@ Prioritize business-result connectors rather than building a generic connector c
 - ticketing and collaboration tools;
 - enterprise MCP gateways.
 
-## 49. Managed workflow delivery
+### 49. Managed workflow delivery
 
 Offer a services-assisted product for customers who need outcomes rather than configuration:
 
@@ -1357,17 +1357,17 @@ Offer a services-assisted product for customers who need outcomes rather than co
 - schema-drift handling;
 - ROI reporting.
 
-## 50. Horizon 4 exit gate
+### 50. Horizon 4 exit gate
 
 Horizon 4 is complete when an organization can centrally approve models, capabilities, disclosure levels, workflows, and devices; share reusable metadata and templates; audit execution; and operate BuBu without centralizing raw data by default.
 
 ---
 
-## 51. Function backlog by domain
+### 51. Function backlog by domain
 
 This section is a product inventory, not a commitment to build every item.
 
-### 51.1 Import and sources
+#### 51.1 Import and sources
 
 - CSV, TSV, XLSX.
 - Parquet.
@@ -1384,7 +1384,7 @@ This section is a product inventory, not a commitment to build every item.
 - Paginated API import.
 - MCP resource import.
 
-### 51.2 Profiling and semantic detection
+#### 51.2 Profiling and semantic detection
 
 - Type inference.
 - Null and distinct counts.
@@ -1398,7 +1398,7 @@ This section is a product inventory, not a commitment to build every item.
 - Outlier candidates.
 - Drift detection.
 
-### 51.3 Data quality
+#### 51.3 Data quality
 
 - Required.
 - Unique.
@@ -1416,7 +1416,7 @@ This section is a product inventory, not a commitment to build every item.
 - Quality trends.
 - Repair recommendations.
 
-### 51.4 Relationships
+#### 51.4 Relationships
 
 - Relationship graph.
 - Composite keys.
@@ -1428,7 +1428,7 @@ This section is a product inventory, not a commitment to build every item.
 - Union groups.
 - Cross-topic references.
 
-### 51.5 Query and analysis
+#### 51.5 Query and analysis
 
 - Dimensions and metrics.
 - Filters and sorting.
@@ -1442,7 +1442,7 @@ This section is a product inventory, not a commitment to build every item.
 - Anomaly candidates.
 - Forecast and statistical tests with evidence.
 
-### 51.6 Transformation
+#### 51.6 Transformation
 
 - Rename, cast, trim, replace.
 - Split, merge, parse.
@@ -1453,7 +1453,7 @@ This section is a product inventory, not a commitment to build every item.
 - Normalize and denormalize.
 - Reconciliation.
 
-### 51.7 Conversations and tasks
+#### 51.7 Conversations and tasks
 
 - Tags.
 - Search.
@@ -1465,7 +1465,7 @@ This section is a product inventory, not a commitment to build every item.
 - Cross-object references.
 - Recent and unfinished task inbox.
 
-### 51.8 Artifacts and reports
+#### 51.8 Artifacts and reports
 
 - Tables.
 - Derived datasets.
@@ -1478,7 +1478,7 @@ This section is a product inventory, not a commitment to build every item.
 - HTML, PDF, XLSX, CSV, image, and JSON exports.
 - Scheduled delivery.
 
-### 51.9 Workflow
+#### 51.9 Workflow
 
 - Data, control, intelligence, delivery, and integration nodes.
 - Manual and triggered execution.
@@ -1487,7 +1487,7 @@ This section is a product inventory, not a commitment to build every item.
 - Completion verification.
 - Version comparison.
 
-### 51.10 Models
+#### 51.10 Models
 
 - OpenAI.
 - Anthropic.
@@ -1500,7 +1500,7 @@ This section is a product inventory, not a commitment to build every item.
 - Embedding and reranking providers.
 - Vision providers for supported import tasks.
 
-### 51.11 Security and privacy
+#### 51.11 Security and privacy
 
 - Strict Private Mode.
 - Prompt DLP.
@@ -1515,7 +1515,7 @@ This section is a product inventory, not a commitment to build every item.
 - Tamper-evident evidence.
 - Audit export.
 
-### 51.12 Backup and portability
+#### 51.12 Backup and portability
 
 - Automatic encrypted backup.
 - User-selected location.
@@ -1528,7 +1528,7 @@ This section is a product inventory, not a commitment to build every item.
 
 ---
 
-## 52. Privacy and disclosure roadmap
+### 52. Privacy and disclosure roadmap
 
 Disclosure levels remain explicit and ordered:
 
@@ -1549,7 +1549,7 @@ Rules:
 
 ---
 
-## 53. Evidence-first completion
+### 53. Evidence-first completion
 
 A workflow is not complete merely because no exception occurred.
 
@@ -1578,9 +1578,9 @@ A reconciliation Artifact, for example, should state:
 
 ---
 
-## 54. Evaluation strategy
+### 54. Evaluation strategy
 
-### 54.1 Evaluation layers
+#### 54.1 Evaluation layers
 
 - Intent classification.
 - Context retrieval.
@@ -1593,7 +1593,7 @@ A reconciliation Artifact, for example, should state:
 - Privacy and adversarial behavior.
 - User correction and learning.
 
-### 54.2 Domain suites
+#### 54.2 Domain suites
 
 - Sales and refund reconciliation.
 - Bank and ledger reconciliation.
@@ -1603,7 +1603,7 @@ A reconciliation Artifact, for example, should state:
 - Marketing report generation.
 - Financial control totals.
 
-### 54.3 Adversarial suites
+#### 54.3 Adversarial suites
 
 - Prompt injection in cell values.
 - Prompt injection in headers and sheet names.
@@ -1615,7 +1615,7 @@ A reconciliation Artifact, for example, should state:
 - CSV and spreadsheet formula injection.
 - Oversized result and token-exhaustion attempts.
 
-### 54.4 Release rule
+#### 54.4 Release rule
 
 No autonomous or external capability graduates from experimental status without:
 
@@ -1630,11 +1630,11 @@ No autonomous or external capability graduates from experimental status without:
 
 ---
 
-## 55. Commercial packaging hypotheses
+### 55. Commercial packaging hypotheses
 
 Prices are hypotheses to test, not commitments.
 
-### 55.1 Free Local
+#### 55.1 Free Local
 
 Goal: let a user complete a full first task.
 
@@ -1651,7 +1651,7 @@ Possible scope:
 
 Do not reduce the free product to a small message allowance.
 
-### 55.2 Local License
+#### 55.2 Local License
 
 Possible price test: **USD 79–99 one time**, including a defined update period.
 
@@ -1666,7 +1666,7 @@ Possible scope:
 
 This tier addresses subscription fatigue and supports a durable desktop-product identity.
 
-### 55.3 Personal Pro
+#### 55.3 Personal Pro
 
 Possible price test: **USD 15 per month or USD 120 per year**.
 
@@ -1682,7 +1682,7 @@ Possible scope:
 - external-agent integrations;
 - complete privacy ledger.
 
-### 55.4 Builder
+#### 55.4 Builder
 
 Possible price test: **USD 29–39 per month**.
 
@@ -1697,7 +1697,7 @@ Possible scope:
 - advanced trace;
 - connector development.
 
-### 55.5 Team
+#### 55.5 Team
 
 Possible price test: **workspace base fee plus per-user fee**.
 
@@ -1710,7 +1710,7 @@ Possible scope:
 - approved providers and capabilities;
 - optional metadata synchronization.
 
-### 55.6 Business packs
+#### 55.6 Business packs
 
 Possible price range: **USD 99–299 per month** depending on automation and service level.
 
@@ -1722,11 +1722,11 @@ Examples:
 - App Revenue Reporting.
 - Consultant Workspace.
 
-### 55.7 Enterprise
+#### 55.7 Enterprise
 
 Possible annual contract range: **USD 20,000–100,000+**, depending on deployment, connectors, policy, and services.
 
-### 55.8 Managed AI
+#### 55.8 Managed AI
 
 - BYOM and local-model use should not incur a BuBu token tax.
 - Managed models may be billed transparently at actual cost plus a disclosed service margin.
@@ -1735,9 +1735,9 @@ Possible annual contract range: **USD 20,000–100,000+**, depending on deployme
 
 ---
 
-## 56. Distribution roadmap
+### 56. Distribution roadmap
 
-### 56.1 Search and problem pages
+#### 56.1 Search and problem pages
 
 Build pages around concrete jobs:
 
@@ -1751,7 +1751,7 @@ Build pages around concrete jobs:
 - recover from spreadsheet schema drift;
 - replace fragile Power Query reconciliation.
 
-### 56.2 Templates
+#### 56.2 Templates
 
 Templates are a primary acquisition and activation surface, not an optional gallery.
 
@@ -1765,7 +1765,7 @@ Initial template families:
 - consulting;
 - investment research.
 
-### 56.3 Community launch strategy
+#### 56.3 Community launch strategy
 
 Useful technical launches are stronger than broad product announcements:
 
@@ -1775,7 +1775,7 @@ Useful technical launches are stronger than broad product announcements:
 - an open reconciliation fixture and evaluation suite;
 - a free spreadsheet privacy scanner.
 
-### 56.4 Consultant and partner channel
+#### 56.4 Consultant and partner channel
 
 Support consultants, accountants, agencies, and implementation partners who can create reusable local workflows for clients while keeping client data on client devices.
 
@@ -1790,11 +1790,11 @@ Possible partner capabilities:
 
 ---
 
-## 57. Twelve-week execution sequence
+### 57. Twelve-week execution sequence
 
 This is the recommended first delivery sequence after the current productization baseline is accepted.
 
-### Weeks 1–2: release and measurement
+#### Weeks 1–2: release and measurement
 
 - Establish accepted branch and version.
 - Produce real signed packages.
@@ -1803,7 +1803,7 @@ This is the recommended first delivery sequence after the current productization
 - Add opt-in anonymous operational telemetry.
 - Establish evaluation fixtures and seed-user program.
 
-### Weeks 3–6: BuBu Clean
+#### Weeks 3–6: BuBu Clean
 
 - TransformationPlan V1.
 - Derived datasets.
@@ -1813,7 +1813,7 @@ This is the recommended first delivery sequence after the current productization
 - CSV and XLSX export.
 - Five cleaning templates.
 
-### Weeks 7–9: BuBu Reconcile
+#### Weeks 7–9: BuBu Reconcile
 
 - Exact and composite matching.
 - Join and anti join.
@@ -1823,7 +1823,7 @@ This is the recommended first delivery sequence after the current productization
 - Control totals.
 - Evidence-first report.
 
-### Weeks 10–12: BuBu Repeat
+#### Weeks 10–12: BuBu Repeat
 
 - Folder watch.
 - Workflow recognition.
@@ -1838,7 +1838,7 @@ At the end of twelve weeks, do not advance automatically. Review activation, rep
 
 ---
 
-## 58. Explicit non-goals
+### 58. Explicit non-goals
 
 The following are not priorities until the core product demonstrates retention:
 
@@ -1859,9 +1859,9 @@ The following are not priorities until the core product demonstrates retention:
 
 ---
 
-## 59. Roadmap governance
+### 59. Roadmap governance
 
-### 59.1 Sources of truth
+#### 59.1 Sources of truth
 
 - `PRODUCT_MANIFEST.yaml` — capability status.
 - Runtime and tests — actual behavior.
@@ -1869,7 +1869,7 @@ The following are not priorities until the core product demonstrates retention:
 - Product documentation — user-facing current behavior.
 - This roadmap — direction and sequencing only.
 
-### 59.2 Status discipline
+#### 59.2 Status discipline
 
 Every roadmap item should eventually be represented as one of:
 
@@ -1885,7 +1885,7 @@ Every roadmap item should eventually be represented as one of:
 
 `implemented` is not equivalent to `released`.
 
-### 59.3 Change discipline
+#### 59.3 Change discipline
 
 A major roadmap change should state:
 
@@ -1898,7 +1898,7 @@ A major roadmap change should state:
 
 ---
 
-## 60. Definition of winning
+### 60. Definition of winning
 
 BuBu wins neither by having the most models nor by exposing the most tools.
 

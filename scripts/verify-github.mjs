@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 const required = [
   ".github/CODEOWNERS",
   ".github/README.md",
-  ".github/dependabot.yml",
   ".github/pull_request_template.md",
   ".github/ISSUE_TEMPLATE/bug.yml",
   ".github/ISSUE_TEMPLATE/feature.yml",
@@ -15,31 +14,58 @@ const required = [
   "CONTRIBUTING.md",
   "SECURITY.md",
 ];
-const failures = required.filter((path) => !existsSync(resolve(path))).map((path) => `missing GitHub contract: ${path}`);
-const workflowSources = [];
-for (const workflowPath of [".github/workflows/verify.yml", ".github/workflows/package-smoke.yml", ".github/workflows/release.yml"]) {
+const workflowPaths = [
+  ".github/workflows/verify.yml",
+  ".github/workflows/package-smoke.yml",
+  ".github/workflows/release.yml",
+];
+const allowedActions = new Map([
+  ["actions/checkout", { version: "v7.0.1", sha: "3d3c42e5aac5ba805825da76410c181273ba90b1" }],
+  ["actions/setup-node", { version: "v7.0.0", sha: "820762786026740c76f36085b0efc47a31fe5020" }],
+  ["actions/setup-go", { version: "v7.0.0", sha: "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" }],
+  ["actions/upload-artifact", { version: "v7.0.1", sha: "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" }],
+  ["actions/download-artifact", { version: "v8.0.1", sha: "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" }],
+  ["actions/attest-build-provenance", { version: "v4.1.1", sha: "0f67c3f4856b2e3261c31976d6725780e5e4c373" }],
+  ["Azure/login", { version: "v3.0.0", sha: "532459ea530d8321f2fb9bb10d1e0bcf23869a43" }],
+  ["Azure/artifact-signing-action", { version: "v2.0.0", sha: "c7ab2a863ab5f9a846ddb8265964877ef296ee82" }],
+]);
+
+const failures = required
+  .filter((path) => !existsSync(resolve(path)))
+  .map((path) => `missing GitHub contract: ${path}`);
+if (existsSync(resolve(".github/dependabot.yml"))) {
+  failures.push(".github/dependabot.yml must remain absent while automatic dependency branches are disabled");
+}
+
+const usedActions = new Set();
+for (const workflowPath of workflowPaths) {
   if (!existsSync(resolve(workflowPath))) continue;
   const workflow = readFileSync(resolve(workflowPath), "utf8");
-  workflowSources.push(workflow);
-  if (workflow.includes("pull_request_target:")) failures.push("pull_request_target is forbidden");
+  if (workflow.includes("pull_request_target:")) failures.push(`${workflowPath} uses forbidden pull_request_target`);
   if (!/^permissions:\n  contents: read$/mu.test(workflow)) failures.push(`${workflowPath} must declare top-level read-only contents permission`);
-  for (const line of workflow.split("\n").filter((value) => /^\s*-?\s*uses:/u.test(value))) {
-    if (!/@[a-f0-9]{40}(?:\s+#.*)?$/u.test(line)) failures.push(`${workflowPath} action is not pinned to a full commit SHA: ${line.trim()}`);
+
+  for (const line of workflow.split("\n").filter((value) => /^\s*(?:-\s*)?uses:/u.test(value))) {
+    const parsed = line.match(/^\s*(?:-\s*)?uses:\s*([^@\s]+)@([a-f0-9]{40})\s+#\s*(v\S+)\s*$/u);
+    if (!parsed) {
+      failures.push(`${workflowPath} action must use an allowlisted full SHA and version comment: ${line.trim()}`);
+      continue;
+    }
+    const [, action, sha, version] = parsed;
+    const expected = allowedActions.get(action);
+    if (!expected) {
+      failures.push(`${workflowPath} uses unapproved action: ${action}`);
+      continue;
+    }
+    usedActions.add(action);
+    if (sha !== expected.sha || version !== expected.version) {
+      failures.push(`${workflowPath} ${action} must use ${expected.sha} # ${expected.version}`);
+    }
   }
 }
-const currentActionPins = new Map([
-  ["actions/checkout v7", "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"],
-  ["actions/setup-node v7", "820762786026740c76f36085b0efc47a31fe5020"],
-  ["actions/setup-go v7", "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"],
-  ["actions/upload-artifact v7", "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"],
-  ["actions/download-artifact v8", "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"],
-  ["actions/attest-build-provenance v4", "0f67c3f4856b2e3261c31976d6725780e5e4c373"],
-  ["Azure/login v3", "532459ea530d8321f2fb9bb10d1e0bcf23869a43"],
-]);
-const combinedWorkflows = workflowSources.join("\n");
-for (const [action, pin] of currentActionPins) {
-  if (!combinedWorkflows.includes(pin)) failures.push(`GitHub workflows must use the current Node 24-compatible ${action} pin`);
+for (const action of allowedActions.keys()) {
+  if (!usedActions.has(action)) failures.push(`GitHub workflows no longer exercise required action: ${action}`);
 }
+
 if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/package-smoke.yml"), "utf8");
   for (const value of ["macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "retention-days: 7"]) {
@@ -48,18 +74,38 @@ if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
 }
 if (existsSync(resolve(".github/workflows/release.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/release.yml"), "utf8");
-  for (const value of ["environment: release", "Azure/artifact-signing-action@", "xcrun notarytool submit", "--require-signature", "npm sbom", "finalize-release-assets.mjs", "attest-build-provenance@", "--draft", "cancel-in-progress: false"]) {
+  for (const value of [
+    "environment: release",
+    "refs/tags/${{ env.BUBU_RELEASE_TAG }}",
+    "git/tags/$tag_sha",
+    ".verification.verified == true",
+    "Azure/artifact-signing-action@",
+    "xcrun notarytool submit",
+    "--require-signature",
+    "PREVIOUS_ARTIFACT:",
+    "SIGNING_KEYCHAIN:",
+    "SIGNING_API_KEY:",
+    "npm sbom",
+    "finalize-release-assets.mjs",
+    "attest-build-provenance@",
+    "--draft",
+    "cancel-in-progress: false",
+  ]) {
     if (!workflow.includes(value)) failures.push(`signed release workflow missing ${value}`);
   }
-}
-if (existsSync(resolve(".github/dependabot.yml"))) {
-  const dependabot = readFileSync(resolve(".github/dependabot.yml"), "utf8");
-  for (const value of ["package-ecosystem: npm", "package-ecosystem: gomod", "package-ecosystem: github-actions", "electron-toolchain:", "timezone: Asia/Shanghai"]) {
-    if (!dependabot.includes(value)) failures.push(`Dependabot contract missing ${value}`);
+  for (const unsafe of [
+    'AuthKey_${{ secrets.',
+    'if [[ -n "${{ steps.',
+    "if ('${{ steps.",
+    'security delete-keychain "${{',
+    'rm -f "${{',
+  ]) {
+    if (workflow.includes(unsafe)) failures.push(`signed release workflow embeds an expression in shell source: ${unsafe}`);
   }
 }
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log("GitHub contract verified: community files exist and CI/package/release workflows use least privilege with immutable action pins.");
+console.log("GitHub contract verified: manual dependency updates, least-privilege workflows, signed release tags, and allowlisted immutable Actions agree.");

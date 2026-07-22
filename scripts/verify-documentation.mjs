@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 const requiredReadmes = [
   "README.md",
@@ -64,8 +65,51 @@ for (const marker of ["package-smoke.yml", "release.yml", "dependabot.yml", "ful
   if (!github.includes(marker)) failures.push(`GitHub README is missing ${marker}`);
 }
 
+const markdownPaths = execFileSync("git", ["ls-files", "*.md"], { encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean);
+for (const path of markdownPaths) {
+  const source = readFileSync(resolve(path), "utf8");
+  let inFence = false;
+  let previousHeadingLevel = 0;
+  const proseLines = [];
+  for (const [index, line] of source.split("\n").entries()) {
+    if (/^\s*(?:```|~~~)/u.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    proseLines.push(line);
+    const heading = line.match(/^(#{1,6})\s+\S/u);
+    if (!heading) continue;
+    const headingLevel = heading[1].length;
+    if (previousHeadingLevel > 0 && headingLevel > previousHeadingLevel + 1) {
+      failures.push(`${path}:${index + 1} skips from H${previousHeadingLevel} to H${headingLevel}`);
+    }
+    previousHeadingLevel = headingLevel;
+  }
+  for (const link of proseLines.join("\n").matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/gu)) {
+    const rawTarget = link[1];
+    if (/^(?:https?:|mailto:|tel:|data:|#)/u.test(rawTarget)) continue;
+    const targetWithoutFragment = rawTarget.split("#", 1)[0];
+    if (!targetWithoutFragment) continue;
+    let target;
+    try {
+      target = decodeURIComponent(targetWithoutFragment);
+    } catch {
+      failures.push(`${path} contains an invalid encoded local link: ${rawTarget}`);
+      continue;
+    }
+    const resolvedTarget = target.startsWith("/")
+      ? resolve(target.slice(1))
+      : resolve(dirname(path), target);
+    if (!existsSync(resolvedTarget)) failures.push(`${path} links to a missing local target: ${rawTarget}`);
+    else if (statSync(resolvedTarget).isDirectory()) failures.push(`${path} links to a directory instead of a document: ${rawTarget}`);
+  }
+}
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`Documentation contract verified: ${requiredReadmes.length} layered documentation surfaces and active/legacy/release routing are aligned.`);
+console.log(`Documentation contract verified: ${requiredReadmes.length} routed surfaces and ${markdownPaths.length} Markdown files have aligned links and heading hierarchy.`);

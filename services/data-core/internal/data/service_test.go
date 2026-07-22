@@ -38,11 +38,18 @@ func TestOpenUpgradesAVersionOneCatalog(t *testing.T) {
 
 	service := openTestService(t, dataDirectory)
 	var applied int
-	if err := service.database.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version IN (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)").Scan(&applied); err != nil {
+	if err := service.database.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&applied); err != nil {
 		t.Fatal(err)
 	}
-	if applied != 13 {
-		t.Fatal("version 2 through 14 migrations were not applied")
+	if applied != len(migrations) {
+		t.Fatalf("catalog applied %d migrations, want %d", applied, len(migrations))
+	}
+	var triggerTableSQL string
+	if err := service.database.QueryRow("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'workflow_trigger_events'").Scan(&triggerTableSQL); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(triggerTableSQL, "'calendar'") {
+		t.Fatal("workflow trigger migration did not enable calendar events")
 	}
 }
 

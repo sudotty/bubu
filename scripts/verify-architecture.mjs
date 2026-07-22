@@ -514,12 +514,20 @@ const workflowThreadMigration = read("services/data-core/internal/data/workflow_
 for (const invariant of ["workflow_definitions_thread_idx", "thread_id TEXT REFERENCES conversation_threads", "WHERE thread_id IS NULL"]) {
   if (!workflowThreadMigration.includes(invariant)) failures.push(`workflow thread migration invariant missing: ${invariant}`);
 }
+const workflowCalendarMigration = read("services/data-core/internal/data/workflow_calendar_trigger_migration.go");
+for (const invariant of [
+  "trigger_kind IN ('interval', 'calendar', 'dataset-version')",
+  "FROM workflow_trigger_events_before_calendar",
+  "DROP TABLE workflow_trigger_events_before_calendar",
+]) {
+  if (!workflowCalendarMigration.includes(invariant)) failures.push(`workflow calendar migration invariant missing: ${invariant}`);
+}
 const workflowTrigger = read("services/data-core/internal/data/workflow_trigger.go");
 for (const invariant of [
   "maximumWorkflowTriggerEvents = 10_000",
   "currentWorkflowTargetSignature",
   "newOperationID",
-  "INSERT OR IGNORE INTO workflow_trigger_events",
+  "ON CONFLICT(workflow_id, dedupe_key) DO NOTHING",
   "listPendingWorkflowTriggers",
 ]) {
   if (!workflowTrigger.includes(invariant)) failures.push(`workflow trigger invariant missing: ${invariant}`);

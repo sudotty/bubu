@@ -25,10 +25,12 @@
     "release:preflight": "node scripts/verify-release-readiness.mjs --require-public-beta",
     "verify:documentation": "node scripts/verify-documentation.mjs",
     "verify:github": "node scripts/verify-github.mjs",
+    "verify:github:remote": "node scripts/verify-github-remote.mjs",
+    "verify:actions": "go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12",
     "verify:dependencies": "npm audit --audit-level=low",
     "dev": "npm run verify:toolchain && npm run build:data-core && npm run build -w @bubu/contracts && npm run build -w @bubu/ai-runtime && npm run start -w @bubu/desktop",
     "test": "npm run test:native-paths && npm run build -w @bubu/contracts && npm run test --workspaces --if-present",
-    "lint": "npm run version:check && npm run verify:repository && npm run verify:documentation && npm run verify:github && npm run verify:architecture && npm run verify:product-experience && npm run verify:product-metrics && npm run verify:release-readiness && npm run verify:installers && npm run verify:legacy-retirement && npm run build -w @bubu/contracts && npm run lint --workspaces --if-present",
+    "lint": "npm run version:check && npm run verify:repository && npm run verify:documentation && npm run verify:github && npm run verify:actions && npm run verify:architecture && npm run verify:product-experience && npm run verify:product-metrics && npm run verify:release-readiness && npm run verify:installers && npm run verify:legacy-retirement && npm run build -w @bubu/contracts && npm run lint --workspaces --if-present",
     "build": "npm run build:data-core && npm run build -w @bubu/contracts && npm run build -w @bubu/ai-runtime && npm run build -w @bubu/desktop",
     "build:data-core": "node scripts/build-data-core.mjs",
     "build:data-core:target": "node scripts/build-data-core.mjs",
@@ -54,6 +56,8 @@
     "@electron/get": "3.1.0"
   },
   "overrides": {
+    "@hono/node-server": "2.0.11",
+    "fast-uri": "4.1.1",
     "tar": "7.5.20",
     "tmp": "0.2.7"
   },

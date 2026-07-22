@@ -6,6 +6,8 @@ This is the operator contract for macOS and Windows releases. It intentionally s
 
 Create a GitHub Actions environment named `release` and require at least one reviewer. Limit deployment branches/tags to the protected release pattern. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
 
+`npm run verify:github:remote` currently treats a missing or unavailable `release` environment as an explicit warning and release blocker. GitHub does not provide private-repository environment secrets, approval rules, or deployment tag restrictions on every plan; upgrade the repository plan or make a deliberate visibility decision before storing any publisher credential. Never bypass the missing protection by moving release secrets to repository scope.
+
 Configure these environment secrets for both macOS native jobs:
 
 | Secret | Value |
@@ -49,7 +51,7 @@ npm run verify
 git diff -- package.json package-lock.json apps/desktop/package.json packages/contracts/package.json services/ai-runtime/package.json
 ```
 
-Review and commit that version change before creating a tag. The release tag must equal `v<package.json version>`; the workflow rejects drift.
+Review and commit that version change before creating a tag. The release tag must equal a stable `v<package.json version>`, must be annotated, and must have a signature that GitHub verifies. The workflow resolves `refs/tags/<tag>` exactly, rejects branches with a similar name, and confirms the verified tag points to the checked-out commit.
 
 ## 3. Create and push a protected release tag
 

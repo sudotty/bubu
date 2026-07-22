@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -7,6 +7,7 @@ const failures = [];
 
 const requiredFiles = [
   "AGENTS.md",
+  ".gitattributes",
   "PRODUCT_MANIFEST.yaml",
   "docs/adr/0001-electron-shell-go-data-core-and-optional-hub.md",
   "docs/adr/0002-local-sqlite-and-hub-postgresql.md",
@@ -22,7 +23,7 @@ const requiredFiles = [
   "docs/release/README.md",
   "docs/release/release-runbook.md",
   ".github/README.md",
-  ".github/dependabot.yml",
+  "scripts/verify-github-remote.mjs",
   "apps/README.md",
   "apps/desktop/README.md",
   "services/README.md",
@@ -84,12 +85,14 @@ const forbiddenTracked = [
   /\.db(?:-shm|-wal)?$/u,
   /(^|\/)uploads\//u,
   /^bubu-bi\/bubu-bi$/u,
+  /^单文件\.sql$/u,
   /(^|\/)node_modules\//u,
   /(^|\/)dist\//u,
 ];
 const allowedTrackedConfiguration = new Set([".github/ISSUE_TEMPLATE/config.yml"]);
 
 for (const path of tracked) {
+  if (!existsSync(resolve(root, path))) continue;
   if (allowedTrackedConfiguration.has(path)) continue;
   if (forbiddenTracked.some((pattern) => pattern.test(path))) {
     failures.push(`forbidden tracked runtime artifact: ${path}`);
@@ -107,6 +110,7 @@ const textExtensions = /(?:^|\/)(?:[^/]+\.(?:c|css|go|html|js|json|jsx|md|mjs|sq
 for (const path of repositoryFiles) {
   if (!textExtensions.test(path)) continue;
   const absolutePath = resolve(root, path);
+  if (!existsSync(absolutePath)) continue;
   if (statSync(absolutePath).size > 1_000_000) continue;
   const contents = readFileSync(absolutePath, "utf8");
   if (secretPatterns.some((pattern) => pattern.test(contents))) {
