@@ -4,9 +4,9 @@ This is the operator contract for macOS and Windows releases. It intentionally s
 
 ## 1. One-time GitHub configuration
 
-Create a GitHub Actions environment named `release` and require at least one reviewer. Limit deployment branches/tags to the protected release pattern. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
+The repository-owned GitHub Actions environment `release` is restricted to the `v*` release-tag pattern. If the repository plan supports reviewer protection, require at least one independent reviewer before adding publisher credentials. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
 
-`npm run verify:github:remote` currently treats a missing or unavailable `release` environment as an explicit warning and release blocker. GitHub does not provide private-repository environment secrets, approval rules, or deployment tag restrictions on every plan; upgrade the repository plan or make a deliberate visibility decision before storing any publisher credential. Never bypass the missing protection by moving release secrets to repository scope.
+`npm run verify:github:remote` treats a missing environment or missing tag restriction as a release failure. The current private-repository plan does not support secret scanning, push protection, or environment wait/reviewer rules; local secret verification and the human draft-review checklist are mandatory compensating controls. Never bypass unavailable protection by moving release secrets to repository scope.
 
 Configure these environment secrets for both macOS native jobs:
 

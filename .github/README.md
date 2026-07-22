@@ -4,7 +4,7 @@ GitHub is the review and distribution control plane, not a source of runtime pro
 
 - `workflows/verify.yml` runs the full product contract on pull requests and `main`.
 - `workflows/package-smoke.yml` builds unsigned native macOS arm64/x64 and Windows x64 installers, exercises their lifecycle with synthetic data, and receives no release credentials.
-- `workflows/release.yml` accepts only an exact stable version tag backed by a GitHub-verified signed annotated tag, then waits for the `release` environment, signs native artifacts, assembles evidence, and creates or refreshes a draft Release. The workflow remains externally blocked until that environment and its credentials are actually configured.
+- `workflows/release.yml` accepts only an exact stable version tag backed by a GitHub-verified signed annotated tag, then enters the repository-owned `release` environment (restricted to `v*` tags), signs native artifacts, assembles evidence, and creates or refreshes a draft Release. The workflow remains externally blocked until publisher credentials and real signing evidence are configured.
 - Dependabot vulnerability alerts stay enabled as a read-only repository setting. Scheduled version/security update pull requests are intentionally disabled, so `.github/dependabot.yml` must remain absent and dependency upgrades are reviewed manually without automatic branch creation.
 - `CODEOWNERS`, pull-request templates, and issue forms keep security, privacy, release, and migration impact visible during review.
 
