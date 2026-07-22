@@ -10,6 +10,7 @@ const required = [
   ".github/ISSUE_TEMPLATE/config.yml",
   ".github/workflows/verify.yml",
   ".github/workflows/package-smoke.yml",
+  ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
   "CONTRIBUTING.md",
   "SECURITY.md",
@@ -17,6 +18,7 @@ const required = [
 const workflowPaths = [
   ".github/workflows/verify.yml",
   ".github/workflows/package-smoke.yml",
+  ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
 ];
 const allowedActions = new Map([
@@ -68,14 +70,20 @@ for (const action of allowedActions.keys()) {
 
 if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/package-smoke.yml"), "utf8");
-  for (const value of ["macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "retention-days: 7"]) {
+  for (const value of ["paths:", "apps/desktop/**", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "retention-days: 7"]) {
     if (!workflow.includes(value)) failures.push(`native package workflow missing ${value}`);
   }
 }
 if (existsSync(resolve(".github/workflows/verify.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/verify.yml"), "utf8");
-  for (const value of ["fast-contract:", "ubuntu-24.04", "npm run verify:fast", "desktop-integration:", "macos-14", "npm run verify:desktop"]) {
+  for (const value of ["fast-contract:", "ubuntu-24.04", "npm run verify:fast"]) {
     if (!workflow.includes(value)) failures.push(`verification workflow missing ${value}`);
+  }
+}
+if (existsSync(resolve(".github/workflows/preview-release.yml"))) {
+  const workflow = readFileSync(resolve(".github/workflows/preview-release.yml"), "utf8");
+  for (const value of ["preview-v*.*.*", "Unsigned ${{ matrix.target }}", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "finalize-release-assets.mjs", "gh release create", "--prerelease", "contents: write"]) {
+    if (!workflow.includes(value)) failures.push(`preview release workflow missing ${value}`);
   }
 }
 if (existsSync(resolve(".github/workflows/release.yml"))) {

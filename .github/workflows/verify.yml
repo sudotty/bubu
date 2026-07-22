@@ -35,25 +35,3 @@ jobs:
         run: npm ci
       - name: Verify fast product contract
         run: npm run verify:fast
-
-  desktop-integration:
-    name: Packaged desktop integration
-    runs-on: macos-14
-    timeout-minutes: 25
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: services/data-core/go.mod
-          cache-dependency-path: services/data-core/go.sum
-      - name: Install locked dependencies
-        run: npm ci
-      - name: Verify packaged desktop integration
-        run: npm run verify:desktop

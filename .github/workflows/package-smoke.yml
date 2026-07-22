@@ -2,8 +2,28 @@ name: Native package smoke
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "apps/desktop/**"
+      - "packages/contracts/**"
+      - "services/ai-runtime/**"
+      - "services/data-core/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".nvmrc"
   push:
     branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "apps/desktop/**"
+      - "packages/contracts/**"
+      - "services/ai-runtime/**"
+      - "services/data-core/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".nvmrc"
   workflow_dispatch:
 
 permissions:

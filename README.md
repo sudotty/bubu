@@ -113,4 +113,4 @@ The root verification contract checks secrets and repository hygiene, documentat
 - [Platform support](docs/release/platform-support.md), [signed release runbook](docs/release/release-runbook.md), and [public-beta readiness](docs/release/public-beta-readiness.md)
 - [Contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md)
 
-This repository is private and does not currently declare an open-source license. Do not redistribute or assume usage rights beyond the repository owner's authorization.
+This repository is public so that community preview releases can use GitHub's free standard runners. It does not currently declare an open-source license; public visibility does not grant redistribution or usage rights beyond the repository owner's authorization.

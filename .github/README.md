@@ -2,17 +2,18 @@
 
 GitHub is the review and distribution control plane, not a source of runtime product authority.
 
-- `workflows/verify.yml` runs the full product contract on pull requests and `main`.
-- `workflows/package-smoke.yml` builds unsigned native macOS arm64/x64 and Windows x64 installers, exercises their lifecycle with synthetic data, and receives no release credentials.
+- `workflows/verify.yml` runs the portable fast product contract on pull requests and `main`.
+- `workflows/package-smoke.yml` builds unsigned native macOS arm64/x64 and Windows x64 installers only for packaging-relevant changes or an explicit dispatch; it receives no release credentials.
+- `workflows/preview-release.yml` automatically publishes an unsigned GitHub prerelease for a `preview-v<semver>` tag. It is a public-community distribution path, never a signed stable release.
 - `workflows/release.yml` accepts only an exact stable version tag backed by a GitHub-verified signed annotated tag, then enters the repository-owned `release` environment (restricted to `v*` tags), signs native artifacts, assembles evidence, and creates or refreshes a draft Release. The workflow remains externally blocked until publisher credentials and real signing evidence are configured.
 - Dependabot vulnerability alerts stay enabled as a read-only repository setting. Scheduled version/security update pull requests are intentionally disabled, so `.github/dependabot.yml` must remain absent and dependency upgrades are reviewed manually without automatic branch creation.
 - `CODEOWNERS`, pull-request templates, and issue forms keep security, privacy, release, and migration impact visible during review.
 
 Every referenced Action is pinned to a full commit SHA and the workflows start with read-only repository permissions. Job-level write or OIDC permissions exist only where signing, attestations, or draft creation requires them. Do not add `pull_request_target` or expose release-environment secrets to untrusted contributions.
 
-Merged pull-request branches are deleted automatically. This private repository keeps GitHub Actions' repository policy at `all`: the release path needs the Azure signing Actions, while GitHub documents that per-action allow patterns do not apply to private repositories. The local allowlist, immutable SHA requirement, and `verify:github` therefore remain the enforceable least-privilege boundary.
+Merged pull-request branches are deleted automatically. The public repository keeps GitHub Actions' repository policy at `all` because the signed release path needs Azure signing Actions; the local allowlist, immutable SHA requirement, and `verify:github` remain the enforceable least-privilege boundary.
 
-GitHub has reported Secret Scanning and Push Protection unavailable for this private repository. `npm run verify` therefore keeps local secret detection mandatory; do not treat the unavailable hosted capability as a substitute for repository hygiene.
+Secret Scanning and Push Protection must remain enabled for this public repository. `npm run verify` retains local secret detection as an independent boundary.
 
 `verify.yml` keeps the fast product contract on Ubuntu and packaged Electron integration on macOS. `package-smoke.yml` separately proves native installer lifecycles on supported macOS and Windows targets; `release.yml` is the protected signed-release path.
 

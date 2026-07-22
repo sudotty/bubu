@@ -1,0 +1,109 @@
+name: Publish unsigned preview
+
+on:
+  push:
+    tags: ["preview-v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing preview-v<semver> tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  BUBU_PREVIEW_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  package:
+    name: Unsigned ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+            target: macos-arm64
+            installer: apps/desktop/out/make/BuBu.dmg
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            target: macos-x64
+            installer: apps/desktop/out/make/BuBu.dmg
+          - runner: windows-2025
+            platform: win32
+            arch: x64
+            target: windows-x64
+            installer: apps/desktop/out/make/squirrel.windows/x64/BuBu-Setup.exe
+    steps:
+      - name: Check out preview tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.BUBU_PREVIEW_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: services/data-core/go.mod
+          cache-dependency-path: services/data-core/go.sum
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build unsigned native application
+        run: npm run build && npm run make -w @bubu/desktop -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --skip-package
+      - name: Exercise unsigned installer lifecycle
+        run: node scripts/smoke-native-installer.mjs --artifact="${{ github.workspace }}/${{ matrix.installer }}" --report="${{ runner.temp }}/installer-smoke.json"
+      - name: Stage preview assets
+        shell: bash
+        run: node scripts/stage-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+      - name: Upload preview target assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: preview-${{ matrix.target }}
+          path: ${{ runner.temp }}/release-stage
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub prerelease
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out preview tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.BUBU_PREVIEW_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Download preview target assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: preview-*
+          path: ${{ runner.temp }}/release-input
+      - name: Finalize checksums and manifest
+        shell: bash
+        run: node scripts/finalize-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=disabled
+      - name: Publish unsigned prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$BUBU_PREVIEW_TAG" "$RUNNER_TEMP/release-assets/"* --repo "$GITHUB_REPOSITORY" --prerelease --generate-notes --title "BuBu $BUBU_PREVIEW_TAG (unsigned preview)" --notes "This is an unsigned community preview. macOS Gatekeeper and Windows SmartScreen may warn. Do not treat this release as a signed stable build."

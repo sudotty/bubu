@@ -42,6 +42,17 @@ Grant the federated identity only the Artifact Signing certificate-profile signe
 
 ## 2. Prepare the exact product version
 
+### Free public preview
+
+For a zero-cost public preview, push an annotated `preview-v<semver>` tag. The public-repository workflow builds all supported native targets and publishes an unsigned prerelease automatically. It does not require publisher credentials and must never be relabeled as stable:
+
+```bash
+git tag -a preview-v0.2.0-rc.1 -m "BuBu preview v0.2.0-rc.1"
+git push origin preview-v0.2.0-rc.1
+```
+
+Use [the prerelease](https://github.com/sudotty/bubu/releases) only for evaluation. macOS Gatekeeper and Windows SmartScreen warnings are expected until the signed release path has real publisher evidence.
+
 Choose one stable SemVer value. The helper updates the root, every current workspace, internal `@bubu/contracts` dependencies, and lockfile workspace entries together:
 
 ```bash
