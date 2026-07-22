@@ -21,6 +21,7 @@ Documentation describes the current product only when it agrees with runtime beh
 - [Privacy and model providers](architecture/privacy-and-model-providers.md)
 - [MCP host security](architecture/mcp-host-security.md)
 - [Cancellation and operation budgets](architecture/cancellation-and-operation-budgets.md)
+- [Delivery and verification contract](engineering/delivery-and-verification.md)
 
 ## Product guides
 
