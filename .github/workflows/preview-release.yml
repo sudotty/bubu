@@ -36,7 +36,7 @@ jobs:
         env:
           TAG: ${{ env.BUBU_PREVIEW_TAG }}
         run: >-
-          node -e 'const tag = process.env.TAG; const preview = /^preview-v(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/u; if (!preview.test(tag)) throw new Error(`Expected preview-v<SemVer> tag; received ${tag}`);'
+          node -e 'const tag = process.env.TAG; const preview = /^preview-v(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/u; if (!preview.test(tag)) throw new Error("Expected preview-v<SemVer> tag; received " + tag);'
 
   package:
     name: Unsigned ${{ matrix.target }}
