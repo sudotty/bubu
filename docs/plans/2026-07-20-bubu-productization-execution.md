@@ -14,7 +14,7 @@ The primary journey remains:
 
 The prerequisite and every numbered stage end with one focused Git commit. A stage is complete only when runtime, tests, `PRODUCT_MANIFEST.yaml`, relevant README or product guidance, and current screenshots agree. Narrow checks run first; the final stage must pass `npm run verify`.
 
-Unrelated local work under `AGENTS.md`, `bubu-bi/`, `.tasks/`, and `MVP.md` is outside this execution contract and must not be staged.
+Unrelated local work under `AGENTS.md` and local task records is outside this execution contract and must not be staged.
 
 | Stage | Outcome | Required proof |
 | --- | --- | --- |

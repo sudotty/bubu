@@ -8,7 +8,7 @@ Baseline commit: `3af2e80cb21815d110028db8d8e7c6f4368ef422`
 
 Research date: 2026-07-21
 
-This document supplements [`roadmap.md`](../../roadmap.md). It compares BuBu with direct competitors, adjacent workflow platforms, open-source substitutes, and incumbent spreadsheet products. It defines a weighted strategic score, a Porter five-forces response, product and operating strategy, and a concrete plan for raising BuBu's competitive score.
+This document supplements [the strategic roadmap](roadmap.md). It compares BuBu with direct competitors, adjacent workflow platforms, open-source substitutes, and incumbent spreadsheet products. It defines a weighted strategic score, a Porter five-forces response, product and operating strategy, and a concrete plan for raising BuBu's competitive score.
 
 This document is not evidence that a roadmap capability is shipped. `PRODUCT_MANIFEST.yaml`, runtime behavior, tests, verifiers, release evidence, and current product documentation remain the authorities for current capability status.
 
