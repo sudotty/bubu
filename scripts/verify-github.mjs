@@ -82,7 +82,7 @@ if (existsSync(resolve(".github/workflows/verify.yml"))) {
 }
 if (existsSync(resolve(".github/workflows/preview-release.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/preview-release.yml"), "utf8");
-  for (const value of ["preview-v*.*.*", "Unsigned ${{ matrix.target }}", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "finalize-release-assets.mjs", "gh release create", "--prerelease", "contents: write"]) {
+  for (const value of ["preview-v*.*.*", "Unsigned ${{ matrix.target }}", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "finalize-release-assets.mjs", "--tag=\"$BUBU_PREVIEW_TAG\"", "gh release create", "--prerelease", "contents: write"]) {
     if (!workflow.includes(value)) failures.push(`preview release workflow missing ${value}`);
   }
 }

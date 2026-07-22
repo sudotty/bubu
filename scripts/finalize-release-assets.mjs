@@ -16,10 +16,11 @@ function files(root) {
 }
 
 const version = argument("--version");
+const tag = argument("--tag") ?? `v${version}`;
 const input = resolve(argument("--input") ?? "release-input");
 const output = resolve(argument("--output") ?? "release-assets");
 const attestations = argument("--attestations") ?? "disabled";
-if (!version || !["enabled", "disabled"].includes(attestations)) throw new Error("Usage: finalize-release-assets --version=<semver> [--input=<path>] [--output=<path>] [--attestations=enabled|disabled]");
+if (!version || !tag || !["enabled", "disabled"].includes(attestations)) throw new Error("Usage: finalize-release-assets --version=<semver> [--tag=<git-tag>] [--input=<path>] [--output=<path>] [--attestations=enabled|disabled]");
 
 const inputFiles = files(input);
 const targetManifests = inputFiles.filter((path) => basename(path) === "target-manifest.json").map((path) => JSON.parse(readFileSync(path, "utf8")));
@@ -45,7 +46,7 @@ writeFileSync(join(output, manifestName), `${JSON.stringify({
   schemaVersion: 1,
   product: "BuBu",
   version,
-  tag: `v${version}`,
+  tag,
   targets: targetManifests.map((value) => ({ target: value.target, smoke: value.smoke })).sort((left, right) => left.target.id.localeCompare(right.target.id)),
   artifacts,
   attestations,

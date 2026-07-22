@@ -100,7 +100,7 @@ jobs:
           path: ${{ runner.temp }}/release-input
       - name: Finalize checksums and manifest
         shell: bash
-        run: node scripts/finalize-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=disabled
+        run: node scripts/finalize-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --tag="$BUBU_PREVIEW_TAG" --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=disabled
       - name: Publish unsigned prerelease
         env:
           GH_TOKEN: ${{ github.token }}

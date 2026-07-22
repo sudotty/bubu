@@ -1,6 +1,8 @@
 module github.com/sudotty/bubu/services/data-core
 
-go 1.25.0
+// Keep the minimum supported Go toolchain on a patched standard-library release.
+// govulncheck reaches net/url through the data-core's endpoint and SQLite paths.
+go 1.25.8
 
 require (
 	github.com/xuri/excelize/v2 v2.11.0
