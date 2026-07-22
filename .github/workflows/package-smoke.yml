@@ -82,7 +82,7 @@ jobs:
       - name: Exercise clean install, launch, backup, restore, and uninstall
         run: node scripts/smoke-native-installer.mjs --artifact="${{ github.workspace }}/${{ matrix.installer }}" --report="${{ runner.temp }}/installer-smoke.json"
       - name: Stage deterministic package evidence
-        run: node scripts/stage-release-assets.mjs --version=$(node -p "require('./package.json').version") --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+        run: node scripts/stage-release-assets.mjs --version="$(node -p "require('./package.json').version")" --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
       - name: Upload native package evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
