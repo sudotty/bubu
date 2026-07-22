@@ -21,8 +21,24 @@ env:
   BUBU_PREVIEW_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
+  validate-preview-tag:
+    name: Validate preview tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Reject non-preview or invalid semantic tags
+        env:
+          TAG: ${{ env.BUBU_PREVIEW_TAG }}
+        run: >-
+          node -e 'const tag = process.env.TAG; const preview = /^preview-v(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/u; if (!preview.test(tag)) throw new Error(`Expected preview-v<SemVer> tag; received ${tag}`);'
+
   package:
     name: Unsigned ${{ matrix.target }}
+    needs: validate-preview-tag
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:

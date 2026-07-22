@@ -70,9 +70,10 @@ for (const action of allowedActions.keys()) {
 
 if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/package-smoke.yml"), "utf8");
-  for (const value of ["paths:", "apps/desktop/**", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "retention-days: 7"]) {
+  for (const value of ["paths:", "apps/desktop/**", "scripts/build-data-core.mjs", "scripts/smoke-native-installer.mjs", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "retention-days: 7"]) {
     if (!workflow.includes(value)) failures.push(`native package workflow missing ${value}`);
   }
+  if (workflow.includes('"scripts/**"')) failures.push("native package workflow must not run three-platform packaging for every script change");
 }
 if (existsSync(resolve(".github/workflows/verify.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/verify.yml"), "utf8");
@@ -82,7 +83,7 @@ if (existsSync(resolve(".github/workflows/verify.yml"))) {
 }
 if (existsSync(resolve(".github/workflows/preview-release.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/preview-release.yml"), "utf8");
-  for (const value of ["preview-v*.*.*", "Unsigned ${{ matrix.target }}", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "finalize-release-assets.mjs", "--tag=\"$BUBU_PREVIEW_TAG\"", "gh release create", "--prerelease", "contents: write"]) {
+  for (const value of ["preview-v*.*.*", "validate-preview-tag:", "Expected preview-v<SemVer> tag", "Unsigned ${{ matrix.target }}", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "finalize-release-assets.mjs", "--tag=\"$BUBU_PREVIEW_TAG\"", "gh release create", "--prerelease", "contents: write"]) {
     if (!workflow.includes(value)) failures.push(`preview release workflow missing ${value}`);
   }
 }
