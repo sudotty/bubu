@@ -36,7 +36,7 @@
     "build:data-core": "node scripts/build-data-core.mjs",
     "build:data-core:target": "node scripts/build-data-core.mjs",
     "assets:icons": "node scripts/generate-app-icons.mjs",
-    "test:native-paths": "node --test scripts/platform-paths.test.mjs scripts/native-installer-policy.test.mjs scripts/release-artifacts.test.mjs scripts/set-product-version.test.mjs",
+    "test:native-paths": "node --test scripts/platform-paths.test.mjs scripts/native-installer-policy.test.mjs scripts/release-artifacts.test.mjs scripts/set-product-version.test.mjs scripts/validate-preview-tag.test.mjs",
     "test:data-core": "cd services/data-core && go test ./...",
     "lint:data-core": "cd services/data-core && go vet ./...",
     "smoke:data-core": "npm run build:data-core && npm run build -w @bubu/contracts && node scripts/smoke-data-core.mjs",

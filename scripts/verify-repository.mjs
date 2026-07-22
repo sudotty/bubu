@@ -33,6 +33,8 @@ const requiredFiles = [
   "packages/contracts/README.md",
   "scripts/README.md",
   "scripts/set-product-version.mjs",
+  "scripts/validate-preview-tag.mjs",
+  "scripts/validate-preview-tag.test.mjs",
   "CONTRIBUTING.md",
   "SECURITY.md",
   "docs/plans/2026-07-17-bubu-product-platform-design.md",
