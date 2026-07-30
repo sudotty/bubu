@@ -4,11 +4,11 @@ This is the operator contract for macOS and Windows releases. It intentionally s
 
 ## 1. One-time GitHub configuration
 
-The repository-owned GitHub Actions environment `release` has exactly one deployment rule: the `v*` tag pattern. Do not add a branch rule with the same text; GitHub treats branch and tag policies separately. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
+The repository-owned GitHub Actions environment `release` accepts only workflow runs dispatched from protected `main` and requires an explicit owner approval. Release tags select source bytes but never select the privileged workflow definition. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
 
 `npm run verify:github:remote` treats a missing environment or missing tag restriction as a release failure. This public repository has Secret Scanning and Push Protection enabled; local secret verification and the human draft-review checklist remain independent controls. Never bypass unavailable environment protection by moving release secrets to repository scope.
 
-The default branch is protected against deletion and force-pushes, including by administrators. It intentionally does not require the path-filtered native package job as a merge check: that would leave documentation-only pull requests pending forever. `Verify` and native package smoke remain required operational evidence before release work.
+The default branch is protected against deletion and force-pushes, including by administrators. Fast product, PR-title, CodeQL, and the always-present native-package aggregate are required checks. The native aggregate succeeds without running the platform matrix for irrelevant changes and fails unless every applicable native job succeeds.
 
 Configure these environment secrets for both macOS native jobs:
 
@@ -64,11 +64,12 @@ The configurator refuses partial input, malformed certificate/key encodings, non
 
 ### Free public preview
 
-For a zero-cost public preview, push an annotated `preview-v<semver>` tag. The public-repository workflow builds all supported native targets and publishes an unsigned prerelease automatically. It does not require publisher credentials and must never be relabeled as stable:
+For a zero-cost public preview, push an annotated `preview-v<semver>` tag whose version exactly matches the checked-in product version, then dispatch the trusted workflow from `main`. It does not require publisher credentials and must never be relabeled as stable:
 
 ```bash
 git tag -a preview-v0.2.0-rc.1 -m "BuBu preview v0.2.0-rc.1"
 git push origin preview-v0.2.0-rc.1
+gh workflow run preview-release.yml --ref main -f tag=preview-v0.2.0-rc.1
 ```
 
 Use [the prerelease](https://github.com/sudotty/bubu/releases) only for evaluation. macOS Gatekeeper and Windows SmartScreen warnings are expected until the signed release path has real publisher evidence.
@@ -94,10 +95,10 @@ git push origin HEAD
 git push origin v0.2.0
 ```
 
-A matching tag starts `.github/workflows/release.yml`. For a controlled rerun of an existing tag:
+After pushing the tag, dispatch the protected workflow definition from `main`:
 
 ```bash
-gh workflow run release.yml --ref v0.2.0 -f tag=v0.2.0
+gh workflow run release.yml --ref main -f tag=v0.2.0
 gh run list --workflow release.yml --limit 5
 ```
 
@@ -109,11 +110,11 @@ The protected workflow fails closed unless all three stable targets complete:
 
 - macOS arm64 on `macos-15` and macOS x64 on `macos-15-intel`: native Go sidecar, Electron package, Developer ID application signature, App Store Connect notarization, signed/notarized/stapled DMG, ZIP companion, and lifecycle smoke.
 - Windows x64 on `windows-2025`: native Go sidecar, signed packaged executable and PE dependencies, Squirrel package, signed bootstrap installer, installed application signature, and lifecycle smoke.
-- Every target installs, launches synthetic import/task/backup/restore evidence, upgrades from the latest stable release when one exists, and uninstalls. Only the first stable release may record `skipped-no-previous-artifact`; if an older stable release exists but its expected installer is missing, the job fails.
+- Every target installs, launches synthetic import/task/backup/restore evidence, upgrades from the highest stable SemVer below the new version when one exists, and uninstalls. The previous installer is checksum-bound and signature-verified before execution. Only the first stable release may record `skipped-no-previous-artifact`.
 - Aggregation produces deterministic artifact names, per-target smoke JSON, npm and Go CycloneDX SBOMs, `SHA256SUMS`, a release manifest, and build-provenance attestations when the account supports them.
 - The final job creates or refreshes a draft GitHub Release. It refuses to overwrite an already published release.
 
-The unsigned `.github/workflows/package-smoke.yml` matrix runs on pull requests and `main` without any release secret. It proves reproducible native packaging and lifecycle behavior, not publisher identity.
+The unsigned `.github/workflows/package-smoke.yml` matrix runs for packaging-relevant pull-request changes without any release secret. Its aggregate check is always present. It proves reproducible native packaging and lifecycle behavior, not publisher identity.
 
 ## 5. Review the draft before publication
 

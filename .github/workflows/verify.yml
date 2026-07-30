@@ -14,6 +14,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pull-request-policy:
+    name: Pull request policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate squash commit title
+        if: github.event_name == 'pull_request'
+        env:
+          BUBU_PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/ci-policy.mjs --pull-request-title
+      - name: Preserve the policy check on main
+        if: github.event_name != 'pull_request'
+        run: node -e "console.log('Pull-request title policy applies at review time.')"
+
   fast-contract:
     name: Fast product contract
     runs-on: ubuntu-24.04

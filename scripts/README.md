@@ -4,7 +4,7 @@ Root scripts are executable product contracts rather than informal utilities.
 
 - `verify-repository.mjs` checks secrets, ignored artifacts (including local task records), required product files, and manifest alignment.
 - `verify-documentation.mjs` checks the README hierarchy and active/legacy routing.
-- `verify-github.mjs` checks community files, least-privilege CI, the no-automatic-branch policy, and allowlisted immutable Action pins; `verify-github-remote.mjs` checks the corresponding authenticated GitHub repository settings.
+- `verify-github.mjs` semantically parses workflows and checks exact triggers, jobs, permissions, checks, and immutable Actions; `verify-github-remote.mjs` checks the corresponding authenticated repository settings. `npm run github:configure -- --repository=<owner/repository>` produces a dry-run governance plan and applies it only with `--apply`.
 - `npm run verify:actions` runs Actionlint against every workflow.
 - `npm run audit:dependencies` submits the exact installed version sets from `package-lock.json` to npm's supported Bulk Advisory endpoint, strictly parses the response, and fails on every low-or-higher advisory without falling back to the retired Quick Audit endpoint.
 - `npm run verify:go-vulnerabilities` runs the pinned `govulncheck` scanner against the Go data core. It strictly accepts the official zero-vulnerability output and fails for every reachable, imported-package, or module advisory; there is no advisory allowlist.
@@ -12,7 +12,7 @@ Root scripts are executable product contracts rather than informal utilities.
 - `verify-product-experience.mjs` checks conversation-first hierarchy, thread/workflow ownership, Artifact semantics, settings health, keyboard behavior, and compact reflow contracts.
 - `set-product-version.mjs` moves every product workspace and lockfile entry to one reviewed stable SemVer value; `verify-version-contract.mjs` rejects drift.
 - `smoke-*.mjs` exercise built sidecars, the packaged desktop, and native install/upgrade/backup/restore/uninstall lifecycles with synthetic data.
-- `stage-release-assets.mjs`, `finalize-release-assets.mjs`, and `resolve-previous-release.mjs` enforce target names, previous-version upgrade evidence, checksums, SBOM inputs, and deterministic release manifests.
+- `verify-release-ref.mjs`, `stage-release-assets.mjs`, `finalize-release-assets.mjs`, and `resolve-previous-release.mjs` bind releases to protected `main`, successful checks, exact target bytes, strict smoke evidence, the highest lower stable SemVer, native signatures, checksums, reviewed SBOM inputs, and deterministic manifests.
 - `validate-preview-tag.mjs` rejects stable, malformed, and non-canonical SemVer tags before an unsigned preview can consume native runners or publish a prerelease.
 - `release-preflight.mjs` defines the exact macOS and Windows signing-environment requirements, including Azure OIDC subscription data and the supported DLib authentication alternatives; its tests prevent the workflow, runbook, and fail-closed gate from drifting apart.
 - `npm run release:configure-environment -- --repository=<owner/repository>` validates all publisher values without contacting GitHub. An explicit `--apply` writes only to the protected `release` environment, removes release values from the GitHub CLI child environment, passes only the current value over standard input, never prints values, and name-verifies the result. Attestations additionally require `--enable-attestations` when set to `true`.

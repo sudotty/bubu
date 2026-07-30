@@ -20,9 +20,9 @@ Go builds and performance evidence resolve the toolchain from `services/data-cor
 
 ## CI ownership
 
-1. `verify.yml` proves the portable fast contract on Ubuntu and packaged Electron behavior on macOS.
-2. `package-smoke.yml` proves unsigned native installer lifecycles on each stable macOS and Windows target.
-3. `release.yml` runs only for an exact, verified, annotated release tag or an explicit dispatch. It is protected, credentialed, signs artifacts, and creates a draft rather than publishing automatically.
+1. `verify.yml` proves the portable fast contract and squash-title policy; `codeql.yml` proves TypeScript and Go static analysis.
+2. `package-smoke.yml` exposes one required aggregate and runs unsigned native installer lifecycles only when the changed paths affect supported targets.
+3. `release.yml` runs only by explicit dispatch from protected `main` for an exact on-main, verified, annotated release tag. It is owner-approved, credentialed, signs artifacts, and creates a draft rather than publishing automatically.
 
 Do not weaken a lower-cost gate to compensate for a missing higher-cost one. Keep these responsibilities separate so a failure identifies the broken boundary.
 

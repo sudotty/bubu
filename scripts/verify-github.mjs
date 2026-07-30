@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parse } from "yaml";
 
 const required = [
   ".github/CODEOWNERS",
@@ -16,13 +17,41 @@ const required = [
   "CONTRIBUTING.md",
   "SECURITY.md",
 ];
-const workflowPaths = [
-  ".github/workflows/verify.yml",
-  ".github/workflows/package-smoke.yml",
-  ".github/workflows/codeql.yml",
-  ".github/workflows/preview-release.yml",
-  ".github/workflows/release.yml",
-];
+const workflowPolicy = Object.freeze({
+  ".github/workflows/verify.yml": {
+    events: ["pull_request", "push", "workflow_dispatch"],
+    jobs: { "pull-request-policy": undefined, "fast-contract": undefined },
+    requiredText: ["Pull request policy", "Fast product contract", "npm run verify:fast", "ci-policy.mjs --pull-request-title"],
+  },
+  ".github/workflows/package-smoke.yml": {
+    events: ["pull_request", "workflow_dispatch"],
+    jobs: { changes: undefined, "hub-postgresql": undefined, "native-package": undefined, "package-contract": undefined },
+    requiredText: ["Native package contract", "CHANGES_RESULT", "ci-policy.mjs --changed-files", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "installer-smoke.json", "retention-days: 3"],
+  },
+  ".github/workflows/codeql.yml": {
+    events: ["pull_request", "push", "workflow_dispatch"],
+    jobs: { analyze: { contents: "read", "security-events": "write" }, "codeql-contract": undefined },
+    requiredText: ["CodeQL contract", "javascript-typescript", "language: go", "build-mode: autobuild"],
+  },
+  ".github/workflows/preview-release.yml": {
+    events: ["workflow_dispatch"],
+    jobs: { "validate-preview-tag": undefined, package: undefined, publish: { contents: "write" } },
+    requiredText: ["Existing preview-v<semver> tag", "verify-release-ref.mjs", "--channel=preview", "sync-release-assets.mjs", "immutable unsigned prerelease"],
+  },
+  ".github/workflows/release.yml": {
+    events: ["workflow_dispatch"],
+    jobs: {
+      prepare: undefined,
+      macos: undefined,
+      windows: { contents: "read", "id-token": "write" },
+      "assemble-release": { contents: "read" },
+      "attest-release": { contents: "read", "id-token": "write", attestations: "write" },
+      "draft-release": { contents: "write" },
+    },
+    requiredText: ["environment: release", "verify-release-ref.mjs", "--channel=stable", "resolve-previous-release.mjs", "--require-signature", "xcrun notarytool submit", "steps.release-settings.outputs.attestations", "needs.assemble-release.outputs.attestations", "sync-release-assets.mjs", "attest-build-provenance@", "cancel-in-progress: false"],
+    forbiddenText: ['AuthKey_${{ secrets.', 'if [[ -n "${{ steps.', "if ('${{ steps.", 'security delete-keychain "${{', 'rm -f "${{'],
+  },
+});
 const allowedActions = new Map([
   ["actions/checkout", { version: "v7.0.1", sha: "3d3c42e5aac5ba805825da76410c181273ba90b1" }],
   ["actions/setup-node", { version: "v7.0.0", sha: "820762786026740c76f36085b0efc47a31fe5020" }],
@@ -36,105 +65,76 @@ const allowedActions = new Map([
   ["github/codeql-action/analyze", { version: "v4.37.3", sha: "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81" }],
 ]);
 
-const failures = required
-  .filter((path) => !existsSync(resolve(path)))
-  .map((path) => `missing GitHub contract: ${path}`);
-if (existsSync(resolve(".github/dependabot.yml"))) {
-  failures.push(".github/dependabot.yml must remain absent while automatic dependency branches are disabled");
+function normalized(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
 }
 
+function sameObject(left, right) {
+  return JSON.stringify(normalized(left)) === JSON.stringify(normalized(right));
+}
+
+const failures = required.filter((path) => !existsSync(resolve(path))).map((path) => `missing GitHub contract: ${path}`);
+if (existsSync(resolve(".github/dependabot.yml"))) failures.push(".github/dependabot.yml must remain absent while automatic dependency branches are disabled");
 const usedActions = new Set();
-for (const workflowPath of workflowPaths) {
+
+for (const [workflowPath, policy] of Object.entries(workflowPolicy)) {
   if (!existsSync(resolve(workflowPath))) continue;
-  const workflow = readFileSync(resolve(workflowPath), "utf8");
-  if (workflow.includes("pull_request_target:")) failures.push(`${workflowPath} uses forbidden pull_request_target`);
-  if (/^\s*(?:schedule|cron):/mu.test(workflow)) failures.push(`${workflowPath} must not use scheduled triggers`);
-  if (!/^permissions:\n  contents: read$/mu.test(workflow)) failures.push(`${workflowPath} must declare top-level read-only contents permission`);
-
-  for (const line of workflow.split("\n").filter((value) => /^\s*(?:-\s*)?uses:/u.test(value))) {
-    const parsed = line.match(/^\s*(?:-\s*)?uses:\s*([^@\s]+)@([a-f0-9]{40})\s+#\s*(v\S+)\s*$/u);
-    if (!parsed) {
-      failures.push(`${workflowPath} action must use an allowlisted full SHA and version comment: ${line.trim()}`);
+  const source = readFileSync(resolve(workflowPath), "utf8");
+  let workflow;
+  try {
+    workflow = parse(source);
+  } catch (error) {
+    failures.push(`${workflowPath} is not valid YAML: ${error.message}`);
+    continue;
+  }
+  if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
+    failures.push(`${workflowPath} must contain one workflow object`);
+    continue;
+  }
+  const events = Object.keys(workflow.on ?? {}).sort();
+  if (JSON.stringify(events) !== JSON.stringify([...policy.events].sort())) failures.push(`${workflowPath} triggers must be exactly ${policy.events.join(", ")}`);
+  if (!sameObject(workflow.permissions, { contents: "read" })) failures.push(`${workflowPath} must declare only top-level contents: read`);
+  const jobs = workflow.jobs ?? {};
+  if (JSON.stringify(Object.keys(jobs).sort()) !== JSON.stringify(Object.keys(policy.jobs).sort())) failures.push(`${workflowPath} job inventory changed without policy approval`);
+  for (const [jobName, expectedPermissions] of Object.entries(policy.jobs)) {
+    const job = jobs[jobName];
+    if (!job) continue;
+    if (expectedPermissions === undefined && job.permissions !== undefined) failures.push(`${workflowPath} ${jobName} must inherit read-only permissions`);
+    if (expectedPermissions !== undefined && !sameObject(job.permissions, expectedPermissions)) failures.push(`${workflowPath} ${jobName} permissions exceed its exact allowlist`);
+    for (const step of job.steps ?? []) {
+      if (!step.uses) continue;
+      if (typeof step.uses !== "string") {
+        failures.push(`${workflowPath} ${jobName} has a non-string action reference`);
+        continue;
+      }
+      const match = /^([^@\s]+)@([a-f0-9]{40})$/u.exec(step.uses);
+      if (!match) {
+        failures.push(`${workflowPath} action must use an allowlisted full SHA: ${step.uses}`);
+        continue;
+      }
+      const [, action, sha] = match;
+      const expected = allowedActions.get(action);
+      if (!expected || expected.sha !== sha) failures.push(`${workflowPath} uses an unapproved action revision: ${step.uses}`);
+      else usedActions.add(action);
+    }
+  }
+  for (const text of policy.requiredText) if (!source.includes(text)) failures.push(`${workflowPath} is missing contract evidence: ${text}`);
+  for (const text of policy.forbiddenText ?? []) if (source.includes(text)) failures.push(`${workflowPath} embeds a GitHub expression unsafely in shell source: ${text}`);
+  for (const line of source.split("\n").filter((value) => /^\s*(?:-\s*)?uses:/u.test(value))) {
+    const match = /^\s*(?:-\s*)?uses:\s*([^@\s]+)@([a-f0-9]{40})\s+#\s*(v\S+)\s*$/u.exec(line);
+    if (!match) {
+      failures.push(`${workflowPath} action line must retain its reviewed version comment: ${line.trim()}`);
       continue;
     }
-    const [, action, sha, version] = parsed;
-    const expected = allowedActions.get(action);
-    if (!expected) {
-      failures.push(`${workflowPath} uses unapproved action: ${action}`);
-      continue;
-    }
-    usedActions.add(action);
-    if (sha !== expected.sha || version !== expected.version) {
-      failures.push(`${workflowPath} ${action} must use ${expected.sha} # ${expected.version}`);
-    }
-  }
-}
-for (const action of allowedActions.keys()) {
-  if (!usedActions.has(action)) failures.push(`GitHub workflows no longer exercise required action: ${action}`);
-}
-
-if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
-  const workflow = readFileSync(resolve(".github/workflows/package-smoke.yml"), "utf8");
-  for (const value of ["paths:", "apps/desktop/**", "scripts/build-data-core.mjs", "scripts/smoke-native-installer.mjs", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "installer-smoke.json", "retention-days: 3"]) {
-    if (!workflow.includes(value)) failures.push(`native package workflow missing ${value}`);
-  }
-  if (workflow.includes('"scripts/**"')) failures.push("native package workflow must not run three-platform packaging for every script change");
-  if (/^\s*push:/mu.test(workflow)) failures.push("native package workflow must not repeat the pull-request matrix after merge");
-  if (workflow.includes("release-stage")) failures.push("native package workflow must upload only the small lifecycle report");
-}
-if (existsSync(resolve(".github/workflows/codeql.yml"))) {
-  const workflow = readFileSync(resolve(".github/workflows/codeql.yml"), "utf8");
-  for (const value of ["javascript-typescript", "language: go", "build-mode: autobuild", "security-events: write", "github/codeql-action/init@", "github/codeql-action/analyze@"]) {
-    if (!workflow.includes(value)) failures.push(`CodeQL workflow missing ${value}`);
-  }
-}
-if (existsSync(resolve(".github/workflows/verify.yml"))) {
-  const workflow = readFileSync(resolve(".github/workflows/verify.yml"), "utf8");
-  for (const value of ["fast-contract:", "ubuntu-24.04", "npm run verify:fast"]) {
-    if (!workflow.includes(value)) failures.push(`verification workflow missing ${value}`);
-  }
-}
-if (existsSync(resolve(".github/workflows/preview-release.yml"))) {
-  const workflow = readFileSync(resolve(".github/workflows/preview-release.yml"), "utf8");
-  for (const value of ["preview-v*.*.*", "validate-preview-tag:", "validate-preview-tag.mjs", "Unsigned ${{ matrix.target }}", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "finalize-release-assets.mjs", "--tag=\"$BUBU_PREVIEW_TAG\"", "gh release create", "--prerelease", "contents: write"]) {
-    if (!workflow.includes(value)) failures.push(`preview release workflow missing ${value}`);
-  }
-}
-if (existsSync(resolve(".github/workflows/release.yml"))) {
-  const workflow = readFileSync(resolve(".github/workflows/release.yml"), "utf8");
-  for (const value of [
-    "environment: release",
-    "refs/tags/${{ env.BUBU_RELEASE_TAG }}",
-    "git/tags/$tag_sha",
-    ".verification.verified == true",
-    "Azure/artifact-signing-action@",
-    "xcrun notarytool submit",
-    "--require-signature",
-    "PREVIOUS_ARTIFACT:",
-    "SIGNING_KEYCHAIN:",
-    "SIGNING_API_KEY:",
-    "BUBU_AZURE_SUBSCRIPTION_ID:",
-    "npm sbom",
-    "finalize-release-assets.mjs",
-    "attest-build-provenance@",
-    "--draft",
-    "cancel-in-progress: false",
-  ]) {
-    if (!workflow.includes(value)) failures.push(`signed release workflow missing ${value}`);
-  }
-  for (const unsafe of [
-    'AuthKey_${{ secrets.',
-    'if [[ -n "${{ steps.',
-    "if ('${{ steps.",
-    'security delete-keychain "${{',
-    'rm -f "${{',
-  ]) {
-    if (workflow.includes(unsafe)) failures.push(`signed release workflow embeds an expression in shell source: ${unsafe}`);
+    const expected = allowedActions.get(match[1]);
+    if (expected && match[3] !== expected.version) failures.push(`${workflowPath} ${match[1]} version comment must be ${expected.version}`);
   }
 }
 
+for (const action of allowedActions.keys()) if (!usedActions.has(action)) failures.push(`GitHub workflows no longer exercise required action: ${action}`);
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log("GitHub contract verified: manual dependency updates, least-privilege workflows, signed release tags, and allowlisted immutable Actions agree.");
+console.log("GitHub workflow contract verified semantically: exact triggers, jobs, permissions, checks, and immutable Actions agree.");

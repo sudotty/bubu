@@ -106,11 +106,18 @@ export function buildReleaseEnvironmentPlan(environment) {
     const value = environmentValue(environment, name);
     if (value.trim() !== "") writes.push({ kind: "secret", name, value });
   }
-  for (const name of [...releaseVariableNames, ...optionalReleaseVariableNames]) {
+  for (const name of releaseVariableNames) {
     const value = environmentValue(environment, name);
     if (value.trim() !== "") writes.push({ kind: "variable", name, value: value.trim() });
   }
+  const attestations = environmentValue(environment, "BUBU_ENABLE_ARTIFACT_ATTESTATIONS").trim() || "false";
+  writes.push({ kind: "variable", name: "BUBU_ENABLE_ARTIFACT_ATTESTATIONS", value: attestations });
   return { missingNames, validationErrors, writes };
+}
+
+export function repositoryFromRemoteUrl(value) {
+  const match = /^(?:https:\/\/github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)$/u.exec(value?.trim() ?? "");
+  return match?.[1].replace(/\.git$/u, "");
 }
 
 export function validateRepositoryName(value) {
