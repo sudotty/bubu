@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGroupQueryPlanProposal, parseSafeGroupQueryPlan } from "./group-query-plan.js";
+import { parseGroupQueryPlanProposal, parseGroupQueryRequest, parseSafeGroupQueryPlan } from "./group-query-plan.js";
 
 const source = (dataset: string, version: string) => ({ datasetId: dataset.repeat(32), versionId: version.repeat(32) });
 const sources = [source("a", "c"), source("b", "d")];
@@ -37,5 +37,11 @@ describe("safe group query plan", () => {
     }));
     expect(parseGroupQueryPlanProposal({ question: "统计", disclosedContexts, plan })).toMatchObject({ plan });
     expect(() => parseGroupQueryPlanProposal({ question: "统计", disclosedContexts: [...disclosedContexts].reverse(), plan })).toThrow("exactly match");
+  });
+
+  it("accepts only a group-scoped prompt template on a request", () => {
+    const promptTemplate = { schemaVersion: 1, id: "builtin:group-lookup", origin: "builtin", scope: "group-query", name: "安全关联", description: "使用已确认关系", instruction: "无法安全关联时不要猜测。" } as const;
+    expect(parseGroupQueryRequest({ groupId: plan.groupId, question: "关联", promptTemplate })).toMatchObject({ promptTemplate });
+    expect(() => parseGroupQueryRequest({ groupId: plan.groupId, question: "关联", promptTemplate: { ...promptTemplate, id: "builtin:dataset-balanced", scope: "dataset-query" } })).toThrow("group-query");
   });
 });

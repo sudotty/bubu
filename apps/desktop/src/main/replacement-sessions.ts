@@ -9,12 +9,13 @@ interface ReplacementSessionStoreOptions {
 interface PendingReplacement {
   readonly datasetId: string;
   readonly sourcePath: string;
+  readonly arrivalId?: string;
   readonly expiresAt: number;
 }
 
 export interface ReplacementSessionStore {
-  issue(datasetId: string, sourcePath: string): string;
-  consume(token: string): { readonly datasetId: string; readonly sourcePath: string };
+  issue(datasetId: string, sourcePath: string, arrivalId?: string): string;
+  consume(token: string): { readonly datasetId: string; readonly sourcePath: string; readonly arrivalId?: string };
 }
 
 export function createReplacementSessionStore(
@@ -30,7 +31,7 @@ export function createReplacementSessionStore(
   };
 
   return {
-    issue(datasetId, sourcePath) {
+    issue(datasetId, sourcePath, arrivalId) {
       removeExpired();
       while (pending.size >= maximumReplacementSessions) {
         const oldestToken = pending.keys().next().value as string | undefined;
@@ -42,6 +43,7 @@ export function createReplacementSessionStore(
       pending.set(token, {
         datasetId,
         sourcePath,
+        ...(arrivalId ? { arrivalId } : {}),
         expiresAt: options.now() + replacementSessionLifetimeMs,
       });
       return token;
@@ -52,7 +54,7 @@ export function createReplacementSessionStore(
       if (!session || session.expiresAt < options.now()) {
         throw new Error("Replacement session expired or has already been used");
       }
-      return { datasetId: session.datasetId, sourcePath: session.sourcePath };
+      return { datasetId: session.datasetId, sourcePath: session.sourcePath, ...(session.arrivalId ? { arrivalId: session.arrivalId } : {}) };
     },
   };
 }

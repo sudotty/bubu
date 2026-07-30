@@ -12,8 +12,12 @@ const requiredReadmes = [
   "packages/README.md",
   "packages/contracts/README.md",
   "docs/README.md",
+  "docs/history/README.md",
+  "docs/history/plans/README.md",
+  "docs/strategy/README.md",
   "docs/release/README.md",
   "docs/product/conversation-workbench.md",
+  "docs/product/design-qa.md",
   "scripts/README.md",
   ".github/README.md",
 ];
@@ -30,6 +34,8 @@ for (const marker of [
   "docs/assets/product/04-artifact.png",
   "docs/product/ui-ux-guidelines.md",
   "docs/product/conversation-workbench.md",
+  "docs/strategy/README.md",
+  "docs/history/README.md",
   "docs/release/README.md",
   "docs/release/release-runbook.md",
   "apps/desktop/README.md",
@@ -45,12 +51,12 @@ for (const marker of ["Native packaging", "--skip-package", "docs/release/releas
 }
 
 const documentation = readFileSync(resolve("docs/README.md"), "utf8");
-for (const marker of ["release/README.md", "release/release-runbook.md", "release/public-beta-readiness.md"]) {
+for (const marker of ["product/design-qa.md", "strategy/README.md", "history/README.md", "release/README.md", "release/release-runbook.md", "release/public-beta-readiness.md"]) {
   if (!documentation.includes(marker)) failures.push(`documentation index does not route readers to ${marker}`);
 }
 
 const release = readFileSync(resolve("docs/release/release-runbook.md"), "utf8");
-for (const marker of ["BUBU_MAC_CERTIFICATE_P12_BASE64", "BUBU_AZURE_CLIENT_ID", "npm run version:set", "draft GitHub Release", "Automatic in-app updates remain disabled"]) {
+for (const marker of ["BUBU_MAC_CERTIFICATE_P12_BASE64", "BUBU_AZURE_CLIENT_ID", "release:configure-environment", "npm run version:set", "draft GitHub Release", "Automatic in-app updates remain disabled"]) {
   if (!release.includes(marker)) failures.push(`release runbook is missing ${marker}`);
 }
 
@@ -59,13 +65,18 @@ for (const marker of ["package-smoke.yml", "release.yml", "dependabot.yml", "ful
   if (!github.includes(marker)) failures.push(`GitHub README is missing ${marker}`);
 }
 
-const markdownPaths = execFileSync("git", ["ls-files", "*.md"], { encoding: "utf8" })
+const markdownPaths = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "*.md"], { encoding: "utf8" })
   .split("\n")
-  .filter(Boolean);
+  .filter((path) => path && existsSync(resolve(path)));
+const headingOptionalPaths = new Set([".github/pull_request_template.md"]);
 for (const path of markdownPaths) {
+  if (path.startsWith("docs/plans/")) failures.push(`${path} uses the retired active-plan location; move it under docs/history/plans`);
+  if (/^docs\/product\/\d{4}-\d{2}-\d{2}-/u.test(path)) failures.push(`${path} mixes a dated strategy snapshot into current product guidance`);
   const source = readFileSync(resolve(path), "utf8");
   let inFence = false;
   let previousHeadingLevel = 0;
+  let firstHeadingLevel = 0;
+  let h1Count = 0;
   const proseLines = [];
   for (const [index, line] of source.split("\n").entries()) {
     if (/^\s*(?:```|~~~)/u.test(line)) {
@@ -77,10 +88,15 @@ for (const path of markdownPaths) {
     const heading = line.match(/^(#{1,6})\s+\S/u);
     if (!heading) continue;
     const headingLevel = heading[1].length;
+    if (firstHeadingLevel === 0) firstHeadingLevel = headingLevel;
+    if (headingLevel === 1) h1Count += 1;
     if (previousHeadingLevel > 0 && headingLevel > previousHeadingLevel + 1) {
       failures.push(`${path}:${index + 1} skips from H${previousHeadingLevel} to H${headingLevel}`);
     }
     previousHeadingLevel = headingLevel;
+  }
+  if (!headingOptionalPaths.has(path) && (firstHeadingLevel !== 1 || h1Count !== 1)) {
+    failures.push(`${path} must have exactly one H1 and use it as the first heading`);
   }
   for (const link of proseLines.join("\n").matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/gu)) {
     const rawTarget = link[1];

@@ -10,8 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/xuri/excelize/v2"
 )
 
 type sourceTable struct {
@@ -133,14 +131,14 @@ func readCSVHeader(path string, delimiter rune) ([]string, error) {
 }
 
 func openWorkbookSource(path string) (*tabularSource, error) {
-	book, err := excelize.OpenFile(path, excelize.Options{RawCellValue: true})
+	book, err := openXLSXWorkbook(path)
 	if err != nil {
 		return nil, fmt.Errorf("open workbook: %w", err)
 	}
 	baseName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	tables := make([]sourceTable, 0, len(book.GetSheetList()))
-	for _, sheetName := range book.GetSheetList() {
-		header, err := workbookHeader(book, sheetName)
+	tables := make([]sourceTable, 0, len(book.sheets))
+	for _, sheet := range book.sheets {
+		header, err := workbookHeader(book, sheet)
 		if err != nil {
 			book.Close()
 			return nil, err
@@ -148,67 +146,47 @@ func openWorkbookSource(path string) (*tabularSource, error) {
 		if len(header) == 0 {
 			continue
 		}
-		currentSheet := sheetName
+		currentSheet := sheet
 		tables = append(tables, sourceTable{
-			displayName: baseName + " · " + sheetName,
-			sheetName:   sheetName,
+			displayName: baseName + " · " + sheet.name,
+			sheetName:   sheet.name,
 			header:      header,
 			walkRows: func(ctx context.Context, yield func([]string) error) error {
-				rows, err := book.Rows(currentSheet)
-				if err != nil {
-					return fmt.Errorf("open worksheet %q: %w", currentSheet, err)
-				}
-				defer rows.Close()
 				headerSeen := false
 				rowNumber := 0
-				for rows.Next() {
+				return book.walkRows(ctx, currentSheet, func(columns []string) error {
 					rowNumber++
-					if err := ctx.Err(); err != nil {
-						return err
-					}
-					columns, err := rows.Columns(excelize.Options{RawCellValue: true})
-					if err != nil {
-						return fmt.Errorf("read worksheet %q row %d: %w", currentSheet, rowNumber, err)
-					}
 					if !headerSeen {
 						if rowHasValue(columns) {
 							headerSeen = true
 						}
-						continue
+						return nil
 					}
 					if err := yield(columns); err != nil {
-						return fmt.Errorf("import worksheet %q row %d: %w", currentSheet, rowNumber, err)
+						return fmt.Errorf("import worksheet %q row %d: %w", currentSheet.name, rowNumber, err)
 					}
-				}
-				if err := rows.Error(); err != nil {
-					return fmt.Errorf("iterate worksheet %q: %w", currentSheet, err)
-				}
-				return nil
+					return nil
+				})
 			},
 		})
 	}
 	return &tabularSource{kind: "xlsx", name: filepath.Base(path), tables: tables, close: book.Close}, nil
 }
 
-func workbookHeader(book *excelize.File, sheetName string) ([]string, error) {
-	rows, err := book.Rows(sheetName)
-	if err != nil {
-		return nil, fmt.Errorf("open worksheet %q: %w", sheetName, err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		columns, err := rows.Columns(excelize.Options{RawCellValue: true})
-		if err != nil {
-			return nil, fmt.Errorf("read worksheet %q header: %w", sheetName, err)
-		}
+func workbookHeader(book *xlsxWorkbook, sheet xlsxSheet) ([]string, error) {
+	var header []string
+	errStop := errors.New("header found")
+	err := book.walkRows(context.Background(), sheet, func(columns []string) error {
 		if rowHasValue(columns) {
-			return columns, nil
+			header = columns
+			return errStop
 		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, errStop) {
+		return nil, err
 	}
-	if err := rows.Error(); err != nil {
-		return nil, fmt.Errorf("iterate worksheet %q: %w", sheetName, err)
-	}
-	return nil, nil
+	return header, nil
 }
 
 func rowHasValue(row []string) bool {

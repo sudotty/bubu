@@ -9,6 +9,7 @@ import { resolve } from "node:path";
 import { resolveMacSigning, resolveWindowsSigning } from "./release-signing.js";
 
 const dataCoreBinary = process.platform === "win32" ? "bubu-data-core.exe" : "bubu-data-core";
+const mcpDemoBinary = process.platform === "win32" ? "bubu-mcp-demo.exe" : "bubu-mcp-demo";
 const appIcon = resolve("resources", "icons", process.platform === "win32" ? "bubu.ico" : "bubu.icns");
 
 const macSigning = resolveMacSigning();
@@ -35,6 +36,8 @@ const config: ForgeConfig = {
     extraResource: [
       "../../services/ai-runtime/dist",
       `../../services/data-core/bin/${dataCoreBinary}`,
+      `../../services/data-core/bin/${mcpDemoBinary}`,
+      "resources/demo",
     ],
   },
   rebuildConfig: {},

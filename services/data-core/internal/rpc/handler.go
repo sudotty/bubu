@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/sudotty/bubu/services/data-core/internal/data"
@@ -38,51 +37,6 @@ func DecodeRequest(raw []byte) (Request, error) {
 		return Request{}, errors.New("request params must be an object")
 	}
 	return request, nil
-}
-
-func ensureJSONEnd(decoder *json.Decoder) error {
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("request contains multiple JSON values")
-		}
-		return fmt.Errorf("decode trailing data: %w", err)
-	}
-	return nil
-}
-
-type DatasetService interface {
-	ImportFile(ctx context.Context, sourcePath string) (data.ImportResult, error)
-	ImportFiles(ctx context.Context, sourcePaths []string) (data.ImportResult, error)
-	RenameDataset(ctx context.Context, input data.DatasetRenameInput) (data.DatasetSummary, error)
-	ListDatasetVersions(ctx context.Context, datasetID string) ([]data.DatasetVersionSummary, error)
-	ReplaceFile(ctx context.Context, datasetID string, sourcePath string) (data.ReplacementResult, error)
-	ReplaceFileWithMapping(ctx context.Context, datasetID string, sourcePath string, mappings []data.ColumnMapping) (data.ReplacementResult, error)
-	GetQualityReport(ctx context.Context, datasetID string) (data.DatasetQualityReport, error)
-	SaveValidationRules(ctx context.Context, datasetID string, rules []data.ValidationRule) (data.DatasetQualityReport, error)
-	ExportDatasetCSV(ctx context.Context, datasetID string, targetPath string) (data.DatasetExportResult, error)
-	DeleteDataset(ctx context.Context, datasetID string) (data.DatasetDeletionResult, error)
-	CreateBackup(ctx context.Context, targetPath string) (data.DataBackupResult, error)
-	RestoreBackup(ctx context.Context, sourcePath string) (data.DataRestoreResult, error)
-	GetColumnDistribution(ctx context.Context, datasetID string, columnName string) (data.ColumnDistribution, error)
-	ModelContext(ctx context.Context, datasetID string, disclosure data.DisclosureLevel) (data.ModelContextResult, error)
-	ExecuteQueryPlan(ctx context.Context, plan data.SafeQueryPlan) (data.SafeQueryResult, error)
-	ExecuteGroupQueryPlan(ctx context.Context, plan data.SafeGroupQueryPlan) (data.SafeGroupQueryResult, error)
-	SaveGroup(ctx context.Context, groupID string, name string, description string, cadence string, datasetIDs []string) (data.DatasetGroup, error)
-	ListGroups(ctx context.Context) ([]data.DatasetGroup, error)
-	DeleteGroup(ctx context.Context, groupID string) error
-	GetGroupRelationships(ctx context.Context, groupID string) (data.GroupRelationshipOverview, error)
-	SaveRelationship(ctx context.Context, input data.DatasetRelationshipSaveInput) (data.DatasetRelationship, error)
-	DeleteRelationship(ctx context.Context, relationshipID string) error
-	GetConversation(ctx context.Context, target data.ConversationTarget) (*data.ConversationThread, error)
-	GetConversationByID(ctx context.Context, threadID string) (*data.ConversationThread, error)
-	ListConversations(ctx context.Context, target data.ConversationTarget, archived bool) ([]data.ConversationThreadSummary, error)
-	CreateConversation(ctx context.Context, input data.ConversationCreateInput) (*data.ConversationThread, error)
-	RenameConversation(ctx context.Context, input data.ConversationRenameInput) (*data.ConversationThread, error)
-	ArchiveConversation(ctx context.Context, input data.ConversationArchiveInput) error
-	AppendConversationEntry(ctx context.Context, input data.ConversationAppendInput) (*data.ConversationThread, error)
-	ListDatasets(ctx context.Context) ([]data.DatasetSummary, error)
-	Preview(ctx context.Context, datasetID string, limit, offset int) (data.PreviewResult, error)
 }
 
 func Handle(request Request, expectedAuth string) Response {
@@ -159,6 +113,8 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 			return failure(request.ID, "REPLACEMENT_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
+	case "dataset.source.inspect":
+		return handleSourceInspection(ctx, request, datasets)
 	case "dataset.replace.mapped":
 		datasetID, datasetOK := stringParam(request.Params, "datasetId")
 		sourcePath, pathOK := stringParam(request.Params, "sourcePath")
@@ -306,18 +262,29 @@ func HandleWithData(ctx context.Context, request Request, expectedAuth string, d
 			return failure(request.ID, "PREVIEW_FAILED", err.Error(), false)
 		}
 		return success(request.ID, result)
+	case "dataset.structure":
+		datasetID, ok := stringParam(request.Params, "datasetId")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "datasetId is required", false)
+		}
+		result, err := datasets.DatasetStructure(ctx, datasetID)
+		if err != nil {
+			return failure(request.ID, "STRUCTURE_FAILED", err.Error(), false)
+		}
+		return success(request.ID, result)
+	case "dataset.rows.disclosure.preview":
+		selection, ok := objectParam[data.ExplicitRowDisclosureSelection](map[string]any{"selection": request.Params}, "selection")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "params must be a strict explicit row disclosure selection", false)
+		}
+		result, err := datasets.PreviewExplicitRowDisclosure(ctx, selection)
+		if err != nil {
+			return failure(request.ID, "ROW_DISCLOSURE_REJECTED", err.Error(), false)
+		}
+		return success(request.ID, result)
 	}
 
 	return failure(request.ID, "METHOD_NOT_FOUND", "Unknown data-core method", false)
-}
-
-func validGroupCadence(value string) bool {
-	switch value {
-	case "one-off", "daily", "weekly", "monthly", "dataset-version":
-		return true
-	default:
-		return false
-	}
 }
 
 func stringParam(params map[string]any, key string) (string, bool) {

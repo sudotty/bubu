@@ -10,6 +10,7 @@ const required = [
   ".github/ISSUE_TEMPLATE/config.yml",
   ".github/workflows/verify.yml",
   ".github/workflows/package-smoke.yml",
+  ".github/workflows/codeql.yml",
   ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
   "CONTRIBUTING.md",
@@ -18,6 +19,7 @@ const required = [
 const workflowPaths = [
   ".github/workflows/verify.yml",
   ".github/workflows/package-smoke.yml",
+  ".github/workflows/codeql.yml",
   ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
 ];
@@ -30,6 +32,8 @@ const allowedActions = new Map([
   ["actions/attest-build-provenance", { version: "v4.1.1", sha: "0f67c3f4856b2e3261c31976d6725780e5e4c373" }],
   ["Azure/login", { version: "v3.0.0", sha: "532459ea530d8321f2fb9bb10d1e0bcf23869a43" }],
   ["Azure/artifact-signing-action", { version: "v2.0.0", sha: "c7ab2a863ab5f9a846ddb8265964877ef296ee82" }],
+  ["github/codeql-action/init", { version: "v4.37.3", sha: "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81" }],
+  ["github/codeql-action/analyze", { version: "v4.37.3", sha: "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81" }],
 ]);
 
 const failures = required
@@ -44,6 +48,7 @@ for (const workflowPath of workflowPaths) {
   if (!existsSync(resolve(workflowPath))) continue;
   const workflow = readFileSync(resolve(workflowPath), "utf8");
   if (workflow.includes("pull_request_target:")) failures.push(`${workflowPath} uses forbidden pull_request_target`);
+  if (/^\s*(?:schedule|cron):/mu.test(workflow)) failures.push(`${workflowPath} must not use scheduled triggers`);
   if (!/^permissions:\n  contents: read$/mu.test(workflow)) failures.push(`${workflowPath} must declare top-level read-only contents permission`);
 
   for (const line of workflow.split("\n").filter((value) => /^\s*(?:-\s*)?uses:/u.test(value))) {
@@ -70,10 +75,18 @@ for (const action of allowedActions.keys()) {
 
 if (existsSync(resolve(".github/workflows/package-smoke.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/package-smoke.yml"), "utf8");
-  for (const value of ["paths:", "apps/desktop/**", "scripts/build-data-core.mjs", "scripts/smoke-native-installer.mjs", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "retention-days: 7"]) {
+  for (const value of ["paths:", "apps/desktop/**", "scripts/build-data-core.mjs", "scripts/smoke-native-installer.mjs", "macos-15", "macos-15-intel", "windows-2025", "smoke-native-installer.mjs", "installer-smoke.json", "retention-days: 3"]) {
     if (!workflow.includes(value)) failures.push(`native package workflow missing ${value}`);
   }
   if (workflow.includes('"scripts/**"')) failures.push("native package workflow must not run three-platform packaging for every script change");
+  if (/^\s*push:/mu.test(workflow)) failures.push("native package workflow must not repeat the pull-request matrix after merge");
+  if (workflow.includes("release-stage")) failures.push("native package workflow must upload only the small lifecycle report");
+}
+if (existsSync(resolve(".github/workflows/codeql.yml"))) {
+  const workflow = readFileSync(resolve(".github/workflows/codeql.yml"), "utf8");
+  for (const value of ["javascript-typescript", "language: go", "build-mode: autobuild", "security-events: write", "github/codeql-action/init@", "github/codeql-action/analyze@"]) {
+    if (!workflow.includes(value)) failures.push(`CodeQL workflow missing ${value}`);
+  }
 }
 if (existsSync(resolve(".github/workflows/verify.yml"))) {
   const workflow = readFileSync(resolve(".github/workflows/verify.yml"), "utf8");
@@ -100,6 +113,7 @@ if (existsSync(resolve(".github/workflows/release.yml"))) {
     "PREVIOUS_ARTIFACT:",
     "SIGNING_KEYCHAIN:",
     "SIGNING_API_KEY:",
+    "BUBU_AZURE_SUBSCRIPTION_ID:",
     "npm sbom",
     "finalize-release-assets.mjs",
     "attest-build-provenance@",

@@ -8,6 +8,7 @@ import type {
 } from "../shared/product-api.js";
 import { PrivacyLedgerPanel } from "./PrivacyLedgerPanel.js";
 import { createOperationId } from "./operation.js";
+import { providerPresets, type ProviderPreset } from "@bubu/product-core";
 
 const providerLabels: Readonly<Record<ProviderKind, string>> = {
   openai: "OpenAI",
@@ -101,11 +102,22 @@ export function ProviderSettings() {
       ...current,
       kind,
       name: current.id === undefined ? providerLabels[kind] : current.name,
-      baseUrl: providerBaseUrls[kind],
+      baseUrl: current.baseUrl === providerBaseUrls[current.kind] || current.baseUrl.trim() === "" ? providerBaseUrls[kind] : current.baseUrl,
     }));
   }
 
-  async function saveProvider(): Promise<void> {
+  function applyPreset(preset: ProviderPreset): void {
+    setDraft((current) => ({
+      ...current,
+      name: preset.name,
+      kind: preset.kind,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+    }));
+    setNotice(`${preset.name} 已填入；请确认模型 ID、服务地址和密钥后再保存。`);
+  }
+
+  async function saveProvider(testAfterSave = false): Promise<void> {
     setBusy("save");
     setNotice(undefined);
     try {
@@ -117,7 +129,8 @@ export function ProviderSettings() {
           : profile.id === draft.id,
       );
       if (saved) setDraft(draftFrom(saved));
-      setNotice("模型配置已保存；密钥只写入操作系统加密存储。 ");
+      if (testAfterSave && saved) await testProvider(saved.profile.id);
+      else setNotice("模型配置已保存；密钥只写入操作系统加密存储。 ");
     } catch (error) {
       setNotice(errorMessage(error));
     } finally {
@@ -182,9 +195,9 @@ export function ProviderSettings() {
             <p className="hero-kicker">模型配置</p>
             <h3>模型提供商</h3>
           </div>
-          <button type="button" className="secondary-action" onClick={() => setDraft(newProviderDraft)}>
+          {(registry?.providers.length ?? 0) > 0 && <button type="button" className="secondary-action" onClick={() => setDraft(newProviderDraft)}>
             新增
-          </button>
+          </button>}
         </header>
         {!registry && <p className="empty-copy">正在读取本地模型配置…</p>}
         {registry?.providers.length === 0 && (
@@ -230,6 +243,21 @@ export function ProviderSettings() {
           </div>
         )}
         {notice && <div className="notice" role="status">{notice}</div>}
+        <section className="provider-presets" aria-labelledby="provider-presets-title">
+          <div>
+            <strong id="provider-presets-title">常用起点</strong>
+            <small>预设只填写可见字段，不会保存密钥或发起请求</small>
+          </div>
+          <div className="provider-preset-grid">
+            {providerPresets.map((preset) => (
+              <button type="button" key={preset.id} onClick={() => applyPreset(preset)} aria-pressed={draft.kind === preset.kind && draft.baseUrl === preset.baseUrl && draft.model === preset.model}>
+                <span><strong>{preset.name}</strong><small>{preset.summary}</small></span>
+                <em>{preset.transportLabel}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+        <p className="provider-test-guidance">“测试”会向所选服务发送一条固定的最小请求，不包含数据对象内容；云服务可能按提供商规则计费，结果会写入本地隐私账本。</p>
         <label>
           <span>显示名称</span>
           <input value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} required maxLength={100} />
@@ -241,7 +269,7 @@ export function ProviderSettings() {
           </select>
         </label>
         <label>
-          <span>Base URL</span>
+          <span>服务地址（Base URL）</span>
           <input type="url" value={draft.baseUrl} onChange={(event) => updateDraft({ baseUrl: event.target.value })} required />
         </label>
         <label>
@@ -252,9 +280,10 @@ export function ProviderSettings() {
           <span>API 密钥{draft.id === undefined ? "" : "（留空即保留现有密钥）"}</span>
           <input type="password" value={draft.credential} onChange={(event) => updateDraft({ credential: event.target.value })} autoComplete="new-password" placeholder={draft.kind === "ollama" ? "本机 Ollama 通常无需密钥" : "只写入，不会显示或回传"} />
         </label>
-        <button type="submit" className="primary-action" disabled={busy !== undefined}>
-          {busy === "save" ? "正在安全保存…" : "安全保存配置"}
-        </button>
+        <div className="provider-form-actions">
+          <button type="submit" className="primary-action" disabled={busy !== undefined} aria-busy={busy === "save"}>{busy === "save" ? "正在安全保存…" : "安全保存配置"}</button>
+          <button type="button" className="secondary-action" disabled={busy !== undefined} onClick={() => void saveProvider(true)}>保存并测试连接</button>
+        </div>
       </form>
       <PrivacyLedgerPanel refreshKey={ledgerRevision} />
     </div>

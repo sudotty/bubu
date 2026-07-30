@@ -134,7 +134,7 @@ export function DatasetQualityPanel({
       const report = await window.bubu.datasets.saveValidation({ datasetId, rules: [...rules] });
       setState({ kind: "loaded", report });
       setRules(report.rules);
-      setNotice("规则已保存在数据联系人上，并完成当前版本校验");
+      setNotice("规则已保存在数据对象上，并完成当前版本校验");
     } catch (error) {
       setNotice(messageFrom(error));
     } finally {

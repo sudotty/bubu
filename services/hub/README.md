@@ -1,0 +1,7 @@
+# BuBu Hub
+
+The Hub is optional. It stores tenant membership, hashed device credentials, immutable encrypted product-object versions, explicit conflicts, and an Ed25519-signed audit chain. It never stores local raw rows, provider/MCP credentials, local paths, or plaintext synchronized objects. The desktop remains fully functional when this service is absent.
+
+Production exposure requires TLS via `BUBU_HUB_TLS_CERT` and `BUBU_HUB_TLS_KEY` or a trusted TLS-terminating deployment boundary. Without TLS the CLI refuses non-loopback binding. The default persistence is a private single-writer JSON journal. Set `BUBU_HUB_DATABASE_URL` to use the optional PostgreSQL JSONB adapter with serializable transactions and a locked singleton authority row; non-loopback database hosts must select `sslmode=require`, `verify-ca`, or `verify-full`. To migrate an existing private file into an empty PostgreSQL store, set both `BUBU_HUB_STATE_PATH` and `BUBU_HUB_DATABASE_URL`, then run `npm run migrate:postgres -w @bubu/hub`; it refuses to overwrite an initialized row.
+
+Both adapters enforce the same runtime ceilings: 100 tenants, plus 100 members, 500 devices, 500 object versions, 500 operation outcomes and 500 signed audit events per tenant. PostgreSQL adds durable multi-process writer serialization and operational backup tooling, but the singleton authority row remains deliberately bounded; normalized relational storage and horizontal write scale remain later evidence-gated work.

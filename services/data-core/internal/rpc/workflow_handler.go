@@ -14,6 +14,8 @@ type workflowService interface {
 	ListWorkflowRuns(context.Context, string) ([]data.WorkflowRun, error)
 	ClaimDueWorkflowTriggers(context.Context, string) ([]data.WorkflowTriggerEvent, error)
 	FinishWorkflowTrigger(context.Context, data.WorkflowTriggerFinishInput) (data.WorkflowTriggerEvent, error)
+	ListWorkflowApprovals(context.Context) ([]data.WorkflowApprovalRequest, error)
+	DecideWorkflowApproval(context.Context, data.WorkflowApprovalDecisionInput) (data.WorkflowRun, error)
 }
 
 func handleWorkflow(
@@ -98,6 +100,22 @@ func handleWorkflow(
 		result, err := workflows.FinishWorkflowTrigger(ctx, input)
 		if err != nil {
 			return failure(request.ID, "WORKFLOW_TRIGGER_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
+	case "workflow.approvals.list":
+		result, err := workflows.ListWorkflowApprovals(ctx)
+		if err != nil {
+			return failure(request.ID, "WORKFLOW_APPROVAL_ACCESS_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
+	case "workflow.approvals.decide":
+		input, ok := objectParam[data.WorkflowApprovalDecisionInput](request.Params, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "workflow approval decision is invalid", false), true
+		}
+		result, err := workflows.DecideWorkflowApproval(ctx, input)
+		if err != nil {
+			return failure(request.ID, "WORKFLOW_APPROVAL_FAILED", err.Error(), false), true
 		}
 		return success(request.ID, result), true
 	default:

@@ -21,7 +21,7 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 		strings.TrimSpace(input.Model) == "" || len(input.Model) > 200 {
 		return errors.New("model audit provider metadata is invalid")
 	}
-	if !validEndpointOrigin(input.EndpointOrigin) || !validSHA256(input.PayloadSHA256) || input.ContainsRawRows {
+	if !validEndpointOrigin(input.EndpointOrigin) || !validSHA256(input.PayloadSHA256) {
 		return errors.New("model audit disclosure boundary is invalid")
 	}
 	if input.PayloadBytes < 1 || input.PayloadBytes > maximumModelPayloadBytes ||
@@ -32,13 +32,15 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 	if input.DatasetCount < 0 || input.DatasetCount > 8 || input.ColumnCount < 0 || input.ColumnCount > 2_048 ||
 		input.SyntheticRowCount < 0 || input.SyntheticRowCount > 40 ||
 		input.AggregateRowCount < 0 || input.AggregateRowCount > 50 ||
+		input.RawRowCount < 0 || input.RawRowCount > 20 ||
+		input.RetrievedChunkCount < 0 || input.RetrievedChunkCount > 12 ||
 		input.RelationshipCount < 0 || input.RelationshipCount > 500 {
 		return errors.New("model audit context counts are invalid")
 	}
 	if input.Target.Kind == "system" {
 		if input.Target.ID != "" || input.Purpose != "provider-connection-test" || input.Disclosure != "none" ||
 			input.DatasetCount != 0 || input.ColumnCount != 0 || input.SyntheticRowCount != 0 ||
-			input.AggregateRowCount != 0 || input.RelationshipCount != 0 {
+			input.AggregateRowCount != 0 || input.RawRowCount != 0 || input.RetrievedChunkCount != 0 || input.RelationshipCount != 0 || input.ContainsRawRows {
 			return errors.New("system model audit cannot disclose dataset context")
 		}
 		return nil
@@ -46,15 +48,47 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 	if !objectID.MatchString(input.Target.ID) {
 		return errors.New("model audit target identity is invalid")
 	}
+	if input.Purpose == "knowledge-answer" {
+		if input.Target.Kind != "knowledge-source" || input.Disclosure != "retrieved-chunks" || input.DatasetCount != 0 ||
+			input.ColumnCount != 0 || input.SyntheticRowCount != 0 || input.AggregateRowCount != 0 || input.RawRowCount != 0 ||
+			input.RetrievedChunkCount < 1 || input.RelationshipCount != 0 || input.ContainsRawRows {
+			return errors.New("model audit local knowledge scope is inconsistent")
+		}
+		return nil
+	}
+	if input.Purpose == "mcp-prompt-response" || input.Purpose == "mcp-tool-proposal" {
+		expectedDisclosure := "mcp-prompt-content"
+		if input.Purpose == "mcp-tool-proposal" {
+			expectedDisclosure = "mcp-tool-schemas"
+		}
+		if input.Target.Kind != "mcp-connection" || input.Disclosure != expectedDisclosure || input.DatasetCount != 0 || input.ColumnCount != 0 || input.SyntheticRowCount != 0 || input.AggregateRowCount != 0 || input.RawRowCount != 0 || input.RetrievedChunkCount != 0 || input.RelationshipCount != 0 || input.ContainsRawRows {
+			return errors.New("model audit MCP scope is inconsistent")
+		}
+		return nil
+	}
+	if input.Target.Kind == "mcp-connection" || input.Disclosure == "mcp-prompt-content" || input.Disclosure == "mcp-tool-schemas" {
+		return errors.New("MCP model authority cannot be reused by another purpose")
+	}
+	if input.Target.Kind == "knowledge-source" || input.Disclosure == "retrieved-chunks" || input.RetrievedChunkCount != 0 {
+		return errors.New("retrieved knowledge authority cannot be reused by another model purpose")
+	}
 	validDatasetCount := input.DatasetCount == 1
 	if input.Target.Kind == "group" {
 		validDatasetCount = input.DatasetCount >= 2
 	} else if input.Target.Kind != "dataset" {
 		return errors.New("model audit target kind is invalid")
 	}
+	if input.Purpose == "explicit-row-explanation" {
+		if input.Target.Kind != "dataset" || input.Disclosure != "explicit-rows" || input.DatasetCount != 1 ||
+			input.ColumnCount < 1 || input.ColumnCount > 16 || input.SyntheticRowCount != 0 ||
+			input.AggregateRowCount != 0 || input.RawRowCount < 1 || input.RetrievedChunkCount != 0 || input.RelationshipCount != 0 || !input.ContainsRawRows {
+			return errors.New("model audit explicit raw-row scope is inconsistent")
+		}
+		return nil
+	}
 	if input.Purpose == "aggregate-explanation" || input.Purpose == "aggregate-agent" {
 		if input.Disclosure != "aggregates" || !validDatasetCount || input.ColumnCount < 2 ||
-			input.SyntheticRowCount != 0 || input.AggregateRowCount < 1 || input.RelationshipCount != 0 {
+			input.SyntheticRowCount != 0 || input.AggregateRowCount < 1 || input.RawRowCount != 0 || input.RetrievedChunkCount != 0 || input.RelationshipCount != 0 || input.ContainsRawRows {
 			return errors.New("model audit aggregate scope is inconsistent")
 		}
 		return nil
@@ -63,7 +97,7 @@ func validateModelAuditStart(input ModelAuditStartInput) error {
 	if input.Target.Kind == "group" {
 		expectedPurpose = "group-query-plan"
 	}
-	if input.Purpose != expectedPurpose || !validDatasetCount || input.ColumnCount < 1 || input.AggregateRowCount != 0 {
+	if input.Purpose != expectedPurpose || !validDatasetCount || input.ColumnCount < 1 || input.AggregateRowCount != 0 || input.RawRowCount != 0 || input.ContainsRawRows {
 		return errors.New("model audit data scope is inconsistent")
 	}
 	expectedSyntheticRows := 0

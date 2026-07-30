@@ -1,6 +1,6 @@
 # Local data quality and validation
 
-BuBu turns baseline import profiles into a local quality report for every dataset contact. The report is always tied to the contact's current immutable `versionId`, so replacing a recurring file automatically reruns the same stable business rules against the new version.
+BuBu turns baseline import profiles into a local quality report for every data object. The report is always tied to the object's current immutable `versionId`, so replacing a recurring file automatically reruns the same stable business rules against the new version.
 
 ## What the report contains
 
@@ -34,4 +34,4 @@ Saving replaces the contact's complete ordered rule set transactionally. The Go 
 
 ## Version behavior
 
-Rules belong to the stable dataset contact, not one imported file. A replacement that preserves or explicitly maps the logical schema automatically evaluates the rules on the new current version. If a mapped replacement drops the logical column contract, the replacement itself is rejected before validation can run.
+Rules belong to the stable data object, not one imported file. A replacement that preserves or explicitly maps the logical schema automatically evaluates the rules on the new current version. If a mapped replacement drops the logical column contract, the replacement itself is rejected before validation can run.

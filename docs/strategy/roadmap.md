@@ -1,10 +1,8 @@
 # BuBu Product and Platform Roadmap
 
-Status: **Strategic roadmap**
+Status: **Strategic proposal; non-authoritative**
 
-Baseline branch: `codex/bubu-productization`
-
-Baseline commit when this roadmap was written: `6d05e0ee76fb986acaf161de7f45f66e58d9e356`
+Snapshot basis: commit `6d05e0ee76fb986acaf161de7f45f66e58d9e356` from a retired delivery branch. The active repository branch is `main`; the snapshot reference is provenance, not a branch requirement.
 
 This document defines product direction, sequencing, commercial hypotheses, architectural destinations, and delivery gates. It does **not** declare a capability shipped. `PRODUCT_MANIFEST.yaml`, runtime behavior, tests, verifiers, release evidence, and current product documentation remain the authorities for what works now.
 
@@ -91,10 +89,10 @@ The baseline is stronger in control than in user-value breadth:
 | Conversation and Artifact | Medium-high | Keep, but make task entry more concrete |
 | Workflow durability | Medium | Expand node types and completion verification |
 | Query analysis | Medium | Extend analytical functions only after transformations |
-| Data transformation | Low | Highest-priority product gap |
+| Data transformation | Medium-low | Query-result materialization and lineage are implemented; expand the typed grammar next |
 | Reconciliation | Low | Highest-value vertical wedge |
 | Reports and delivery | Low-medium | Required to complete user jobs |
-| Local semantic layer and RAG | Planned | Build after transformations and lineage |
+| Local semantic layer and RAG | Implemented lexical base | Versioned documents, SQLite FTS, exact citations and approved model disclosure are live; embeddings remain future work |
 | External agent runtime | Early | Build after core local jobs are strong |
 | Team and enterprise control | Planned | Defer until individual retention is proven |
 
@@ -904,6 +902,8 @@ Memory must be:
 - never inferred into permanent truth without confirmation.
 
 ### 27. Local RAG
+
+The bounded lexical base is implemented: versioned TXT, Markdown and text-layer PDF sources, SQLite FTS, exact line citations, deletion/rebuild, backup validation, local-only search, and one-use model disclosure. The remaining ideas below are future extensions, not current behavior.
 
 Local RAG should initially index metadata and durable knowledge, not raw rows by default:
 

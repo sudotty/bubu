@@ -1,5 +1,8 @@
 # Packages
 
-Packages contain reusable code with no host ownership. The current package is [contracts](contracts/README.md).
+Packages contain reusable code with no host ownership.
 
-`packages/product-core` is an intended home for pure product state and policy calculations, but it is not implemented yet. Extract code there only when a real cross-host pure domain boundary exists; do not create a decorative package.
+- [contracts](contracts/README.md) owns strict process-boundary schemas and parsers.
+- [product-core](product-core/README.md) owns pure, host-independent product policy shared by the renderer and Electron main.
+
+Neither package may own files, credentials, databases, providers, sidecars, OS operations, or IPC.

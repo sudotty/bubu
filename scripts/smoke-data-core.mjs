@@ -33,6 +33,9 @@ import {
   parseModelAuditEvents,
   parseWorkflowTriggerEvents,
   parseWorkflowTriggerEvent,
+  parseDerivedDatasetMaterializationResult,
+  parseDerivedDatasetLineage,
+  parseDataCleanReviewPreview,
 } from "../packages/contracts/dist/index.js";
 import { dataCoreBinaryPath } from "./platform-paths.mjs";
 
@@ -73,6 +76,10 @@ const child = spawn(executable, [], {
   env: { ...process.env, BUBU_RPC_TOKEN: auth, BUBU_DATA_DIR: dataDirectory },
   stdio: ["pipe", "pipe", "pipe"],
 });
+let childTerminalError;
+const childExit = new Promise((resolveExit) => {
+  child.once("exit", (code, signal) => resolveExit({ code, signal }));
+});
 child.stderr.setEncoding("utf8");
 child.stderr.on("data", (chunk) => {
   stderr += chunk;
@@ -80,13 +87,26 @@ child.stderr.on("data", (chunk) => {
 
 const lines = createInterface({ input: child.stdout });
 const pending = new Map();
+function rejectPending(error) {
+  childTerminalError = error;
+  for (const { reject } of pending.values()) reject(error);
+  pending.clear();
+}
+child.once("error", (error) => rejectPending(new Error(`Unable to start data core: ${error.message}`)));
+child.once("exit", (code, signal) => {
+  const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
+  const exitError = new Error(`Data core exited (${code ?? signal})${detail}`);
+  childTerminalError = exitError;
+  if (pending.size > 0) {
+    rejectPending(new Error(`Data core exited while an RPC was pending (${code ?? signal})${detail}`));
+  }
+});
 lines.on("line", (line) => {
   let response;
   try {
     response = parseRpcResponse(JSON.parse(line));
   } catch (error) {
-    for (const { reject } of pending.values()) reject(error);
-    pending.clear();
+    rejectPending(error);
     return;
   }
   const request = pending.get(response.id);
@@ -97,13 +117,18 @@ lines.on("line", (line) => {
 });
 
 let sequence = 0;
-function request(method, params) {
+function request(method, params, timeoutMilliseconds = 10_000) {
   const id = `smoke-${++sequence}`;
   return new Promise((resolveRequest, rejectRequest) => {
+    if (childTerminalError) {
+      rejectRequest(childTerminalError);
+      return;
+    }
     const timeout = setTimeout(() => {
       pending.delete(id);
-      rejectRequest(new Error(`Timed out waiting for ${method}`));
-    }, 10_000);
+      const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
+      rejectRequest(new Error(`Timed out after ${timeoutMilliseconds} ms waiting for ${method}${detail}`));
+    }, timeoutMilliseconds);
     pending.set(id, {
       resolve: (value) => {
         clearTimeout(timeout);
@@ -119,7 +144,7 @@ function request(method, params) {
 }
 
 try {
-  await request("system.health", {});
+  await request("system.health", {}, 30_000);
   const importedRaw = await request("dataset.import.batch", { sourcePaths: [sourcePath] });
   const imported = parseDatasetImportResult(importedRaw);
   if (JSON.stringify(importedRaw).includes(sourcePath)) {
@@ -327,9 +352,7 @@ try {
   if (savedRelationship.status !== "ready" || relationshipOverview.relationships.length !== 1) {
     throw new Error("Reusable dataset relationship was not persisted as ready");
   }
-  const groupQueryResult = parseSafeGroupQueryResult(
-    await request("dataset.group.query.execute", {
-      plan: {
+  const groupPlan = {
         schemaVersion: 1,
         groupId: group.id,
         purpose: "Look up regional targets",
@@ -349,8 +372,9 @@ try {
         filters: [],
         sort: [{ outputIndex: 2, direction: "descending" }],
         limit: 10,
-      },
-    }),
+  };
+  const groupQueryResult = parseSafeGroupQueryResult(
+    await request("dataset.group.query.execute", { plan: groupPlan }),
   );
   if (
     groupQueryResult.rows[0]?.[0] !== "West" ||
@@ -358,6 +382,20 @@ try {
     groupQueryResult.rows[0]?.[2] !== 512
   ) {
     throw new Error(`Safe group query returned an unexpected result: ${JSON.stringify(groupQueryResult.rows)}`);
+  }
+  const derived = parseDerivedDatasetMaterializationResult(
+    await request("dataset.derived.materialize", {
+      input: {
+        displayName: "Synthetic regional result",
+        transformation: { kind: "group-query", groupPlan },
+      },
+    }),
+  );
+  const initialLineage = parseDerivedDatasetLineage(
+    await request("dataset.derived.lineage", { datasetId: derived.dataset.id }),
+  );
+  if (derived.dataset.sourceKind !== "derived" || derived.dataset.rowCount !== groupQueryResult.rows.length || initialLineage.parents.length !== 2) {
+    throw new Error("Group query did not materialize a traceable derived object");
   }
 
   const mappedReplacement = parseDatasetReplacementResult(
@@ -400,6 +438,67 @@ try {
   ) {
     throw new Error("Local validation rules did not persist and run on the current version");
   }
+  const cleanPlan = {
+    schemaVersion: 1,
+    purpose: "Normalize the current recurring order version",
+    sources: [{ datasetId: dataset.id, versionId: mappedReplacement.dataset.versionId }],
+    operations: [
+      { kind: "select", columns: ["Region", "Amount"] },
+      { kind: "replace", column: "Region", match: "East", replacement: "Other", mode: "exact" },
+      { kind: "cast", column: "Amount", to: "real", onInvalid: "reject" },
+      { kind: "derive", name: "Batch", expression: { kind: "literal", value: "smoke" } },
+      { kind: "filter", predicate: { column: "Amount", operator: "greater-than", value: 0 } },
+      { kind: "deduplicate", keys: ["Region"], keep: "last" },
+      { kind: "rename", column: "Region", name: "Area" },
+    ],
+  };
+	const qualityPolicy = { schemaVersion: 1, rules: [{ id: "output-has-rows", severity: "blocking", kind: "row-count", minimum: 1 }, { id: "area-complete", severity: "warning", kind: "non-null", column: "Area", minimumRatio: 1 }] };
+  const reviewedClean = parseDataCleanReviewPreview(await request("dataset.clean.preview", { plan: cleanPlan, qualityPolicy }));
+  const cleaned = parseDerivedDatasetMaterializationResult(
+    await request("dataset.derived.materialize", {
+      input: {
+        displayName: "Synthetic cleaned orders",
+        transformation: {
+          kind: "data-clean",
+          cleanPlan,
+        },
+		qualityPolicy,
+        review: { kind: "one-use-approval", planFingerprint: reviewedClean.impact.planFingerprint, qualityPolicyFingerprint: reviewedClean.quality.policyFingerprint, reviewedAt: new Date().toISOString() },
+      },
+    }),
+  );
+  const cleanLineage = parseDerivedDatasetLineage(
+    await request("dataset.derived.lineage", { datasetId: cleaned.dataset.id }),
+  );
+  const cleanPreview = parseDatasetPreview(
+    await request("dataset.preview", { datasetId: cleaned.dataset.id, limit: 50, offset: 0 }),
+  );
+  if (
+    cleanLineage.transformationKind !== "data-clean" ||
+    cleanLineage.parents[0]?.versionId !== mappedReplacement.dataset.versionId ||
+    cleanLineage.executionEvidence.reviewKind !== "one-use-approval" ||
+	cleanLineage.executionEvidence.qualityGateStatus !== "passed" ||
+	cleanLineage.executionEvidence.quality?.results.length !== qualityPolicy.rules.length ||
+    cleanLineage.executionEvidence.cleanImpact?.operations.length !== cleanPlan.operations.length ||
+    cleanPreview.columns.map(({ name }) => name).join(",") !== "Area,Amount,Batch"
+  ) {
+    throw new Error("Typed data-clean RPC did not preserve its output schema and immutable source lineage");
+  }
+  parseDatasetDeletionResult(await request("dataset.delete", { datasetId: cleaned.dataset.id }));
+  const recomputedDerived = parseDerivedDatasetMaterializationResult(
+    await request("dataset.derived.recompute", { datasetId: derived.dataset.id }),
+  );
+  const derivedPreview = parseDatasetPreview(
+    await request("dataset.preview", { datasetId: derived.dataset.id, limit: 50, offset: 0 }),
+  );
+  if (
+    recomputedDerived.dataset.version !== 2 ||
+    recomputedDerived.lineage.parents[0]?.versionId !== mappedReplacement.dataset.versionId ||
+    derivedPreview.versionId !== recomputedDerived.dataset.versionId
+  ) {
+    throw new Error("Derived recompute did not create a new version from current parents");
+  }
+  parseDatasetDeletionResult(await request("dataset.delete", { datasetId: derived.dataset.id }));
 
   const workflow = parseWorkflowDefinition(
     await request("workflow.save", {
@@ -694,11 +793,8 @@ try {
   }
 
   child.stdin.end();
-  const exitCode = await new Promise((resolveExit, rejectExit) => {
-    child.once("error", rejectExit);
-    child.once("exit", resolveExit);
-  });
-  if (exitCode !== 0) throw new Error(`Data core exited ${exitCode}: ${stderr.trim()}`);
+  const { code: exitCode, signal: exitSignal } = await childExit;
+  if (exitCode !== 0) throw new Error(`Data core exited ${exitCode ?? exitSignal}: ${stderr.trim()}`);
 
   const databasePath = resolve(dataDirectory, "bubu.db");
   const database = await stat(databasePath);
@@ -712,7 +808,7 @@ try {
     }
   }
 
-  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-agent disclosure/usage audit, persisted explanation and agent insights, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
+  console.log("Data-core smoke passed: import, preview, local distributions, immutable and mapped replacement, local quality/validation, reusable relationships, approval-bound typed data-clean execution with versioned impact evidence, versioned derived-object lineage/recompute, safe export/deletion, verified backup/restore, schema/synthetic and aggregate-agent disclosure/usage audit, persisted explanation and agent insights, version-triggered idempotent workflows with atomic chat delivery, drift, groups, local conversation, safe single/group queries, and path privacy.");
 } finally {
   if (child.exitCode === null) child.kill();
   await rm(root, { recursive: true, force: true });

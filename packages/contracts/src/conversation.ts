@@ -4,6 +4,7 @@ import { aggregateAgentRunSchema } from "./aggregate-agent.js";
 import { dataTargetSchema } from "./data-target.js";
 import { groupQueryPlanProposalSchema, safeGroupQueryPlanSchema, safeGroupQueryResultSchema } from "./group-query-plan.js";
 import { queryPlanProposalSchema, safeQueryPlanSchema, safeQueryResultSchema } from "./query-plan.js";
+import { datasetIdSchema } from "./dataset.js";
 
 export const conversationIdSchema = z.string().regex(/^[0-9a-f]{32}$/u);
 
@@ -59,6 +60,18 @@ const insightEntryInputSchema = z.object({
   payload: z.union([
     z.object({ explanation: aggregateExplanationSchema }).strict(),
     z.object({ agentRun: aggregateAgentRunSchema }).strict(),
+    z.object({
+      automation: z.object({
+        eventId: datasetIdSchema,
+        targetDatasetId: datasetIdSchema,
+        targetDisplayName: z.string().min(1).max(100),
+        sourceVersionId: datasetIdSchema,
+        resultVersionId: datasetIdSchema.nullable(),
+        status: z.enum(["succeeded", "paused", "failed", "cancelled"]),
+        reasonKind: z.enum(["schema-drift", "quality-block", "stale-source", "execution-error", "cancelled"]).nullable(),
+        message: z.string().min(1).max(2_000),
+      }).strict(),
+    }).strict(),
   ]),
 }).strict();
 
@@ -102,6 +115,19 @@ export const conversationThreadSchema = z.object({
 
 export const conversationThreadSummarySchema = conversationThreadSchema.omit({ entries: true });
 
+export const conversationEntryPageRequestSchema = z.object({
+  threadId: conversationIdSchema,
+  beforeOrdinal: z.number().int().positive(),
+  limit: z.number().int().min(20).max(100).default(100),
+}).strict();
+
+export const conversationEntryPageSchema = z.object({
+  threadId: conversationIdSchema,
+  entries: z.array(conversationEntrySchema).max(100),
+  nextBeforeOrdinal: z.number().int().positive().nullable(),
+  totalEntries: z.number().int().nonnegative().max(10_000),
+}).strict();
+
 export const conversationCreateInputSchema = z.object({
   target: conversationTargetSchema,
   title: z.string().trim().min(1).max(100).optional(),
@@ -115,6 +141,33 @@ export const conversationRenameInputSchema = z.object({
 export const conversationArchiveInputSchema = z.object({
   threadId: conversationIdSchema,
   archived: z.boolean(),
+}).strict();
+
+export const conversationDeleteInputSchema = z.object({
+  threadId: conversationIdSchema,
+  expectedTitle: z.string().trim().min(1).max(100),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+}).strict();
+
+export const conversationRetentionPolicySchema = z.object({
+  schemaVersion: z.literal(1),
+  enabled: z.boolean(),
+  retentionDays: z.number().int().min(30).max(3_650),
+}).strict();
+
+export const conversationDeletionResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  threadId: conversationIdSchema,
+  deletedEntryCount: z.number().int().nonnegative().max(10_000),
+  reason: z.enum(["manual", "retention"]),
+  deletedAt: z.string().datetime({ offset: true }),
+}).strict();
+
+export const conversationRetentionResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  deletedThreadCount: z.number().int().nonnegative().max(10_000),
+  deletedEntryCount: z.number().int().nonnegative().max(5_000_000),
+  appliedAt: z.string().datetime({ offset: true }),
 }).strict();
 
 export const conversationListInputSchema = z.object({
@@ -133,9 +186,15 @@ export type ConversationEntryInput = z.infer<typeof conversationEntryInputSchema
 export type ConversationEntry = z.infer<typeof conversationEntrySchema>;
 export type ConversationThread = z.infer<typeof conversationThreadSchema>;
 export type ConversationThreadSummary = z.infer<typeof conversationThreadSummarySchema>;
+export type ConversationEntryPageRequest = z.infer<typeof conversationEntryPageRequestSchema>;
+export type ConversationEntryPage = z.infer<typeof conversationEntryPageSchema>;
 export type ConversationCreateInput = z.infer<typeof conversationCreateInputSchema>;
 export type ConversationRenameInput = z.infer<typeof conversationRenameInputSchema>;
 export type ConversationArchiveInput = z.infer<typeof conversationArchiveInputSchema>;
+export type ConversationDeleteInput = z.infer<typeof conversationDeleteInputSchema>;
+export type ConversationRetentionPolicy = z.infer<typeof conversationRetentionPolicySchema>;
+export type ConversationDeletionResult = z.infer<typeof conversationDeletionResultSchema>;
+export type ConversationRetentionResult = z.infer<typeof conversationRetentionResultSchema>;
 export type ConversationListInput = z.infer<typeof conversationListInputSchema>;
 export type ConversationAppendInput = z.infer<typeof conversationAppendInputSchema>;
 
@@ -159,6 +218,14 @@ export function parseConversationThreadSummaryList(value: unknown): readonly Con
   return z.array(conversationThreadSummarySchema).parse(value);
 }
 
+export function parseConversationEntryPageRequest(value: unknown): ConversationEntryPageRequest {
+  return conversationEntryPageRequestSchema.parse(value);
+}
+
+export function parseConversationEntryPage(value: unknown): ConversationEntryPage {
+  return conversationEntryPageSchema.parse(value);
+}
+
 export function parseConversationCreateInput(value: unknown): ConversationCreateInput {
   return conversationCreateInputSchema.parse(value);
 }
@@ -169,6 +236,22 @@ export function parseConversationRenameInput(value: unknown): ConversationRename
 
 export function parseConversationArchiveInput(value: unknown): ConversationArchiveInput {
   return conversationArchiveInputSchema.parse(value);
+}
+
+export function parseConversationDeleteInput(value: unknown): ConversationDeleteInput {
+  return conversationDeleteInputSchema.parse(value);
+}
+
+export function parseConversationRetentionPolicy(value: unknown): ConversationRetentionPolicy {
+  return conversationRetentionPolicySchema.parse(value);
+}
+
+export function parseConversationDeletionResult(value: unknown): ConversationDeletionResult {
+  return conversationDeletionResultSchema.parse(value);
+}
+
+export function parseConversationRetentionResult(value: unknown): ConversationRetentionResult {
+  return conversationRetentionResultSchema.parse(value);
 }
 
 export function parseConversationListInput(value: unknown): ConversationListInput {

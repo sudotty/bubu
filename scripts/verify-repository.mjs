@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { loadProductManifest, requireManifestFacts } from "./product-manifest.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const failures = [];
@@ -19,7 +20,11 @@ const requiredFiles = [
   "docs/architecture/local-conversations.md",
   "docs/architecture/mcp-host-security.md",
   "docs/product/ui-ux-guidelines.md",
+  "docs/product/design-qa.md",
   "docs/README.md",
+  "docs/history/README.md",
+  "docs/history/plans/README.md",
+  "docs/strategy/README.md",
   "docs/release/README.md",
   "docs/release/release-runbook.md",
   ".github/README.md",
@@ -28,26 +33,41 @@ const requiredFiles = [
   "apps/desktop/README.md",
   "services/README.md",
   "services/data-core/README.md",
+  "services/data-core/internal/data/source_xlsx.go",
+  "services/data-core/internal/data/source_xlsx_rows.go",
+  "services/data-core/internal/data/source_xlsx_test.go",
   "services/ai-runtime/README.md",
+  "services/ai-runtime/src/providers/invoke.integration.test.ts",
   "packages/README.md",
   "packages/contracts/README.md",
   "scripts/README.md",
+  "scripts/npm-bulk-audit.mjs",
+  "scripts/npm-bulk-audit.test.mjs",
+  "scripts/go-vulnerability-policy.mjs",
+  "scripts/go-vulnerability-policy.test.mjs",
   "scripts/set-product-version.mjs",
+  "scripts/release-preflight.mjs",
+  "scripts/release-preflight.test.mjs",
+  "scripts/release-environment-config.mjs",
+  "scripts/release-environment-config.test.mjs",
+  "scripts/configure-release-environment.mjs",
   "scripts/validate-preview-tag.mjs",
   "scripts/validate-preview-tag.test.mjs",
   "CONTRIBUTING.md",
   "SECURITY.md",
-  "docs/plans/2026-07-17-bubu-product-platform-design.md",
-  "docs/plans/2026-07-17-electron-migration-implementation.md",
-  "docs/plans/2026-07-17-bounded-aggregate-agent-implementation.md",
-  "docs/plans/2026-07-17-local-mcp-inspection-implementation.md",
-  "docs/plans/2026-07-17-approved-mcp-resource-read-implementation.md",
-  "docs/plans/2026-07-17-approved-mcp-prompt-get-implementation.md",
-  "docs/plans/2026-07-17-approved-mcp-tool-call-implementation.md",
+  "docs/history/plans/2026-07-17-bubu-product-platform-design.md",
+  "docs/history/plans/2026-07-17-electron-migration-implementation.md",
+  "docs/history/plans/2026-07-17-bounded-aggregate-agent-implementation.md",
+  "docs/history/plans/2026-07-17-local-mcp-inspection-implementation.md",
+  "docs/history/plans/2026-07-17-approved-mcp-resource-read-implementation.md",
+  "docs/history/plans/2026-07-17-approved-mcp-prompt-get-implementation.md",
+  "docs/history/plans/2026-07-17-approved-mcp-tool-call-implementation.md",
   "packages/contracts/src/mcp-tool-schema-validator.ts",
   "services/ai-runtime/src/mcp/schema-validator.ts",
   "apps/desktop/src/main/mcp-tool-approval-sessions.ts",
   "apps/desktop/src/main/mcp-tool-api.ts",
+  "apps/desktop/vite-forge-compat.ts",
+  "apps/desktop/vite-forge-compat.test.ts",
   "docs/performance/reference-desktop-2026-07-17.md",
   "docs/product/importing-data.md",
   "docs/product/data-quality-and-validation.md",
@@ -56,6 +76,15 @@ const requiredFiles = [
   "docs/product/backup-and-recovery.md",
   "docs/product/querying-and-visualizations.md",
   "docs/product/repeatable-workflows.md",
+  "apps/desktop/resources/demo/retail-orders.csv",
+  "apps/desktop/resources/demo/retail-targets.csv",
+  "apps/desktop/resources/demo/retail-customers.csv",
+  "apps/desktop/src/main/demo-catalog.ts",
+  "packages/contracts/src/demo.ts",
+  "packages/contracts/src/derived-dataset.ts",
+  "services/data-core/internal/data/derived.go",
+  "services/data-core/internal/data/derived_materialization.go",
+  "apps/desktop/src/renderer/DatasetLineagePanel.tsx",
 ];
 
 for (const path of requiredFiles) {
@@ -87,7 +116,10 @@ const forbiddenTracked = [
   /\.db(?:-shm|-wal)?$/u,
   /(^|\/)uploads\//u,
   /(^|\/)\.tasks\//u,
+  /^\.trae\//u,
   /^bubu-bi\//u,
+  /^docs\/plans\//u,
+  /^docs\/product\/\d{4}-\d{2}-\d{2}-/u,
   /^单文件\.sql$/u,
   /(^|\/)node_modules\//u,
   /(^|\/)dist\//u,
@@ -121,8 +153,8 @@ for (const path of repositoryFiles) {
   }
 }
 
-const manifest = readFileSync(resolve(root, "PRODUCT_MANIFEST.yaml"), "utf8");
-for (const required of [
+const manifest = loadProductManifest(root);
+requireManifestFacts(manifest, [
   "desktop: electron",
   "renderer: sandboxed-react",
   "aiRuntime: node-utility-process",
@@ -130,10 +162,27 @@ for (const required of [
   "remoteRawRowsByDefault: false",
   "csv-import: implemented",
   "xlsx-import: implemented",
+  "bounded-stdlib-ooxml-import: implemented",
   "atomic-batch-import: implemented",
+  "bundled-retail-demo-workspace: implemented",
+  "demo-relationship-and-topic-setup: implemented",
+  "rollback-safe-demo-setup: implemented",
+  "typed-derived-transformation-plans: implemented",
+  "materialized-derived-data-objects: implemented",
+  "immutable-derived-object-recompute: implemented",
+  "version-level-data-lineage: implemented",
+  "chained-derived-data-objects: implemented",
+  "automatic-derived-object-recompute: implemented",
+  "fail-closed-derived-dependency-graph: implemented",
+  "idempotent-derived-recompute-queue: implemented",
+  "packaged-recurring-clean-remediation-journey: implemented",
   "streaming-large-csv-import: implemented",
   "reference-100mib-performance-gate: implemented",
   "reference-100k-query-budget: implemented",
+  "npm-bulk-advisory-audit: implemented",
+  "module-aware-go-toolchain-evidence: implemented",
+  "imported-go-package-vulnerability-gate: implemented",
+  "zero-go-vulnerability-policy: implemented",
   "dataset-preview: implemented",
   "same-schema-replacement: implemented",
   "schema-drift-detection: implemented",
@@ -146,6 +195,7 @@ for (const required of [
   "persistent-validation-rules: implemented",
   "validation: implemented",
   "model-context-boundary: implemented",
+  "explicit-raw-row-disclosure: implemented",
   "synthetic-examples: implemented",
   "fail-closed-model-audit: implemented",
   "append-only-model-disclosure-ledger: implemented",
@@ -155,6 +205,7 @@ for (const required of [
   "os-encrypted-provider-credentials: implemented",
   "provider-connection-test: implemented",
   "provider-request-adapters: implemented",
+  "loopback-provider-transport-smoke: implemented",
   "safe-query-plan: implemented",
   "natural-language-query-planning: implemented",
   "visible-query-approval: implemented",
@@ -181,6 +232,10 @@ for (const required of [
   "append-only-local-conversation-history: implemented",
   "typed-conversation-artifacts: implemented",
   "manual-query-workflows: implemented",
+  "advanced-workflow-approval-nodes: implemented",
+  "definition-bound-workflow-approval-resume: implemented",
+  "restart-preserved-workflow-approvals: implemented",
+  "packaged-workflow-approval-journey: implemented",
   "versioned-workflow-definitions: implemented",
   "workflow-current-version-rebinding: implemented",
   "workflow-idempotency: implemented",
@@ -211,20 +266,58 @@ for (const required of [
   "append-only-mcp-operation-audit: implemented",
   "mcp-prompt-get: implemented",
   "mcp-tool-call: implemented",
-  "model-driven-mcp-tool-execution: planned",
-  "mcp-prompt-to-model: planned",
+  "model-driven-mcp-tool-execution: implemented",
+  "mcp-prompt-to-model: implemented",
+  "mcp-streamable-http: implemented",
+  "mcp-oauth: implemented",
+  "external-delivery-reminders: implemented",
   "named-operation-cancellation: implemented",
   "cancellable-data-core-operations: implemented",
   "cancellable-model-requests: implemented",
   "bounded-operation-deadlines: implemented",
-]) {
-  if (!manifest.includes(required)) {
-    failures.push(`manifest invariant missing: ${required}`);
+  "vite-8-forge-preload-compatibility: implemented",
+  "complete-release-signing-preflight: implemented",
+  "secure-release-environment-bootstrap: implemented",
+], failures, "repository product manifest");
+
+const dataCoreGoMod = readFileSync(resolve(root, "services/data-core/go.mod"), "utf8");
+for (const retiredDependency of ["github.com/xuri/excelize", "golang.org/x/crypto"]) {
+  if (dataCoreGoMod.includes(retiredDependency)) {
+    failures.push(`retired XLSX dependency returned to data-core: ${retiredDependency}`);
   }
 }
 
+const xlsxSource = readFileSync(resolve(root, "services/data-core/internal/data/source_xlsx.go"), "utf8");
+for (const required of [
+  '"archive/zip"',
+  '"encoding/xml"',
+  "maximumXLSXExpandedBytes",
+  "maximumXLSXSharedStringsBytes",
+  "maximumXLSXWorksheetBytes",
+  "external workbook relationships are not supported",
+]) {
+  if (!xlsxSource.includes(required)) failures.push(`bounded OOXML invariant missing: ${required}`);
+}
+
+const goVulnerabilityVerifier = readFileSync(resolve(root, "scripts/verify-go-vulnerabilities.mjs"), "utf8");
+const goVulnerabilityPolicy = readFileSync(resolve(root, "scripts/go-vulnerability-policy.mjs"), "utf8");
+if (
+  !goVulnerabilityVerifier.includes("evaluateGoVulnerabilityReport(result.stdout)")
+  || `${goVulnerabilityVerifier}${goVulnerabilityPolicy}`.includes("allowedModule")
+) {
+  failures.push("Go vulnerability verification must not carry an advisory allowlist");
+}
+
+const releaseEnvironmentConfigurator = readFileSync(resolve(root, "scripts/configure-release-environment.mjs"), "utf8");
+for (const required of ["--repository=", "--apply", "--enable-attestations", "input: write.value", "env: childEnvironment", "--env", "release"]) {
+  if (!releaseEnvironmentConfigurator.includes(required)) failures.push(`release environment bootstrap invariant missing: ${required}`);
+}
+if (releaseEnvironmentConfigurator.includes("--body")) {
+  failures.push("release environment bootstrap must not put publisher values in process arguments");
+}
+
 const acceptedDesign = readFileSync(
-  resolve(root, "docs/plans/2026-07-17-bubu-product-platform-design.md"),
+  resolve(root, "docs/history/plans/2026-07-17-bubu-product-platform-design.md"),
   "utf8",
 );
 if (!acceptedDesign.includes("### D. Electron shell, Node AI runtime, Go data core, and optional Hub")) {

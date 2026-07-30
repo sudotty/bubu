@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import {
   app,
@@ -22,8 +22,33 @@ import { startSidecars, type SidecarSupervisor } from "./main/sidecars.js";
 import { createProviderStore } from "./main/provider-store.js";
 import { registerDesktopApi } from "./main/desktop-api.js";
 import { startWorkflowTriggerScheduler } from "./main/workflow-trigger-scheduler.js";
+import { startDerivedRecomputeScheduler } from "./main/derived-recompute-scheduler.js";
+import { startReconciliationReplayScheduler } from "./main/reconciliation-replay-scheduler.js";
 import { createMcpConnectionStore } from "./main/mcp-connection-store.js";
 import { createMcpAuditStore } from "./main/mcp-audit-store.js";
+import { createFileArrivalStore, type FileArrivalStore } from "./main/file-arrival-store.js";
+import { createProductMetricsStore } from "./main/product-metrics.js";
+import { createPrivacyPolicyStore } from "./main/privacy-policy-store.js";
+import { createAgentDefinitionStore } from "./main/agent-definition-store.js";
+import { createConversationRetentionStore } from "./main/conversation-retention-store.js";
+import { createConfigurationBackupService } from "./main/configuration-backup-service.js";
+import { startConversationRetentionScheduler } from "./main/conversation-retention-scheduler.js";
+import { createRemoteMcpStore } from "./main/remote-mcp-store.js";
+import { createRemoteMcpAuditStore } from "./main/remote-mcp-audit-store.js";
+import { createExternalDeliveryService, startExternalDeliveryScheduler } from "./main/external-delivery-service.js";
+import { createHubSyncService, startHubSyncScheduler } from "./main/hub-sync-service.js";
+import {
+  startSmokeModelServer,
+  stopSmokeModelServer,
+  verifyPackagedDemoRenderer,
+  verifyPackagedHubRenderer,
+  verifyPackagedKnowledgeRenderer,
+  verifyPackagedMcpModelRenderer,
+  verifyPackagedMergeRenderer,
+  verifyPackagedReconciliationRenderer,
+  verifyPackagedRemoteMcpRenderer,
+  verifySmokeRenderer,
+} from "./main/packaged-smoke.js";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -42,6 +67,12 @@ if (process.platform === "win32") app.setAppUserModelId("com.squirrel.BuBu.BuBu"
 
 let sidecars: SidecarSupervisor | undefined;
 let stopWorkflowTriggerScheduler: (() => void) | undefined;
+let stopDerivedRecomputeScheduler: (() => void) | undefined;
+let stopReconciliationReplayScheduler: (() => void) | undefined;
+let stopExternalDeliveryScheduler: (() => void) | undefined;
+let stopHubSyncScheduler: (() => void) | undefined;
+let stopConversationRetentionScheduler: (() => void) | undefined;
+let fileArrivals: FileArrivalStore | undefined;
 
 function registerApplicationProtocol(): void {
   const rendererRoot = join(__dirname, "..", "renderer", MAIN_WINDOW_VITE_NAME);
@@ -101,311 +132,6 @@ async function createMainWindow(
   return window;
 }
 
-async function captureSmokeStep(
-  window: BrowserWindow,
-  screenshotDirectory: string | undefined,
-  fileName: string,
-): Promise<void> {
-  if (!screenshotDirectory) return;
-  await mkdir(screenshotDirectory, { recursive: true });
-  const image = await window.webContents.capturePage();
-  await writeFile(join(screenshotDirectory, fileName), image.toPNG(), { mode: 0o600 });
-}
-
-async function verifySmokeLayout(window: BrowserWindow, screen: string): Promise<void> {
-  const result = await window.webContents.executeJavaScript(`
-    (() => {
-      const selectors = ["html", "body", ".shell", ".workspace", ".conversation", ".conversation-workbench"];
-      const measurements = selectors.flatMap((selector) => {
-        const element = document.querySelector(selector);
-        if (!(element instanceof HTMLElement)) return [];
-        return [{
-          selector,
-          clientWidth: element.clientWidth,
-          scrollWidth: element.scrollWidth,
-        }];
-      });
-      return {
-        viewportWidth: window.innerWidth,
-        overflowing: measurements.filter(({ clientWidth, scrollWidth }) => scrollWidth - clientWidth > 1),
-      };
-    })()
-  `) as {
-    readonly viewportWidth: number;
-    readonly overflowing: readonly {
-      readonly selector: string;
-      readonly clientWidth: number;
-      readonly scrollWidth: number;
-    }[];
-  };
-  if (result.viewportWidth !== 920 || result.overflowing.length > 0) {
-    throw new Error(
-      `Packaged renderer layout failed on ${screen}: ${JSON.stringify(result)}`,
-    );
-  }
-}
-
-async function verifySmokeRenderer(
-  window: BrowserWindow,
-  screenshotDirectory?: string,
-): Promise<void> {
-  window.webContents.focus();
-  const result = await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const expected = [
-        "synthetic-sales",
-        "3 行 · 4 列",
-        "替换数据版本",
-        "数据对话",
-        "本地任务状态",
-        "本地结果",
-        "先生成计划",
-        "之前的消息",
-        "结果已准备好"
-      ];
-      const deadline = Date.now() + 5000;
-      let selectedSales = false;
-      const inspect = () => {
-        if (!selectedSales) {
-          const salesButton = Array.from(document.querySelectorAll("button.contact-card"))
-            .find((button) => button.textContent?.includes("synthetic-sales"));
-          if (salesButton instanceof HTMLButtonElement) {
-            selectedSales = true;
-            salesButton.click();
-            setTimeout(inspect, 50);
-            return;
-          }
-        }
-        const contents = document.body.textContent ?? "";
-        const visibleContents = document.body.innerText;
-        const missing = expected.filter((value) => !contents.includes(value));
-        const loading = ["正在读取本地预览与列画像…", "正在生成本地质量报告…"]
-          .filter((value) => visibleContents.includes(value));
-        if (missing.length === 0 && loading.length === 0) return resolve({ ok: true, missing: [] });
-        if (Date.now() >= deadline) return resolve({ ok: false, missing });
-        setTimeout(inspect, 50);
-      };
-      inspect();
-    })
-  `) as { readonly ok: boolean; readonly missing: readonly string[] };
-  if (!result.ok) {
-    throw new Error(`Packaged renderer is missing imported data: ${result.missing.join(", ")}`);
-  }
-  await verifySmokeLayout(window, "dataset");
-  await captureSmokeStep(window, screenshotDirectory, "01-datasets.png");
-  const compactDrawerResult = await window.webContents.executeJavaScript(`
-    new Promise(async (resolve) => {
-      const workbench = document.querySelector(".conversation-workbench");
-      const buttons = Array.from(document.querySelectorAll(".workbench-compact-nav button"));
-      const taskButton = buttons.find((button) => button.textContent?.includes("历史"));
-      const resultButton = buttons.find((button) => button.textContent?.includes("结果"));
-      const workflowButton = buttons.find((button) => button.textContent?.includes("工作流"));
-      if (!(workbench instanceof HTMLElement) || !(taskButton instanceof HTMLButtonElement) || !(resultButton instanceof HTMLButtonElement) || !(workflowButton instanceof HTMLButtonElement)) {
-        return resolve({ ok: false, missing: ["紧凑历史/结果/工作流导航"] });
-      }
-      taskButton.click();
-      await new Promise((next) => setTimeout(next, 50));
-      const taskOpened = workbench.classList.contains("compact-threads-open") && taskButton.getAttribute("aria-expanded") === "true";
-      taskButton.click();
-      resultButton.click();
-      await new Promise((next) => setTimeout(next, 50));
-      const resultOpened = workbench.classList.contains("compact-artifacts-open") && resultButton.getAttribute("aria-expanded") === "true";
-      const reportAvailable = Array.from(document.querySelectorAll(".artifact-summary-actions button")).some((button) => button.textContent?.includes("导出轻报告"));
-      const dataTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("数据"));
-      if (dataTab instanceof HTMLButtonElement) dataTab.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const actionButtons = Array.from(document.querySelectorAll(".artifact-data-toolbar button"));
-      const copyAvailable = actionButtons.some((button) => button.textContent?.includes("复制"));
-      const exportAvailable = actionButtons.some((button) => button.textContent?.includes("导出当前视图"));
-      const pinButton = actionButtons.find((button) => button.textContent?.includes("固定"));
-      if (pinButton instanceof HTMLButtonElement) pinButton.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const pinToggled = pinButton?.getAttribute("aria-pressed") === "true";
-      if (pinButton instanceof HTMLButtonElement) pinButton.click();
-      dataTab?.focus();
-      dataTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const visualTab = Array.from(document.querySelectorAll('[role="tab"]')).find((button) => button.textContent?.includes("可视化"));
-      const arrowNavigation = visualTab?.getAttribute("aria-selected") === "true";
-      resultButton.click();
-      workflowButton.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const workflowOpened = workbench.classList.contains("compact-workflow-open") && workflowButton.getAttribute("aria-expanded") === "true" && Boolean(document.querySelector(".workflow-panel"));
-      workbench.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const closed = !workbench.classList.contains("compact-threads-open") && !workbench.classList.contains("compact-artifacts-open") && !workbench.classList.contains("compact-workflow-open");
-      resolve({ ok: taskOpened && resultOpened && reportAvailable && copyAvailable && exportAvailable && pinToggled && arrowNavigation && workflowOpened && closed, missing: [
-        ...(!taskOpened ? ["任务抽屉状态"] : []),
-        ...(!resultOpened ? ["结果抽屉状态"] : []),
-        ...(!reportAvailable ? ["轻报告导出"] : []),
-        ...(!copyAvailable ? ["复制当前结果"] : []),
-        ...(!exportAvailable ? ["导出当前结果"] : []),
-        ...(!pinToggled ? ["固定结果状态"] : []),
-        ...(!arrowNavigation ? ["结果页签方向键"] : []),
-        ...(!workflowOpened ? ["工作流抽屉状态"] : []),
-        ...(!closed ? ["抽屉关闭状态"] : []),
-      ] });
-    })
-  `) as { readonly ok: boolean; readonly missing: readonly string[] };
-  if (!compactDrawerResult.ok) {
-    throw new Error(`Packaged renderer compact drawers failed: ${compactDrawerResult.missing.join(", ")}`);
-  }
-  const conversationMenu = await window.webContents.executeJavaScript(`
-    new Promise(async (resolve) => {
-      const workbench = document.querySelector(".conversation-workbench");
-      if (!(workbench instanceof HTMLElement)) return resolve({ ok: false });
-      workbench.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 620, clientY: 220 }));
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const menu = document.querySelector('.context-menu[aria-label="对话操作"]');
-      const opened = menu?.textContent?.includes("查看任务历史") && menu.textContent.includes("查看工作流");
-      menu?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      resolve({ ok: Boolean(opened) && document.querySelector('.context-menu[aria-label="对话操作"]') === null });
-    })
-  `) as { readonly ok: boolean };
-  if (!conversationMenu.ok) throw new Error("Packaged renderer conversation context menu failed");
-  await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const composer = document.querySelector(".analysis-composer");
-      const conversation = document.querySelector(".conversation-stage");
-      window.scrollTo({ top: 0 });
-      if (composer instanceof HTMLElement && conversation instanceof HTMLElement) {
-        conversation.scrollTop = composer.offsetTop - (conversation.clientHeight - composer.clientHeight) / 2;
-      }
-      setTimeout(resolve, 220);
-    })
-  `);
-  await captureSmokeStep(window, screenshotDirectory, "02-chat.png");
-  const artifactLayout = await window.webContents.executeJavaScript(`
-    new Promise(async (resolve) => {
-      const workbench = document.querySelector(".conversation-workbench");
-      const resultButton = Array.from(document.querySelectorAll(".workbench-compact-nav button")).find((button) => button.textContent?.includes("结果"));
-      if (!(workbench instanceof HTMLElement) || !(resultButton instanceof HTMLButtonElement)) return resolve({ ok: false, missing: ["结果抽屉按钮"] });
-      resultButton.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const inspector = workbench.querySelector(".artifact-inspector");
-      const visualTab = Array.from(inspector?.querySelectorAll('[role="tab"]') ?? []).find((button) => button.textContent?.includes("可视化"));
-      if (visualTab instanceof HTMLButtonElement) visualTab.click();
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const chart = inspector?.querySelector(".result-visualization");
-      if (!(inspector instanceof HTMLElement) || !(chart instanceof HTMLElement)) return resolve({ ok: false, missing: ["结果抽屉或可视化"] });
-      await Promise.all(inspector.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
-      await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
-      const measurements = {
-        workbenchWidth: workbench.clientWidth,
-        inspectorOffset: inspector.offsetLeft,
-        inspectorWidth: inspector.offsetWidth,
-        inspectorClientWidth: inspector.clientWidth,
-        inspectorScrollWidth: inspector.scrollWidth,
-        chartClientWidth: chart.clientWidth,
-        chartScrollWidth: chart.scrollWidth,
-      };
-      const contained = measurements.inspectorOffset >= -1
-        && measurements.inspectorOffset + measurements.inspectorWidth <= measurements.workbenchWidth + 1
-        && measurements.inspectorScrollWidth - measurements.inspectorClientWidth <= 1
-        && measurements.chartScrollWidth - measurements.chartClientWidth <= 1;
-      resolve({ ok: contained, missing: contained ? [] : ["结果抽屉或图表超出工作台"], measurements });
-    })
-  `) as { readonly ok: boolean; readonly missing: readonly string[]; readonly measurements?: Readonly<Record<string, number>> };
-  if (!artifactLayout.ok) throw new Error(`Packaged renderer Artifact layout failed: ${artifactLayout.missing.join(", ")} ${JSON.stringify(artifactLayout.measurements ?? {})}`);
-  await captureSmokeStep(window, screenshotDirectory, "04-artifact.png");
-  await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const closeButton = document.querySelector(".workbench-close-pane");
-      if (closeButton instanceof HTMLButtonElement) closeButton.click();
-      setTimeout(resolve, 220);
-    })
-  `);
-  const workflowGraph = await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const workflowButton = Array.from(document.querySelectorAll(".workbench-compact-nav button")).find((button) => button.textContent?.includes("工作流"));
-      if (!(workflowButton instanceof HTMLButtonElement)) return resolve({ ok: false, missing: ["工作流按钮"] });
-      workflowButton.click();
-      const deadline = Date.now() + 5000;
-      const inspect = () => {
-        const graph = document.querySelector(".workflow-graph");
-        const contents = graph?.textContent ?? "";
-        const panel = document.querySelector(".workflow-panel");
-        const inspector = document.querySelector(".artifact-inspector");
-        const workbench = document.querySelector(".conversation-workbench");
-        const panelBounds = panel?.getBoundingClientRect();
-        const inspectorBounds = inspector?.getBoundingClientRect();
-        const workbenchBounds = workbench?.getBoundingClientRect();
-        const contained = panel instanceof HTMLElement && inspector instanceof HTMLElement && workbench instanceof HTMLElement && panelBounds && inspectorBounds && workbenchBounds
-          && panel.scrollWidth - panel.clientWidth <= 1
-          && panelBounds.left >= inspectorBounds.left - 1
-          && panelBounds.right <= inspectorBounds.right + 1
-          && inspectorBounds.left >= workbenchBounds.left - 1
-          && inspectorBounds.right <= workbenchBounds.right + 1;
-        const ok = graph instanceof HTMLElement && contained && contents.includes("每周区域销售汇总") && contents.includes("发送结果到当前对话") && graph.querySelectorAll(".workflow-node").length >= 4;
-        const measurements = panelBounds && inspectorBounds && workbenchBounds ? { panelLeft: panelBounds.left, panelRight: panelBounds.right, inspectorLeft: inspectorBounds.left, inspectorRight: inspectorBounds.right, workbenchLeft: workbenchBounds.left, workbenchRight: workbenchBounds.right, panelClientWidth: panel.clientWidth, panelScrollWidth: panel.scrollWidth } : {};
-        if (ok) return resolve({ ok: true, missing: [], measurements });
-        if (Date.now() >= deadline) return resolve({ ok: false, missing: ["动态工作流节点图"], measurements });
-        setTimeout(inspect, 50);
-      };
-      inspect();
-    })
-  `) as { readonly ok: boolean; readonly missing: readonly string[]; readonly measurements?: Readonly<Record<string, number>> };
-  if (!workflowGraph.ok) throw new Error(`Packaged renderer Workflow graph failed: ${workflowGraph.missing.join(", ")} ${JSON.stringify(workflowGraph.measurements ?? {})}`);
-  await captureSmokeStep(window, screenshotDirectory, "05-workflow.png");
-  await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const closeButton = document.querySelector(".workbench-close-pane");
-      if (closeButton instanceof HTMLButtonElement) closeButton.click();
-      setTimeout(resolve, 220);
-    })
-  `);
-  const groupResult = await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const groupButton = document.querySelector('button[title="数据群组"]');
-      if (!(groupButton instanceof HTMLButtonElement)) {
-        return resolve({ ok: false, missing: ["数据群组按钮"] });
-      }
-      groupButton.click();
-      const expected = ["synthetic-group", "2 个数据对象", "每周更新", "先生成关联计划"];
-      const deadline = Date.now() + 5000;
-      const inspect = () => {
-        const contents = document.body.innerText;
-        const missing = expected.filter((value) => !contents.includes(value));
-        if (missing.length === 0) return resolve({ ok: true, missing: [] });
-        if (Date.now() >= deadline) return resolve({ ok: false, missing });
-        setTimeout(inspect, 50);
-      };
-      inspect();
-    })
-  `) as { readonly ok: boolean; readonly missing: readonly string[] };
-  if (!groupResult.ok) {
-    throw new Error(`Packaged renderer is missing dataset groups: ${groupResult.missing.join(", ")}`);
-  }
-  await verifySmokeLayout(window, "group");
-  await captureSmokeStep(window, screenshotDirectory, "02-groups.png");
-  const settingsResult = await window.webContents.executeJavaScript(`
-    new Promise((resolve) => {
-      const settingsButton = document.querySelector('button[title="设置"]');
-      if (!(settingsButton instanceof HTMLButtonElement)) {
-        return resolve({ ok: false, missing: ["模型设置按钮"] });
-      }
-      settingsButton.click();
-      const expected = ["先处理影响使用的问题", "重新检查", "模型提供商", "添加模型", "Base URL", "模型名称", "API 密钥", "安全保存配置"];
-      const deadline = Date.now() + 5000;
-      const inspect = () => {
-        const contents = document.body.innerText;
-        const missing = expected.filter((value) => !contents.includes(value));
-        const currentSection = document.querySelector('.settings-nav button[aria-current="page"]');
-        if (missing.length === 0 && currentSection?.textContent?.includes("模型与提供商")) return resolve({ ok: true, missing: [] });
-        if (Date.now() >= deadline) return resolve({ ok: false, missing });
-        setTimeout(inspect, 50);
-      };
-      inspect();
-    })
-  `) as { readonly ok: boolean; readonly missing: readonly string[] };
-  if (!settingsResult.ok) {
-    throw new Error(`Packaged renderer is missing provider settings: ${settingsResult.missing.join(", ")}`);
-  }
-  await verifySmokeLayout(window, "settings");
-  await captureSmokeStep(window, screenshotDirectory, "03-settings.png");
-}
-
 void app
   .whenReady()
   .then(async () => {
@@ -413,21 +139,71 @@ void app
     if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) registerApplicationProtocol();
     const launchMode = parseLaunchMode(process.argv, process.env, app.getPath("userData"));
     sidecars = startSidecars(launchMode.dataDirectory);
-    const credentialCipher = {
-      isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-      encrypt: (value: string) => safeStorage.encryptString(value),
-      decrypt: (value: Buffer) => safeStorage.decryptString(value),
-    };
+    const credentialCipher = launchMode.kind === "smoke"
+      ? {
+          // Packaged smoke data is synthetic and short-lived. Keeping its cipher
+          // process-local prevents a headless verifier from prompting for the
+          // user's macOS keychain while production continues to use safeStorage.
+          isEncryptionAvailable: () => true,
+          encrypt: (value: string) => Buffer.from(value, "utf8"),
+          decrypt: (value: Buffer) => value.toString("utf8"),
+        }
+      : {
+          isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+          encrypt: (value: string) => safeStorage.encryptString(value),
+          decrypt: (value: Buffer) => safeStorage.decryptString(value),
+        };
     const providerStore = createProviderStore({
       directory: join(launchMode.dataDirectory, "providers"),
       cipher: credentialCipher,
     });
+    if (launchMode.kind === "smoke") {
+      providerStore.save({
+        name: "Smoke local model",
+        kind: "openai-compatible",
+        baseUrl: await startSmokeModelServer(),
+        model: "smoke-model",
+        credential: "synthetic-smoke-token",
+      });
+    }
     const mcpConnectionStore = createMcpConnectionStore({
       directory: join(launchMode.dataDirectory, "mcp"),
       cipher: credentialCipher,
     });
+    if (launchMode.kind === "smoke") {
+      mcpConnectionStore.save({
+        name: "BuBu 安全演示 MCP",
+        command: join(process.resourcesPath, process.platform === "win32" ? "bubu-mcp-demo.exe" : "bubu-mcp-demo"),
+        args: [],
+        environment: [],
+      });
+    }
     const mcpAuditStore = createMcpAuditStore({
       directory: join(launchMode.dataDirectory, "mcp", "audits"),
+    });
+    const remoteMcpStore = createRemoteMcpStore({ directory: join(launchMode.dataDirectory, "mcp-remote", "connections"), cipher: credentialCipher });
+    const remoteMcpAuditStore = createRemoteMcpAuditStore(join(launchMode.dataDirectory, "mcp-remote", "audits"));
+    const externalDelivery = createExternalDeliveryService({ directory: join(launchMode.dataDirectory, "external-delivery"), cipher: credentialCipher });
+    const hubSync = createHubSyncService({ directory: join(launchMode.dataDirectory, "hub-sync"), cipher: credentialCipher });
+    const metrics = createProductMetricsStore(join(launchMode.dataDirectory, "metrics"));
+    const privacyPolicy = createPrivacyPolicyStore(join(launchMode.dataDirectory, "privacy"));
+    const agentDefinitions = createAgentDefinitionStore({ directory: join(launchMode.dataDirectory, "agent-definitions") });
+    const conversationRetention = createConversationRetentionStore(join(launchMode.dataDirectory, "conversation-retention"));
+    const configurationBackup = createConfigurationBackupService({ privacyPolicy, conversationRetention, agentDefinitions });
+    const smokeConfigurationPath = join(dirname(launchMode.dataDirectory), "smoke-settings.bubu-settings");
+    fileArrivals = createFileArrivalStore({
+      directory: join(launchMode.dataDirectory, "file-arrivals"),
+      now: () => new Date(),
+      newId: () => randomUUID().replaceAll("-", ""),
+      listDatasets: () => sidecars?.listDatasets() ?? Promise.resolve([]),
+      inspectSource: (sourcePath) => sidecars?.inspectSource(sourcePath) ?? Promise.reject(new Error("data core is unavailable")),
+      previewDataset: (datasetId) => sidecars?.previewDataset({ datasetId, limit: 1, offset: 0 }) ?? Promise.reject(new Error("data core is unavailable")),
+      onDetected: async (item) => {
+        await Promise.all([
+          metrics.record({ name: "file_arrival_detected", outcome: "succeeded" }),
+          metrics.record({ name: item.candidates[0]?.confidence === "high" ? "file_arrival_target_suggested" : "file_arrival_review_required", outcome: "succeeded" }),
+        ]).catch(() => undefined);
+      },
     });
     registerDesktopApi({
       sidecars,
@@ -435,11 +211,25 @@ void app
       mcpConnectionStore,
       mcpAuditStore,
       mcpRuntimeDirectory: join(launchMode.dataDirectory, "mcp", "runtimes"),
-      metricsDirectory: join(launchMode.dataDirectory, "metrics"),
+      remoteMcpStore,
+      remoteMcpAuditStore,
+      metrics,
+      fileArrivals,
+      privacyPolicy,
+      agentDefinitions,
+      externalDelivery,
+      hubSync,
+      conversationRetention,
+      configurationBackup,
+      ...(launchMode.kind === "smoke" ? { configurationBackupPaths: { exportPath: smokeConfigurationPath, importPath: smokeConfigurationPath } } : {}),
+      demoDirectory: join(process.resourcesPath, "demo"),
       developmentServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
     });
     if (launchMode.kind === "smoke") {
       const imported = await sidecars.importFiles([launchMode.sourcePath, launchMode.secondSourcePath]);
+      const smokeKnowledgePath = join(dirname(launchMode.dataDirectory), "smoke-refund-policy.md");
+      await writeFile(smokeKnowledgePath, "# 退款政策\n\n退款需要订单号与购买凭证。\n申请应在购买后 30 天内提交。", { mode: 0o600 });
+      await sidecars.importKnowledgeSource({ sourcePath: smokeKnowledgePath, displayName: "退款政策" });
       await sidecars.saveGroup({
         name: "synthetic-group",
         description: "每周对照订单与经营目标",
@@ -454,7 +244,7 @@ void app
           versionId: dataset.versionId,
           purpose: "Smoke sum by region",
           dimensions: ["Region"],
-          measures: [{ operation: "sum" as const, column: "Amount" }],
+          measures: [{ operation: "sum" as const, column: "Amount" }, { operation: "count" as const, column: null }],
           filters: [],
           sort: [{ outputIndex: 1, direction: "descending" as const }],
           limit: 10,
@@ -507,9 +297,31 @@ void app
       if (readiness.status !== "ready" || window.webContents.getURL() !== "bubu://app/index.html") {
         throw new Error(`Packaged smoke check failed: ${JSON.stringify(readiness)}`);
       }
-      await verifySmokeRenderer(window, launchMode.screenshotDirectory);
+      console.log("BUBU_PACKAGED_STAGE imported-workspace");
+      await verifySmokeRenderer(window, sidecars, launchMode.sourcePath, launchMode.secondSourcePath, launchMode.screenshotDirectory);
+      await verifyPackagedKnowledgeRenderer(window);
+      await verifyPackagedMcpModelRenderer(window);
+      await verifyPackagedRemoteMcpRenderer(window);
+      await verifyPackagedHubRenderer(window);
+      console.log("BUBU_PACKAGED_STAGE demo-workspace");
+      const smokeDatasets = await sidecars.listDatasets();
+      for (const dataset of smokeDatasets) await sidecars.deleteDataset(dataset.id);
+      const demoWindow = await createMainWindow(false, { width: 920, height: 640 });
+      await verifyPackagedDemoRenderer(demoWindow, launchMode.screenshotDirectory);
+      demoWindow.close();
+      for (const dataset of await sidecars.listDatasets()) await sidecars.deleteDataset(dataset.id);
+      const mergeWindow = await createMainWindow(false, { width: 920, height: 640 });
+      await verifyPackagedMergeRenderer(mergeWindow, launchMode.screenshotDirectory);
+      mergeWindow.close();
+      for (const dataset of await sidecars.listDatasets()) await sidecars.deleteDataset(dataset.id);
+      const reconciliationWindow = await createMainWindow(false, { width: 920, height: 640 });
+      if (!fileArrivals) throw new Error("Packaged file-arrival store is unavailable");
+      await verifyPackagedReconciliationRenderer(reconciliationWindow, sidecars, fileArrivals, launchMode.screenshotDirectory);
       console.log("BUBU_PACKAGED_IMPORT_UI_OK");
       console.log("BUBU_PACKAGED_BACKUP_RESTORE_OK");
+      console.log("BUBU_PACKAGED_RETAIL_DEMO_OK");
+      console.log("BUBU_PACKAGED_MERGE_OK");
+      console.log("BUBU_PACKAGED_RECONCILIATION_OK");
       console.log("BUBU_PACKAGED_SMOKE_OK");
       app.quit();
       return;
@@ -525,6 +337,33 @@ void app
         new Notification({ title: "BuBu 工作流提醒", body }).show();
       },
     });
+    stopExternalDeliveryScheduler = startExternalDeliveryScheduler(externalDelivery, (error) => console.warn("BuBu external delivery tick failed", error));
+    stopHubSyncScheduler = startHubSyncScheduler(hubSync, (error) => console.warn("BuBu Hub sync tick failed", error));
+    stopConversationRetentionScheduler = startConversationRetentionScheduler({
+      store: conversationRetention,
+      apply: (retentionDays) => sidecars?.applyConversationRetention(retentionDays) ?? Promise.reject(new Error("data core is unavailable")),
+      onError: (error) => console.warn("BuBu conversation retention tick failed", error),
+    });
+    stopDerivedRecomputeScheduler = startDerivedRecomputeScheduler(sidecars, {
+      onError: (error) => console.warn("BuBu derived recompute tick failed", error),
+      onFinished: (event) => {
+        if (!Notification.isSupported()) return;
+        const body = event.status === "succeeded"
+          ? `${event.targetDisplayName} 已基于最新上游版本完成重算。`
+          : `${event.targetDisplayName} 已暂停自动重算，请在派生关系中查看并修复。`;
+        new Notification({ title: "BuBu 自动重算", body }).show();
+      },
+    });
+    stopReconciliationReplayScheduler = startReconciliationReplayScheduler(sidecars, {
+      onError: (error) => console.warn("BuBu reconciliation replay tick failed", error),
+      onFinished: (event) => {
+        if (!Notification.isSupported()) return;
+        const body = event.status === "succeeded"
+          ? "受审对账已基于最新来源完成，结果证据已保存。"
+          : "受审对账未自动完成；请在对应数据组中审查原因。";
+        new Notification({ title: "BuBu 对账提醒", body }).show();
+      },
+    });
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
@@ -536,8 +375,19 @@ void app
   });
 
 app.on("before-quit", () => {
+  stopSmokeModelServer();
   stopWorkflowTriggerScheduler?.();
   stopWorkflowTriggerScheduler = undefined;
+  stopDerivedRecomputeScheduler?.();
+  stopDerivedRecomputeScheduler = undefined;
+  stopReconciliationReplayScheduler?.();
+  stopReconciliationReplayScheduler = undefined;
+  stopExternalDeliveryScheduler?.();
+  stopExternalDeliveryScheduler = undefined;
+  stopHubSyncScheduler?.();
+  stopHubSyncScheduler = undefined;
+  stopConversationRetentionScheduler?.();
+  stopConversationRetentionScheduler = undefined;
   sidecars?.stop();
   sidecars = undefined;
 });

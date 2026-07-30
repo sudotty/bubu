@@ -1,7 +1,8 @@
 import { writeFile } from "node:fs/promises";
-import { clipboard, dialog, ipcMain } from "electron";
-import { parseArtifactTableActionInput, type ArtifactTableActionInput } from "@bubu/contracts";
+import { clipboard, dialog, ipcMain, BrowserWindow } from "electron";
+import { parseArtifactTableActionInput, parseReportBundleInput, type ArtifactTableActionInput } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
+import { writeReportBundle } from "./report-bundle.js";
 
 function safeCell(value: ArtifactTableActionInput["rows"][number][number]): string {
   const text = value === null ? "" : String(value);
@@ -40,6 +41,12 @@ export function artifactHtmlReport(input: ArtifactTableActionInput): string {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="color-scheme" content="light"><title>${html(input.title)}</title><style>body{max-width:1100px;margin:40px auto;padding:0 24px;font:15px/1.6 system-ui;color:#292621;background:#faf8f3}header{margin-bottom:24px}h1{margin:0 0 6px}p{color:#6f685e}.table{overflow:auto;border:1px solid #d8d1c5;border-radius:12px;background:#fff}table{width:100%;border-collapse:collapse}th,td{padding:9px 11px;border-bottom:1px solid #e7e1d8;text-align:left;white-space:nowrap}th{background:#f2eee6}footer{margin-top:18px;font-size:12px;color:#777}</style></head><body><header><h1>${html(input.title)}</h1><p>BuBu 本地轻报告 · ${input.rows.length} 行 · ${input.columns.length} 列</p></header><main class="table"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></main><footer>此文件由本地 Artifact 当前结果生成，不包含模型凭据、文件路径或未显示的数据行。</footer></body></html>`;
 }
 
+export async function renderReportPdf(htmlPath: string, pdfPath: string): Promise<void> {
+  const reportWindow = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  try { await reportWindow.loadFile(htmlPath); const pdf = await reportWindow.webContents.printToPDF({ printBackground: true, pageSize: "A4" }); await writeFile(pdfPath, pdf, { mode: 0o600 }); }
+  finally { reportWindow.destroy(); }
+}
+
 export function registerArtifactApi({ assertTrustedSender }: { readonly assertTrustedSender: (frameUrl: string) => void }): void {
   ipcMain.handle(desktopChannels.copyArtifactTable, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
@@ -57,10 +64,10 @@ export function registerArtifactApi({ assertTrustedSender }: { readonly assertTr
   });
   ipcMain.handle(desktopChannels.exportArtifactReport, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    const input = parseArtifactTableActionInput(value);
-    const selection = await dialog.showSaveDialog({ title: "导出本地轻报告", defaultPath: artifactFileName(input.title).replace(/\.csv$/u, ".html"), filters: [{ name: "HTML 报告", extensions: ["html"] }] });
-    if (selection.canceled || !selection.filePath) return { status: "cancelled" } as const;
-    await writeFile(selection.filePath, artifactHtmlReport(input), { encoding: "utf8", mode: 0o600 });
-    return { status: "exported", rowCount: input.rows.length } as const;
+    const input = parseReportBundleInput(value);
+    const selection = await dialog.showOpenDialog({ title: "选择专业报告包保存位置", buttonLabel: "生成报告包", properties: ["openDirectory", "createDirectory"] });
+    const parentDirectory = selection.filePaths[0];
+    if (selection.canceled || !parentDirectory) return { status: "cancelled" } as const;
+    return writeReportBundle(input, parentDirectory, renderReportPdf);
   });
 }

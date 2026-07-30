@@ -8,28 +8,10 @@ on:
       - ".github/workflows/release.yml"
       - "apps/desktop/**"
       - "packages/contracts/**"
+      - "packages/product-core/**"
       - "services/ai-runtime/**"
       - "services/data-core/**"
-      - "scripts/build-data-core.mjs"
-      - "scripts/native-installer-policy.mjs"
-      - "scripts/platform-paths.mjs"
-      - "scripts/prepare-electron-runtime.mjs"
-      - "scripts/release-artifacts.mjs"
-      - "scripts/smoke-native-installer.mjs"
-      - "scripts/stage-release-assets.mjs"
-      - "package.json"
-      - "package-lock.json"
-      - ".nvmrc"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/package-smoke.yml"
-      - ".github/workflows/preview-release.yml"
-      - ".github/workflows/release.yml"
-      - "apps/desktop/**"
-      - "packages/contracts/**"
-      - "services/ai-runtime/**"
-      - "services/data-core/**"
+      - "services/hub/**"
       - "scripts/build-data-core.mjs"
       - "scripts/native-installer-policy.mjs"
       - "scripts/platform-paths.mjs"
@@ -50,6 +32,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  hub-postgresql:
+    name: Hub PostgreSQL transaction evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BUBU_HUB_TEST_DATABASE_URL: postgresql:///runner?host=%2Fvar%2Frun%2Fpostgresql
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Start isolated PostgreSQL authority store
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres createuser --superuser runner
+          sudo -u postgres createdb --owner=runner runner
+      - name: Verify transactional Hub persistence
+        run: npm --workspace @bubu/hub run test:postgres
+
   native-package:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
@@ -97,12 +103,10 @@ jobs:
         run: npm run make -w @bubu/desktop -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --skip-package
       - name: Exercise clean install, launch, backup, restore, and uninstall
         run: node scripts/smoke-native-installer.mjs --artifact="${{ github.workspace }}/${{ matrix.installer }}" --report="${{ runner.temp }}/installer-smoke.json"
-      - name: Stage deterministic package evidence
-        run: node scripts/stage-release-assets.mjs --version="$(node -p "require('./package.json').version")" --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
-      - name: Upload native package evidence
+      - name: Upload lifecycle report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: native-package-${{ matrix.platform }}-${{ matrix.arch }}
-          path: ${{ runner.temp }}/release-stage
+          name: native-smoke-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/installer-smoke.json
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 3

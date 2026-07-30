@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
+import { lookup } from "node:dns/promises";
+import { isIP, type LookupFunction } from "node:net";
+import { Agent } from "undici";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
+import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   canonicalMcpJson,
   mcpInspectionBudget,
@@ -16,6 +21,8 @@ import {
   parseMcpPromptGetResult,
   parseMcpToolCallInvocation,
   parseMcpToolCallResult,
+  parseRemoteMcpInspectionInvocation,
+  parseRemoteMcpToolCallInvocation,
   type McpInspectionInvocation,
   type McpInspectionSnapshot,
   type McpResourceReadInvocation,
@@ -24,7 +31,10 @@ import {
   type McpPromptGetResult,
   type McpToolCallInvocation,
   type McpToolCallResult,
+  type RemoteMcpInspectionInvocation,
+  type RemoteMcpToolCallInvocation,
 } from "@bubu/contracts";
+import { assertRemoteMcpNetworkTarget } from "@bubu/product-core";
 import { validateMcpToolArguments, validateMcpToolStructuredContent } from "./schema-validator.js";
 
 interface LimitState {
@@ -159,29 +169,100 @@ interface McpLaunchInvocation {
   readonly budget: { readonly maxDurationMs: number };
 }
 
+type McpClientInvocation = McpLaunchInvocation | RemoteMcpInspectionInvocation | RemoteMcpToolCallInvocation;
+
 interface McpRequestOptions {
   readonly signal: AbortSignal;
   readonly timeout: number;
   readonly maxTotalTimeout: number;
 }
 
+interface DispatcherRequestInit extends RequestInit {
+  readonly dispatcher: Agent;
+}
+
+function pinnedLookup(expectedHostname: string, addresses: readonly string[]): LookupFunction {
+  const expected = expectedHostname.toLowerCase().replace(/\.$/u, "");
+  const records = [...new Set(addresses)].map((address) => ({ address, family: isIP(address) }));
+  if (records.length === 0 || records.some(({ family }) => family === 0)) throw new Error("Remote MCP did not resolve to valid IP addresses");
+  return (hostname, options, callback) => {
+    if (hostname.toLowerCase().replace(/\.$/u, "") !== expected) {
+      callback(Object.assign(new Error("Remote MCP pinned lookup received an unexpected hostname"), { code: "ENOTFOUND" }), "", 0);
+      return;
+    }
+    const family = options.family ?? 0;
+    const eligible = family === 0 ? records : records.filter((record) => record.family === family);
+    if (eligible.length === 0) {
+      callback(Object.assign(new Error("Remote MCP pinned lookup has no address for the requested family"), { code: "ENOTFOUND" }), "", 0);
+      return;
+    }
+    if (options.all) callback(null, eligible);
+    else callback(null, eligible[0]!.address, eligible[0]!.family);
+  };
+}
+
+async function fetchPinnedRemoteRequest(request: Request, addresses: readonly string[]): Promise<Response> {
+  const url = new URL(request.url);
+  const dispatcher = new Agent({ connect: { lookup: pinnedLookup(url.hostname, addresses) } });
+  try {
+    const response = await fetch(request, { redirect: "manual", dispatcher } as DispatcherRequestInit);
+    void dispatcher.close();
+    return response;
+  } catch (error) {
+    await dispatcher.close();
+    throw error;
+  }
+}
+
+export function createSafeRemoteFetch(options: {
+  readonly resolve: (hostname: string) => Promise<readonly string[]>;
+  readonly fetch: (request: Request, addresses: readonly string[]) => Promise<Response>;
+} = {
+  resolve: async (hostname) => (await lookup(hostname, { all: true, verbatim: true })).map(({ address }) => address),
+  fetch: fetchPinnedRemoteRequest,
+}) {
+  return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    let request = new Request(input, init);
+    for (let redirects = 0; redirects <= 3; redirects += 1) {
+      const addresses = await options.resolve(new URL(request.url).hostname);
+      assertRemoteMcpNetworkTarget(request.url, addresses);
+      const replay = request.clone();
+      const response = await options.fetch(request, addresses);
+      if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+      if (redirects === 3) throw new Error("Remote MCP exceeded its redirect budget");
+      const location = response.headers.get("location");
+      if (!location) throw new Error("Remote MCP redirect omitted Location");
+      const next = new URL(location, request.url);
+      if (next.origin !== new URL(request.url).origin) throw new Error("Remote MCP refused a cross-origin redirect");
+      assertRemoteMcpNetworkTarget(next.toString(), await options.resolve(next.hostname));
+      if ((response.status === 301 || response.status === 302 || response.status === 303) && request.method !== "GET" && request.method !== "HEAD") throw new Error("Remote MCP refused a method-changing redirect");
+      request = new Request(next, replay);
+    }
+    throw new Error("Remote MCP redirect loop");
+  };
+}
+
+const safeRemoteFetch = createSafeRemoteFetch();
+
 async function withMcpClient<T>(
-  invocation: McpLaunchInvocation,
+  invocation: McpClientInvocation,
   signal: AbortSignal | undefined,
   timeoutSignal: AbortSignal,
   operation: "inspection" | "resource read" | "prompt get" | "tool call",
   use: (client: Client, requestOptions: McpRequestOptions) => Promise<T>,
+  remoteFetch: FetchLike = safeRemoteFetch,
 ): Promise<T> {
   assertMcpActive(signal, timeoutSignal, operation);
+  if ("serverUrl" in invocation) assertRemoteMcpNetworkTarget(invocation.serverUrl, invocation.resolvedAddresses);
   const runSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
-  const transport = new StdioClientTransport({
-    command: invocation.command,
-    args: [...invocation.args],
-    env: { ...invocation.environment },
-    cwd: invocation.workingDirectory,
-    stderr: "pipe",
-  });
-  transport.stderr?.on("data", () => undefined);
+  const transport = "serverUrl" in invocation
+    ? new StreamableHTTPClientTransport(new URL(invocation.serverUrl), {
+        fetch: remoteFetch,
+        requestInit: invocation.authorizationBearer === undefined ? {} : { headers: { authorization: `Bearer ${invocation.authorizationBearer}` } },
+        reconnectionOptions: { initialReconnectionDelay: 500, maxReconnectionDelay: 2_000, reconnectionDelayGrowFactor: 2, maxRetries: 0 },
+      })
+    : new StdioClientTransport({ command: invocation.command, args: [...invocation.args], env: { ...invocation.environment }, cwd: invocation.workingDirectory, stderr: "pipe" });
+  if (transport instanceof StdioClientTransport) transport.stderr?.on("data", () => undefined);
   const client = new Client({ name: "bubu-mcp-client", version: "0.1.0" }, { capabilities: {} });
   const requestOptions = {
     signal: runSignal,
@@ -189,7 +270,8 @@ async function withMcpClient<T>(
     maxTotalTimeout: invocation.budget.maxDurationMs,
   };
   try {
-    await client.connect(transport, requestOptions);
+    // SDK v1's Streamable HTTP declaration is not exact-optional compatible with its own Transport declaration under TypeScript 7.
+    await client.connect(transport as never, requestOptions);
     assertMcpActive(signal, timeoutSignal, operation);
     return await use(client, requestOptions);
   } catch (error) {
@@ -201,11 +283,12 @@ async function withMcpClient<T>(
 }
 
 export async function inspectMcpStdioServer(
-  value: McpInspectionInvocation,
+  value: McpInspectionInvocation | RemoteMcpInspectionInvocation,
   signal?: AbortSignal,
   timeoutSignal: AbortSignal = AbortSignal.timeout(mcpInspectionBudget.maxDurationMs),
+  remoteFetch: FetchLike = safeRemoteFetch,
 ): Promise<McpInspectionSnapshot> {
-  const invocation = parseMcpInspectionInvocation(value);
+  const invocation = "serverUrl" in value ? parseRemoteMcpInspectionInvocation(value) : parseMcpInspectionInvocation(value);
   return withMcpClient(invocation, signal, timeoutSignal, "inspection", async (client, requestOptions) => {
     const capabilities = client.getServerCapabilities();
     const hasTools = capabilities?.tools !== undefined;
@@ -258,7 +341,11 @@ export async function inspectMcpStdioServer(
       snapshot.limited = true;
     }
     return parseMcpInspectionSnapshot(snapshot);
-  });
+  }, remoteFetch);
+}
+
+export async function inspectMcpRemoteServer(value: RemoteMcpInspectionInvocation, signal?: AbortSignal, remoteFetch: FetchLike = safeRemoteFetch): Promise<McpInspectionSnapshot> {
+  return inspectMcpStdioServer(parseRemoteMcpInspectionInvocation(value), signal, AbortSignal.timeout(mcpInspectionBudget.maxDurationMs), remoteFetch);
 }
 
 function decodeCanonicalBase64(value: string): Buffer {
@@ -458,11 +545,12 @@ export async function getMcpStdioPrompt(
 }
 
 export async function callMcpStdioTool(
-  value: McpToolCallInvocation,
+  value: McpToolCallInvocation | RemoteMcpToolCallInvocation,
   signal?: AbortSignal,
   timeoutSignal: AbortSignal = AbortSignal.timeout(mcpToolCallBudget.maxDurationMs),
+  remoteFetch: FetchLike = safeRemoteFetch,
 ): Promise<McpToolCallResult> {
-  const invocation = parseMcpToolCallInvocation(value);
+  const invocation = "serverUrl" in value ? parseRemoteMcpToolCallInvocation(value) : parseMcpToolCallInvocation(value);
   return withMcpClient(invocation, signal, timeoutSignal, "tool call", async (client, requestOptions) => {
     const hasTools = client.getServerCapabilities()?.tools !== undefined;
     if (!hasTools) throw new Error("MCP server does not advertise tools");
@@ -531,5 +619,9 @@ export async function callMcpStdioTool(
       localOnly: true,
       untrustedContent: true,
     });
-  });
+  }, remoteFetch);
+}
+
+export async function callMcpRemoteTool(value: RemoteMcpToolCallInvocation, signal?: AbortSignal, remoteFetch: FetchLike = safeRemoteFetch): Promise<McpToolCallResult> {
+  return callMcpStdioTool(parseRemoteMcpToolCallInvocation(value), signal, AbortSignal.timeout(mcpToolCallBudget.maxDurationMs), remoteFetch);
 }

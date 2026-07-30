@@ -17,11 +17,40 @@ type WorkflowTrigger struct {
 }
 
 type WorkflowStepDefinition struct {
-	ID              string              `json:"id"`
-	Kind            string              `json:"kind"`
-	Plan            *SafeQueryPlan      `json:"plan,omitempty"`
-	GroupPlan       *SafeGroupQueryPlan `json:"groupPlan,omitempty"`
-	MaximumAttempts int                 `json:"maxAttempts"`
+	ID                  string              `json:"id"`
+	Kind                string              `json:"kind"`
+	Plan                *SafeQueryPlan      `json:"plan,omitempty"`
+	GroupPlan           *SafeGroupQueryPlan `json:"groupPlan,omitempty"`
+	MaximumAttempts     int                 `json:"maxAttempts"`
+	Title               string              `json:"title,omitempty"`
+	Action              string              `json:"action,omitempty"`
+	Risk                string              `json:"risk,omitempty"`
+	ExpiresAfterMinutes int                 `json:"expiresAfterMinutes,omitempty"`
+}
+
+type WorkflowApprovalRequest struct {
+	SchemaVersion     int            `json:"schemaVersion"`
+	ID                string         `json:"id"`
+	WorkflowID        string         `json:"workflowId"`
+	DefinitionVersion int            `json:"definitionVersion"`
+	RunID             string         `json:"runId"`
+	StepID            string         `json:"stepId"`
+	Ordinal           int            `json:"ordinal"`
+	Target            WorkflowTarget `json:"target"`
+	Title             string         `json:"title"`
+	Action            string         `json:"action"`
+	Risk              string         `json:"risk"`
+	Status            string         `json:"status"`
+	RequestedAt       string         `json:"requestedAt"`
+	ExpiresAt         string         `json:"expiresAt"`
+	DecidedAt         *string        `json:"decidedAt"`
+	DecisionNote      *string        `json:"decisionNote"`
+}
+
+type WorkflowApprovalDecisionInput struct {
+	ApprovalID string  `json:"approvalId"`
+	Decision   string  `json:"decision"`
+	Note       *string `json:"note,omitempty"`
 }
 
 type WorkflowDefinitionInput struct {

@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	maximumConversationEntries = 500
-	maximumConversationPayload = 1024 * 1024
+	maximumConversationEntries        = 10000
+	maximumConversationEntriesPerPage = 100
+	maximumConversationThreadPayload  = 500
+	maximumConversationPayload        = 1024 * 1024
 )
 
 func validateConversationTarget(target ConversationTarget) error {
@@ -78,10 +80,13 @@ FROM conversation_threads WHERE id = ?`, threadID).Scan(
 		return nil, fmt.Errorf("load conversation: %w", err)
 	}
 	rows, err := service.database.QueryContext(ctx, `
-SELECT id, ordinal, kind, role, payload_json, created_at
-FROM conversation_entries
-WHERE thread_id = ?
-ORDER BY ordinal`, thread.ID)
+SELECT id, ordinal, kind, role, payload_json, created_at FROM (
+  SELECT id, ordinal, kind, role, payload_json, created_at
+  FROM conversation_entries
+  WHERE thread_id = ?
+  ORDER BY ordinal DESC
+  LIMIT ?
+) ORDER BY ordinal`, thread.ID, maximumConversationThreadPayload)
 	if err != nil {
 		return nil, fmt.Errorf("load conversation entries: %w", err)
 	}
@@ -104,6 +109,64 @@ ORDER BY ordinal`, thread.ID)
 		return nil, fmt.Errorf("iterate conversation entries: %w", err)
 	}
 	return &thread, nil
+}
+
+func (service *Service) PageConversationEntries(ctx context.Context, threadID string, beforeOrdinal, limit int) (ConversationEntryPage, error) {
+	if !objectID.MatchString(threadID) || beforeOrdinal < 1 || limit < 20 || limit > maximumConversationEntriesPerPage {
+		return ConversationEntryPage{}, errors.New("conversation page input is invalid")
+	}
+	var totalEntries int
+	if err := service.database.QueryRowContext(ctx, `
+SELECT COUNT(entry.id)
+FROM conversation_threads AS thread
+LEFT JOIN conversation_entries AS entry ON entry.thread_id = thread.id
+WHERE thread.id = ?
+GROUP BY thread.id`, threadID).Scan(&totalEntries); errors.Is(err, sql.ErrNoRows) {
+		return ConversationEntryPage{}, errors.New("conversation thread was not found")
+	} else if err != nil {
+		return ConversationEntryPage{}, fmt.Errorf("count conversation entries: %w", err)
+	}
+	rows, err := service.database.QueryContext(ctx, `
+SELECT id, ordinal, kind, role, payload_json, created_at FROM (
+  SELECT id, ordinal, kind, role, payload_json, created_at
+  FROM conversation_entries
+  WHERE thread_id = ? AND ordinal < ?
+  ORDER BY ordinal DESC
+  LIMIT ?
+) ORDER BY ordinal`, threadID, beforeOrdinal, limit)
+	if err != nil {
+		return ConversationEntryPage{}, fmt.Errorf("page conversation entries: %w", err)
+	}
+	defer rows.Close()
+	entries := make([]ConversationEntry, 0, limit)
+	for rows.Next() {
+		var entry ConversationEntry
+		var payload string
+		entry.ThreadID = threadID
+		if err := rows.Scan(&entry.ID, &entry.Ordinal, &entry.Kind, &entry.Role, &payload, &entry.CreatedAt); err != nil {
+			return ConversationEntryPage{}, fmt.Errorf("scan conversation page entry: %w", err)
+		}
+		entry.Payload = json.RawMessage(payload)
+		if err := validateConversationEntry(ConversationEntryInput{Kind: entry.Kind, Role: entry.Role, Payload: entry.Payload}); err != nil {
+			return ConversationEntryPage{}, fmt.Errorf("stored conversation page entry failed validation: %w", err)
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return ConversationEntryPage{}, fmt.Errorf("iterate conversation page entries: %w", err)
+	}
+	var nextBeforeOrdinal *int
+	if len(entries) > 0 {
+		earliest := entries[0].Ordinal
+		var hasEarlier int
+		if err := service.database.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM conversation_entries WHERE thread_id = ? AND ordinal < ?)", threadID, earliest).Scan(&hasEarlier); err != nil {
+			return ConversationEntryPage{}, fmt.Errorf("check earlier conversation entries: %w", err)
+		}
+		if hasEarlier == 1 {
+			nextBeforeOrdinal = &earliest
+		}
+	}
+	return ConversationEntryPage{ThreadID: threadID, Entries: entries, NextBeforeOrdinal: nextBeforeOrdinal, TotalEntries: totalEntries}, nil
 }
 
 func (service *Service) AppendConversationEntry(

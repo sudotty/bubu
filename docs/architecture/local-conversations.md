@@ -1,12 +1,12 @@
 # Local conversation and artifact contract
 
-Status: Implemented for the primary local thread attached to each dataset contact and dataset group.
+Status: Implemented for multiple named local threads attached to each data object and business topic.
 
 Owner: Go data core persistence; Electron main orchestration; sandboxed renderer read-only presentation.
 
 ## Model
 
-Each dataset or group has at most one primary local conversation thread. The target is a stable dataset/group identity, not a file path or mutable table. The first user question creates the thread and its local title. Entries have a monotonic ordinal and one of five strict shapes:
+Each dataset or group may have multiple bounded named local conversation threads. The target is a stable dataset/group identity, not a file path or mutable table. The first user question creates the thread and its local title; users may rename, archive, restore, create and switch threads without mixing evidence. Entries have a monotonic ordinal and one of five strict shapes:
 
 | Entry | Role | Typed payload |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ There is no HTML entry, arbitrary blob entry, tool-script entry, or renderer-con
 
 The preload API exposes only `conversations.get(target)`. It has no append method. Electron main appends a question before model planning, a validated proposal after strict model parsing, a source-linked result after local Go execution, a validated aggregate explanation or bounded Agent insight after one-use disclosure approval, or a bounded error after failure. Direct renderer access still cannot reach authenticated sidecar RPC.
 
-Go independently validates target existence, target/kind/role combinations, JSON object shape, a 1 MiB entry budget, a 500-entry thread limit, and monotonic insertion inside a transaction. Stored JSON is parsed again through strict TypeScript schemas before the renderer receives it.
+Go independently validates target existence, target/kind/role combinations, JSON object shape, a 1 MiB entry budget, a 10,000-entry durable thread limit, and monotonic insertion inside a transaction. A normal thread response contains only the latest 500 entries; older entries are fetched in ascending, strictly validated pages of at most 100. Stored JSON and page cursors are parsed again through strict TypeScript schemas before the renderer receives them.
 
 ## Local-only behavior
 
@@ -30,6 +30,6 @@ Conversation rows live in the same private SQLite database and are never synchro
 
 Query responses reject any individual string cell above 10,000 bytes and any complete result above 768 KiB before it can cross RPC or be persisted. The row limit remains 200. This is an execution/persistence budget, not silent truncation; an oversized result fails visibly.
 
-## Deliberately pending
+## Deliberately bounded
 
-Multiple named threads per contact, pagination beyond 500 entries, user deletion/retention policy, exports, saved report artifacts, durable approval receipts, cryptographic audit chaining, and optional Hub synchronization remain separate capabilities. They must not broaden default disclosure.
+Result exports and professional report bundles are implemented through their own reviewed local-file boundaries rather than as arbitrary conversation blobs. Hub sync is intentionally limited to explicitly selected encrypted workflow definitions and does not synchronize conversations or raw rows. Bounded local pagination beyond the latest 500 entries is implemented; portable configuration backup is implemented as a separate credential-free settings artifact. Users can permanently delete an exact archived task after typing its title; active tasks, changed snapshots and any thread referenced by workflow evidence fail closed. An optional 30–3,650 day policy periodically removes only old archived unreferenced threads and defaults off. Durable approvals continue to live in their owning disclosure, workflow and audit authorities instead of being forged from conversation entries.

@@ -25,6 +25,6 @@ test("rejects same-build upgrade evidence", () => {
 });
 
 test("gives a cold Windows installer launch enough time for the full product smoke", () => {
-  assert.equal(packagedSmokeTimeoutMs("win32"), 60_000);
-  assert.equal(packagedSmokeTimeoutMs("darwin"), 30_000);
+  assert.equal(packagedSmokeTimeoutMs("win32"), 120_000);
+  assert.equal(packagedSmokeTimeoutMs("darwin"), 60_000);
 });

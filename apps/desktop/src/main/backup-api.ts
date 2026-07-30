@@ -1,11 +1,11 @@
 import { dialog, ipcMain } from "electron";
 import { desktopChannels } from "../shared/product-api.js";
 import { parseOperationStart } from "@bubu/contracts";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { BackupPort } from "./sidecar-ports.js";
 import type { OperationRegistry } from "./operation-registry.js";
 
 interface BackupApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: BackupPort;
   readonly assertTrustedSender: (frameUrl: string) => void;
   readonly operations: OperationRegistry;
 }

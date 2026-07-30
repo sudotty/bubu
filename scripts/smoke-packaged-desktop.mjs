@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -44,9 +44,9 @@ writeFileSync(
   { mode: 0o600 },
 );
 
-const result = spawnSync(executable, ["--bubu-smoke-test"], {
-  encoding: "utf8",
-  timeout: packagedSmokeTimeoutMs(process.platform),
+const timeoutMs = packagedSmokeTimeoutMs(process.platform);
+const result = await new Promise((resolveResult) => {
+  const child = spawn(executable, ["--bubu-smoke-test"], {
   env: {
     ...process.env,
     BUBU_SMOKE_DATA_DIR: dataDirectory,
@@ -54,6 +54,36 @@ const result = spawnSync(executable, ["--bubu-smoke-test"], {
     BUBU_SMOKE_SECOND_SOURCE: secondSourcePath,
     ...(screenshotDirectory ? { BUBU_SMOKE_SCREENSHOT_DIR: screenshotDirectory } : {}),
   },
+  });
+  let stdout = "";
+  let stderr = "";
+  let timeout;
+  let forceKill;
+  let timedOut = false;
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => { stdout += chunk; });
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  child.once("error", (error) => {
+    clearTimeout(timeout);
+    clearTimeout(forceKill);
+    resolveResult({ error, status: null, stdout, stderr });
+  });
+  child.once("close", (status) => {
+    clearTimeout(timeout);
+    clearTimeout(forceKill);
+    resolveResult({
+      ...(timedOut ? { error: new Error(`Packaged desktop exceeded ${timeoutMs}ms`) } : {}),
+      status,
+      stdout,
+      stderr,
+    });
+  });
+  timeout = setTimeout(() => {
+    timedOut = true;
+    child.kill();
+    forceKill = setTimeout(() => child.kill("SIGKILL"), 1_000);
+  }, timeoutMs);
 });
 rmSync(smokeRoot, { recursive: true, force: true });
 
@@ -62,7 +92,27 @@ if (
   result.status !== 0 ||
   !result.stdout.includes("BUBU_PACKAGED_SMOKE_OK") ||
   !result.stdout.includes("BUBU_PACKAGED_IMPORT_UI_OK") ||
-  !result.stdout.includes("BUBU_PACKAGED_BACKUP_RESTORE_OK")
+  !result.stdout.includes("BUBU_PACKAGED_BACKUP_RESTORE_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_RECURRING_CLEAN_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_MERGE_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_RECONCILIATION_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_FILE_ARRIVAL_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_PROFESSIONAL_REPORT_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_EXPLICIT_ROWS_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_CONVERSATION_RETENTION_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_CONFIGURATION_BACKUP_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_ACCESSIBILITY_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_ONBOARDING_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_AGENT_DEFINITION_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_REPORT_COMPOSITION_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_VISUALIZATION_PREFERENCE_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_LOCAL_RAG_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_MCP_MODEL_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_REMOTE_MCP_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_EXTERNAL_DELIVERY_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_HUB_SYNC_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_HUB_APPLICATION_ENTRY_OK") ||
+  !result.stdout.includes("BUBU_PACKAGED_WORKFLOW_APPROVAL_OK")
 ) {
   console.error("Packaged desktop smoke failed.");
   if (result.error) console.error(result.error.message);
@@ -72,4 +122,6 @@ if (
 }
 
 console.log(`Packaged desktop smoke passed: ${executable}`);
+const workflowGeometry = result.stdout.split("\n").find((line) => line.startsWith("BUBU_PACKAGED_WORKFLOW_GEOMETRY"));
+if (workflowGeometry) console.log(workflowGeometry);
 if (screenshotDirectory) console.log(`Product screenshots written to: ${screenshotDirectory}`);

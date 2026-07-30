@@ -16,7 +16,7 @@ import type { McpResourceApprovalSessionStore } from "./mcp-resource-approval-se
 import { prepareMcpInspectionInvocation } from "./mcp-api.js";
 import { RpcRemoteError } from "./rpc-broker.js";
 import type { OperationRegistry } from "./operation-registry.js";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { LocalMcpResourcePort } from "./sidecar-ports.js";
 
 interface McpResourceExecutionDependencies {
   readonly connections: Pick<McpConnectionStore, "resolve">;
@@ -101,7 +101,7 @@ export async function executeApprovedMcpResourceRead(
 }
 
 interface McpResourceApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: LocalMcpResourcePort;
   readonly connections: McpConnectionStore;
   readonly approvals: McpResourceApprovalSessionStore;
   readonly audits: McpAuditStore;

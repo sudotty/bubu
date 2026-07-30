@@ -13,6 +13,9 @@ func handleExtendedMethods(
 		handleDatasetLifecycle,
 		handleDataProtection,
 		handleDistribution,
+		handleDerivedDataset,
+		handleReconciliation,
+		handleLocalKnowledge,
 	} {
 		if response, handled := handler(ctx, request, datasets); handled {
 			return response, true

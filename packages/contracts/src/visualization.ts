@@ -15,7 +15,18 @@ export const visualizationSpecSchema = z.object({
   omittedPointCount: z.number().int().nonnegative(),
 }).strict();
 
+export const visualizationCompositionSchema = z.object({
+  schemaVersion: z.literal(1),
+  title: z.string().trim().min(1).max(500),
+  views: z.array(visualizationSpecSchema).min(1).max(4),
+}).strict().superRefine((value, context) => {
+  if (new Set(value.views.map(({ categoryLabel, valueLabel }) => `${categoryLabel}\u0000${valueLabel}`)).size !== value.views.length) {
+    context.addIssue({ code: "custom", path: ["views"], message: "Visualization composition views must be unique" });
+  }
+});
+
 export type VisualizationSpec = z.infer<typeof visualizationSpecSchema>;
+export type VisualizationComposition = z.infer<typeof visualizationCompositionSchema>;
 export type VisualizationRecommendation =
   | { readonly kind: "chart"; readonly reason: string; readonly spec: VisualizationSpec }
   | { readonly kind: "table"; readonly reason: string };
@@ -79,6 +90,58 @@ export function deriveVisualizationSpec(result: ResultLike, title: string): Visu
   return recommendation.kind === "chart" ? recommendation.spec : undefined;
 }
 
+export type VisualizationCompositionRecommendation =
+  | { readonly kind: "charts"; readonly reason: string; readonly composition: VisualizationComposition }
+  | { readonly kind: "table"; readonly reason: string };
+
+export function composeVisualizations(result: ResultLike, title: string): VisualizationCompositionRecommendation {
+  if (result.rows.length === 0) return { kind: "table", reason: "没有结果行，图表不会增加信息。" };
+  let valueIndexes = result.columns.map((column, index) => isNumeric(column.type) ? index : -1).filter((index) => index >= 0).slice(0, 4);
+  if (valueIndexes.length === 0) return { kind: "table", reason: "结果中没有可安全绘制的数值列。" };
+  let categoryIndex = result.columns.findIndex(({ type }, index) => !valueIndexes.includes(index) && !isNumeric(type));
+  if (categoryIndex < 0) categoryIndex = result.columns.findIndex((_column, index) => !valueIndexes.includes(index));
+  if (categoryIndex < 0 && valueIndexes.length > 1) {
+    categoryIndex = valueIndexes[0] ?? -1;
+    valueIndexes = valueIndexes.slice(1);
+  }
+  const category = result.columns[categoryIndex];
+  if (!category) return { kind: "table", reason: "没有找到能与数值指标配对的维度列。" };
+  if (result.rows.length > 20) return { kind: "table", reason: `共有 ${result.rows.length} 个结果行，完整表格比截断后的多图组合更可信。` };
+  const labels = result.rows.map((row) => row[categoryIndex] === null ? "空值" : String(row[categoryIndex]));
+  if (new Set(labels).size !== labels.length) return { kind: "table", reason: "维度值存在重复，多图组合会暗示未经计划批准的聚合。" };
+  const chronological = category.type === "datetime" && labels.every((label) => Number.isFinite(Date.parse(label)));
+  const order = result.rows.map((_row, index) => index).toSorted((left, right) => chronological ? Date.parse(labels[left] ?? "") - Date.parse(labels[right] ?? "") : left - right);
+  const normalizedTitle = title.trim().slice(0, 500) || "查询结果";
+  const views = valueIndexes.flatMap((valueIndex) => {
+    const value = result.columns[valueIndex];
+    if (!value) return [];
+    const points = order.flatMap((rowIndex) => {
+      const raw = result.rows[rowIndex]?.[valueIndex];
+      const number = typeof raw === "number" ? raw : Number(raw);
+      return raw !== null && Number.isFinite(number) ? [{ label: labels[rowIndex] ?? "空值", value: number }] : [];
+    });
+    if (points.length !== result.rows.length) return [];
+    return [visualizationSpecSchema.parse({
+      kind: chronological ? "line" : "bar",
+      title: valueIndexes.length === 1 ? normalizedTitle : `${normalizedTitle} · ${value.label}`.slice(0, 500),
+      categoryLabel: category.label,
+      valueLabel: value.label,
+      points,
+      omittedPointCount: 0,
+    })];
+  });
+  if (views.length === 0) return { kind: "table", reason: "数值指标含有不可绘制值，完整表格更可信。" };
+  return {
+    kind: "charts",
+    reason: views.length === 1 ? "一个受审数值指标与唯一维度一一对应。" : `${views.length} 个受审数值指标共享同一唯一维度，可逐指标切换而不引入新的聚合。`,
+    composition: visualizationCompositionSchema.parse({ schemaVersion: 1, title: normalizedTitle, views }),
+  };
+}
+
 export function parseVisualizationSpec(value: unknown): VisualizationSpec {
   return visualizationSpecSchema.parse(value);
+}
+
+export function parseVisualizationComposition(value: unknown): VisualizationComposition {
+  return visualizationCompositionSchema.parse(value);
 }

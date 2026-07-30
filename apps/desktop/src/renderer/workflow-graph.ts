@@ -1,7 +1,7 @@
 import type { WorkflowDefinition, WorkflowRun } from "../shared/product-api.js";
 
-export type WorkflowGraphStatus = "idle" | "running" | "succeeded" | "failed";
-export type WorkflowGraphNodeKind = "trigger" | "data" | "delivery" | "reminder";
+export type WorkflowGraphStatus = "idle" | "running" | "awaiting-approval" | "succeeded" | "failed";
+export type WorkflowGraphNodeKind = "trigger" | "data" | "approval" | "delivery" | "reminder";
 
 export interface WorkflowGraphNode {
   readonly id: string;
@@ -44,7 +44,9 @@ export function buildWorkflowGraph(
   const terminalStatus: WorkflowGraphStatus = !runMatches ? "idle" : run.status === "cancelled" ? "failed" : run.status;
   return [
     { id: "trigger", kind: "trigger", label: "触发业务周期", detail: triggerDetail, status: runMatches ? "succeeded" : "idle" },
-    ...workflow.steps.map((step) => ({ id: step.id, kind: "data" as const, label: "读取并处理最新数据", detail: step.kind === "group-query" ? "多数据对象关联查询" : "单数据对象受限查询", status: stepStatus(step.id) })),
+    ...workflow.steps.map((step) => step.kind === "human-approval"
+      ? { id: step.id, kind: "approval" as const, label: step.title, detail: `${step.action} · ${step.risk} 风险`, status: stepStatus(step.id) }
+      : { id: step.id, kind: "data" as const, label: "读取并处理最新数据", detail: step.kind === "group-query" ? "多对象关联查询" : "单对象受限查询", status: stepStatus(step.id) }),
     { id: "reply", kind: "delivery", label: "发送结果到当前对话", detail: "结果和图表保存在任务中，可按需导出", status: terminalStatus },
     { id: "next", kind: "reminder", label: "提醒下一次更新", detail: workflow.nextDueAt ? new Date(workflow.nextDueAt).toLocaleString("zh-CN") : triggerDetail === "手动" ? "需要时再次运行" : "等待调度", status: terminalStatus === "failed" ? "failed" : "idle" },
   ];

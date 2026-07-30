@@ -292,6 +292,12 @@ WHERE id = ?`,
 	); err != nil {
 		return fmt.Errorf("activate dataset version: %w", err)
 	}
+	if err := enqueueDerivedDependents(ctx, transaction, target.datasetID, target.versionID, target.importedAt); err != nil {
+		return err
+	}
+	if err := enqueueReconciliationDependents(ctx, transaction, target.datasetID, target.versionID, target.importedAt); err != nil {
+		return err
+	}
 	return nil
 }
 

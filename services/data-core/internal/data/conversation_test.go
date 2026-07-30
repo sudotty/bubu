@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,6 +114,62 @@ func TestConversationPersistsAnAppendOnlyTypedTimeline(t *testing.T) {
 	}
 }
 
+func TestConversationLoadsLatestWindowAndPagesOlderEntries(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "sales.csv")
+	if err := os.WriteFile(source, []byte("Region,Amount\nNorth,10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	thread, err := service.CreateConversation(context.Background(), ConversationCreateInput{
+		Target: ConversationTarget{Kind: "dataset", ID: imported.Datasets[0].ID},
+		Title:  "长任务",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := service.database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for ordinal := 1; ordinal <= 620; ordinal++ {
+		entryID := fmt.Sprintf("%032x", ordinal)
+		payload := fmt.Sprintf(`{"question":"问题 %d"}`, ordinal)
+		if _, err := transaction.Exec(`INSERT INTO conversation_entries(
+id, thread_id, ordinal, kind, role, payload_json, created_at
+) VALUES (?, ?, ?, 'question', 'user', ?, '2026-07-29T00:00:00Z')`, entryID, thread.ID, ordinal, payload); err != nil {
+			_ = transaction.Rollback()
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := service.GetConversationByID(context.Background(), thread.ID)
+	if err != nil || loaded == nil || len(loaded.Entries) != maximumConversationThreadPayload {
+		t.Fatalf("latest conversation window failed: %#v, %v", loaded, err)
+	}
+	if loaded.Entries[0].Ordinal != 121 || loaded.Entries[len(loaded.Entries)-1].Ordinal != 620 {
+		t.Fatalf("unexpected latest window: %d..%d", loaded.Entries[0].Ordinal, loaded.Entries[len(loaded.Entries)-1].Ordinal)
+	}
+	firstPage, err := service.PageConversationEntries(context.Background(), thread.ID, 121, 100)
+	if err != nil || len(firstPage.Entries) != 100 || firstPage.Entries[0].Ordinal != 21 || firstPage.Entries[99].Ordinal != 120 || firstPage.NextBeforeOrdinal == nil || *firstPage.NextBeforeOrdinal != 21 || firstPage.TotalEntries != 620 {
+		t.Fatalf("unexpected first older page: %#v, %v", firstPage, err)
+	}
+	lastPage, err := service.PageConversationEntries(context.Background(), thread.ID, *firstPage.NextBeforeOrdinal, 100)
+	if err != nil || len(lastPage.Entries) != 20 || lastPage.Entries[0].Ordinal != 1 || lastPage.NextBeforeOrdinal != nil {
+		t.Fatalf("unexpected final older page: %#v, %v", lastPage, err)
+	}
+	if _, err := service.PageConversationEntries(context.Background(), strings.Repeat("f", 32), 10, 100); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("missing thread pagination should fail closed: %v", err)
+	}
+}
+
 func TestConversationThreadsAreIndependentForOneDataset(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "sales.csv")
@@ -187,5 +244,93 @@ func TestConversationRejectsInvalidTargetsRolesAndPayloads(t *testing.T) {
 	input.Entry.Payload = json.RawMessage(`[]`)
 	if _, err := service.AppendConversationEntry(context.Background(), input); err == nil || !strings.Contains(err.Error(), "object") {
 		t.Fatalf("expected payload rejection, got %v", err)
+	}
+}
+
+func TestConversationPermanentDeletionRequiresAnExactArchivedUnreferencedSnapshot(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "sales.csv")
+	if err := os.WriteFile(source, []byte("Region,Amount\nNorth,10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := ConversationTarget{Kind: "dataset", ID: imported.Datasets[0].ID}
+	thread, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target, Title: "待删除任务"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := ConversationDeleteInput{ThreadID: thread.ID, ExpectedTitle: thread.Title, ExpectedUpdatedAt: thread.UpdatedAt}
+	if _, err := service.DeleteConversation(context.Background(), input); err == nil || !strings.Contains(err.Error(), "archived") {
+		t.Fatalf("active thread deletion should fail: %v", err)
+	}
+	if err := service.ArchiveConversation(context.Background(), ConversationArchiveInput{ThreadID: thread.ID, Archived: true}); err != nil {
+		t.Fatal(err)
+	}
+	archived, err := service.GetConversationByID(context.Background(), thread.ID)
+	if err != nil || archived == nil {
+		t.Fatal(err)
+	}
+	if _, err := service.DeleteConversation(context.Background(), ConversationDeleteInput{ThreadID: archived.ID, ExpectedTitle: "错误标题", ExpectedUpdatedAt: archived.UpdatedAt}); err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("stale title should fail: %v", err)
+	}
+	result, err := service.DeleteConversation(context.Background(), ConversationDeleteInput{ThreadID: archived.ID, ExpectedTitle: archived.Title, ExpectedUpdatedAt: archived.UpdatedAt})
+	if err != nil || result.Reason != "manual" || result.DeletedEntryCount != 0 {
+		t.Fatalf("unexpected deletion result: %#v, %v", result, err)
+	}
+	if found, err := service.GetConversationByID(context.Background(), thread.ID); err != nil || found != nil {
+		t.Fatalf("deleted thread still exists: %#v, %v", found, err)
+	}
+}
+
+func TestConversationRetentionDeletesOnlyOldArchivedUnreferencedThreads(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "sales.csv")
+	if err := os.WriteFile(source, []byte("Region,Amount\nNorth,10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := openTestService(t, filepath.Join(root, "data"))
+	imported, err := service.ImportFile(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := ConversationTarget{Kind: "dataset", ID: imported.Datasets[0].ID}
+	deletable, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target, Title: "旧任务"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	referenced, err := service.CreateConversation(context.Background(), ConversationCreateInput{Target: target, Title: "工作流任务"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, thread := range []*ConversationThread{deletable, referenced} {
+		if _, err := service.AppendConversationEntry(context.Background(), ConversationAppendInput{Target: target, ThreadID: thread.ID, Entry: ConversationEntryInput{Kind: "question", Role: "user", Payload: json.RawMessage(`{"question":"历史任务"}`)}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := service.ArchiveConversation(context.Background(), ConversationArchiveInput{ThreadID: thread.ID, Archived: true}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.database.Exec("UPDATE conversation_threads SET archived_at = '2025-01-01T00:00:00Z', updated_at = '2025-01-01T00:00:00Z' WHERE id = ?", thread.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := service.database.Exec(`INSERT INTO workflow_definitions(id, name, target_kind, target_id, version, trigger_kind, timeout_ms, steps_json, created_at, updated_at, deleted_at, trigger_json, next_due_at, target_signature, thread_id) VALUES (?, '保留证据', 'dataset', ?, 1, 'manual', 60000, '[]', '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z', NULL, '{"kind":"manual"}', NULL, '', ?)`, strings.Repeat("e", 32), target.ID, referenced.ID); err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.ApplyConversationRetention(context.Background(), 30)
+	if err != nil || result.DeletedThreadCount != 1 || result.DeletedEntryCount != 1 {
+		t.Fatalf("unexpected retention result: %#v, %v", result, err)
+	}
+	if found, _ := service.GetConversationByID(context.Background(), deletable.ID); found != nil {
+		t.Fatal("unreferenced archived thread survived retention")
+	}
+	if found, _ := service.GetConversationByID(context.Background(), referenced.ID); found == nil {
+		t.Fatal("workflow-bound thread was deleted")
+	}
+	if _, err := service.ApplyConversationRetention(context.Background(), 7); err == nil {
+		t.Fatal("unsafe retention window was accepted")
 	}
 }

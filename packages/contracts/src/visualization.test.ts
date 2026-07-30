@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveVisualizationSpec, parseVisualizationSpec, recommendVisualization } from "./visualization.js";
+import { composeVisualizations, deriveVisualizationSpec, parseVisualizationComposition, parseVisualizationSpec, recommendVisualization } from "./visualization.js";
 
 describe("local result visualization", () => {
   it("derives a bounded bar chart from a categorical aggregate", () => {
@@ -49,5 +49,24 @@ describe("local result visualization", () => {
       valueLabel: "Revenue",
       points: [{ label: "2025", value: 10 }, { label: "2026", value: 20 }],
     });
+  });
+
+  it("composes up to four approved numeric metrics over one unique dimension", () => {
+    const composition = composeVisualizations({
+      columns: [{ label: "Region", type: "text" }, { label: "Revenue", type: "real" }, { label: "Orders", type: "integer" }],
+      rows: [["North", 30, 3], ["South", 20, 2]],
+    }, "区域经营");
+    expect(composition).toMatchObject({
+      kind: "charts",
+      composition: { views: [{ valueLabel: "Revenue" }, { valueLabel: "Orders" }] },
+    });
+    if (composition.kind === "charts") expect(parseVisualizationComposition(composition.composition)).toEqual(composition.composition);
+  });
+
+  it("fails multi-view composition closed for repeated dimensions", () => {
+    expect(composeVisualizations({
+      columns: [{ label: "Region", type: "text" }, { label: "Revenue", type: "real" }],
+      rows: [["North", 30], ["North", 20]],
+    }, "区域经营")).toMatchObject({ kind: "table", reason: expect.stringContaining("未经计划批准的聚合") });
   });
 });

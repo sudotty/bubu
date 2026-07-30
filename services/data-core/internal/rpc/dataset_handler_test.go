@@ -3,28 +3,11 @@ package rpc
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/sudotty/bubu/services/data-core/internal/data"
 )
-
-type fakeDatasets struct {
-	importedPath        string
-	importedPaths       []string
-	replacedID          string
-	replacedPath        string
-	replacedMappings    []data.ColumnMapping
-	savedRules          []data.ValidationRule
-	savedRelationship   data.DatasetRelationshipSaveInput
-	exportedID          string
-	exportedPath        string
-	deletedID           string
-	backupPath          string
-	restorePath         string
-	distributionID      string
-	distributionColumn  string
-	waitForCancellation bool
-}
 
 func (fake *fakeDatasets) SaveGroup(_ context.Context, groupID, name, description, cadence string, datasetIDs []string) (data.DatasetGroup, error) {
 	if groupID == "" {
@@ -39,6 +22,11 @@ func (fake *fakeDatasets) RenameDataset(_ context.Context, input data.DatasetRen
 
 func (fake *fakeDatasets) ListDatasetVersions(context.Context, string) ([]data.DatasetVersionSummary, error) {
 	return []data.DatasetVersionSummary{}, nil
+}
+
+func (fake *fakeDatasets) InspectSource(_ context.Context, sourcePath string) (data.SourceInspection, error) {
+	fake.inspectedPath = sourcePath
+	return data.SourceInspection{SourceKind: "csv", Tables: []data.SourceTableInspection{{Columns: []string{"Order", "Amount"}, RowCount: 2}}}, nil
 }
 
 func (fake *fakeDatasets) ListGroups(context.Context) ([]data.DatasetGroup, error) {
@@ -139,6 +127,11 @@ func (fake *fakeDatasets) Preview(context.Context, string, int, int) (data.Previ
 	return data.PreviewResult{}, errors.New("not found")
 }
 
+func (fake *fakeDatasets) PreviewExplicitRowDisclosure(_ context.Context, selection data.ExplicitRowDisclosureSelection) (data.ExplicitRowDisclosurePreview, error) {
+	fake.explicitRowSelection = selection
+	return data.ExplicitRowDisclosurePreview{SchemaVersion: 1, Selection: selection, ColumnTypes: []data.ColumnType{data.ColumnTypeText}, Rows: []data.ExplicitRowDisclosureRow{{RowNumber: selection.RowNumbers[0], Cells: []any{"A-1"}}}, CellCount: 1, PayloadBytes: 100, PayloadSHA256: strings.Repeat("a", 64)}, nil
+}
+
 func TestDatasetImportRequiresAPath(t *testing.T) {
 	fake := &fakeDatasets{}
 	response := HandleWithData(context.Background(), Request{
@@ -214,6 +207,14 @@ func TestDatasetReplacementDelegatesDatasetAndPrivatePath(t *testing.T) {
 
 	if !response.OK || fake.replacedID != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || fake.replacedPath != "/tmp/sales-week-2.csv" {
 		t.Fatalf("unexpected replacement response: %#v, id=%q path=%q", response, fake.replacedID, fake.replacedPath)
+	}
+}
+
+func TestDatasetSourceInspectionDelegatesWithoutMutation(t *testing.T) {
+	fake := &fakeDatasets{}
+	response := HandleWithData(context.Background(), Request{ProtocolVersion: ProtocolVersion, Auth: testToken, ID: "inspect-1", Method: "dataset.source.inspect", Params: map[string]any{"sourcePath": "/tmp/incoming.csv"}}, testToken, fake)
+	if !response.OK || fake.inspectedPath != "/tmp/incoming.csv" {
+		t.Fatalf("unexpected source inspection: %#v path=%q", response, fake.inspectedPath)
 	}
 }
 

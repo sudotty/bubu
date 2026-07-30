@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modelDisclosureLevelSchema, parseModelContext } from "./privacy.js";
+import { modelDisclosureLevelSchema, parseModelContext, parsePrivacyPolicy, parsePrivacyTextInspection } from "./privacy.js";
 
 const base = {
   datasetId: "a".repeat(32),
@@ -41,5 +41,18 @@ describe("model disclosure boundary", () => {
         syntheticRows: [[10.25, "extra"]],
       }),
     ).toThrow("width");
+  });
+});
+
+describe("strict privacy policy boundary", () => {
+  it("accepts only a versioned policy with non-bypassable local DLP", () => {
+    expect(parsePrivacyPolicy({ schemaVersion: 1, mode: "strict-private", localDlpEnabled: true })).toEqual({ schemaVersion: 1, mode: "strict-private", localDlpEnabled: true });
+    expect(() => parsePrivacyPolicy({ schemaVersion: 1, mode: "strict-private", localDlpEnabled: false })).toThrow();
+    expect(() => parsePrivacyPolicy({ schemaVersion: 1, mode: "strict-private", localDlpEnabled: true, allowRows: true })).toThrow();
+  });
+
+  it("never returns detected content through the DLP boundary", () => {
+    expect(parsePrivacyTextInspection({ decision: "block", findings: [{ kind: "credential", severity: "high", label: "疑似访问密钥" }] })).toEqual({ decision: "block", findings: [{ kind: "credential", severity: "high", label: "疑似访问密钥" }] });
+    expect(() => parsePrivacyTextInspection({ decision: "block", findings: [{ kind: "credential", severity: "high", label: "疑似访问密钥", value: "secret" }] })).toThrow();
   });
 });

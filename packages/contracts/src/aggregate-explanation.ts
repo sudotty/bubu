@@ -4,6 +4,7 @@ import { dataTargetSchema } from "./data-target.js";
 import { providerIdSchema, providerKindSchema } from "./provider.js";
 import { safeQueryPlanSchema } from "./query-plan.js";
 import { safeGroupQueryPlanSchema } from "./group-query-plan.js";
+import { promptTemplateSchema } from "./prompt-template.js";
 
 const maximumAggregatePayloadBytes = 64 * 1024;
 export const approvalTokenSchema = z.string().regex(/^[0-9a-f]{64}$/u);
@@ -61,6 +62,7 @@ export const aggregateExplanationProposalSchema = z.object({
   expiresAt: z.string().datetime({ offset: true }),
   destination: modelDestinationSchema,
   disclosure: aggregateDisclosureSchema,
+  promptTemplate: promptTemplateSchema.refine((template) => template.scope === "aggregate-explanation", "Explanation proposals require an aggregate-explanation prompt template"),
 }).strict();
 
 export const aggregateExplanationApprovalSchema = z.object({
@@ -70,7 +72,12 @@ export const aggregateExplanationApprovalSchema = z.object({
 export const aggregateExplanationPreparationSchema = z.object({
   plan: z.union([safeQueryPlanSchema, safeGroupQueryPlanSchema]),
   threadId: z.string().regex(/^[0-9a-f]{32}$/u),
-}).strict();
+  promptTemplate: promptTemplateSchema.optional(),
+}).strict().superRefine((value, context) => {
+  if (value.promptTemplate && value.promptTemplate.scope !== "aggregate-explanation") {
+    context.addIssue({ code: "custom", path: ["promptTemplate", "scope"], message: "Aggregate explanations require an aggregate-explanation prompt template" });
+  }
+});
 
 export const aggregateCellReferenceSchema = z.object({
   rowIndex: z.number().int().min(0).max(49),

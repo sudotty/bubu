@@ -77,7 +77,25 @@ export const datasetPreviewSchema = z
   })
   .strict();
 
+export const datasetStructureColumnSchema = z.object({
+  ordinal: z.number().int().nonnegative(),
+  name: z.string().min(1).max(500),
+  inferredType: columnTypeSchema,
+  nullable: z.boolean(),
+  nullCount: z.number().int().nonnegative(),
+}).strict();
+
+export const datasetStructureSchema = z.object({
+  datasetId: datasetIdSchema,
+  versionId: datasetIdSchema,
+  columns: z.array(datasetStructureColumnSchema).min(1).max(500),
+}).strict();
+
 export const datasetListSchema = z.array(datasetSummarySchema);
+export const sourceInspectionSchema = z.object({
+  sourceKind: z.enum(["csv", "xlsx"]),
+  tables: z.array(z.object({ sheetName: z.string().max(500), columns: z.array(z.string().min(1).max(500)).min(1).max(256), rowCount: z.number().int().nonnegative() }).strict()).min(1).max(64),
+}).strict();
 
 export const schemaDriftSchema = z
   .object({
@@ -123,6 +141,7 @@ export const datasetReplacementSelectionResultSchema = z.discriminatedUnion("sta
 ]);
 
 export type DatasetSummary = z.infer<typeof datasetSummarySchema>;
+export type DatasetStructure = z.infer<typeof datasetStructureSchema>;
 export type ColumnProfile = z.infer<typeof columnProfileSchema>;
 export type DatasetImportResult = z.infer<typeof datasetImportResultSchema>;
 export type DatasetRenameInput = z.infer<typeof datasetRenameInputSchema>;
@@ -134,6 +153,7 @@ export type ColumnMapping = z.infer<typeof columnMappingSchema>;
 export type DatasetReplacementMappingInput = z.infer<typeof datasetReplacementMappingInputSchema>;
 export type DatasetReplacementResult = z.infer<typeof datasetReplacementResultSchema>;
 export type DatasetReplacementSelectionResult = z.infer<typeof datasetReplacementSelectionResultSchema>;
+export type SourceInspection = z.infer<typeof sourceInspectionSchema>;
 
 export function parseDatasetId(value: unknown): string {
   return datasetIdSchema.parse(value);
@@ -141,6 +161,10 @@ export function parseDatasetId(value: unknown): string {
 
 export function parseDatasetSummary(value: unknown): DatasetSummary {
   return datasetSummarySchema.parse(value);
+}
+
+export function parseDatasetStructure(value: unknown): DatasetStructure {
+  return datasetStructureSchema.parse(value);
 }
 
 export function parseDatasetImportResult(value: unknown): DatasetImportResult {
@@ -178,3 +202,5 @@ export function parseDatasetReplacementMappingInput(value: unknown): DatasetRepl
 export function parseDatasetReplacementSelectionResult(value: unknown): DatasetReplacementSelectionResult {
   return datasetReplacementSelectionResultSchema.parse(value);
 }
+
+export function parseSourceInspection(value: unknown): SourceInspection { return sourceInspectionSchema.parse(value); }

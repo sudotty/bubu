@@ -32,6 +32,11 @@ export const mcpDirectExecutableSchema = absolutePathSchema
   .refine((value) => !directProcessDeniedNames.has(executableName(value)),
     "MCP executable must not be a shell, privilege escalator, or package runner");
 
+export const mcpExecutableSelectionSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("cancelled") }).strict(),
+  z.object({ status: z.literal("selected"), path: mcpDirectExecutableSchema }).strict(),
+]);
+
 const mcpArgumentSchema = z.string().max(2_000)
   .refine((value) => !/[\0\r\n]/u.test(value), "MCP arguments cannot contain control characters");
 
@@ -191,7 +196,7 @@ const inputSchemaJsonSchema = z.string().min(2).max(maximumMcpInputSchemaBytes).
   }
 });
 
-const mcpToolSummarySchema = z.object({
+export const mcpToolSummarySchema = z.object({
   name: protocolNameSchema,
   title: boundedOptionalText,
   description: boundedOptionalText,
@@ -746,6 +751,7 @@ export const mcpAuditEventsSchema = z.array(mcpAuditEventSchema).max(100).superR
 });
 
 export type McpConnectionId = z.infer<typeof mcpConnectionIdSchema>;
+export type McpExecutableSelection = z.infer<typeof mcpExecutableSelectionSchema>;
 export type McpConnectionConfigurationInput = z.infer<typeof mcpConnectionConfigurationInputSchema>;
 export type McpConnectionProfile = z.infer<typeof mcpConnectionProfileSchema>;
 export type McpConnectionRegistryState = z.infer<typeof mcpConnectionRegistryStateSchema>;
@@ -769,6 +775,7 @@ export type McpToolCallProposal = z.infer<typeof mcpToolCallProposalSchema>;
 export type McpToolCallApproval = z.infer<typeof mcpToolCallApprovalSchema>;
 export type McpToolCallInvocation = z.infer<typeof mcpToolCallInvocationSchema>;
 export type McpToolCallResult = z.infer<typeof mcpToolCallResultSchema>;
+export type McpToolSummary = z.infer<typeof mcpToolSummarySchema>;
 export type McpAuditStart = z.infer<typeof mcpAuditStartSchema>;
 export type McpAuditOutcome = z.infer<typeof mcpAuditOutcomeSchema>;
 export type McpAuditEvent = z.infer<typeof mcpAuditEventSchema>;
@@ -855,6 +862,10 @@ export function parseMcpAuditEvents(value: unknown): readonly McpAuditEvent[] {
 
 export function parseMcpConnectionProfile(value: unknown): McpConnectionProfile {
   return mcpConnectionProfileSchema.parse(value);
+}
+
+export function parseMcpExecutableSelection(value: unknown): McpExecutableSelection {
+  return mcpExecutableSelectionSchema.parse(value);
 }
 
 export function parseMcpConnectionRegistryState(value: unknown): McpConnectionRegistryState {

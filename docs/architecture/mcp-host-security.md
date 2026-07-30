@@ -1,6 +1,14 @@
 # MCP host security contract
 
-Status: Local stdio connection persistence, explicit process-launch consent, lifecycle negotiation, bounded tools/resources/prompts discovery, one exact approved local-only resource read, one exact approved local-only prompt get, and one exact approved local-only tool call are implemented. Model/Agent/workflow-driven MCP use, remembered permissions, tasks, remote Streamable HTTP, OAuth, roots, templates, subscriptions, sampling, and elicitation are not enabled.
+Status: Local stdio connection persistence, explicit process-launch consent, bounded discovery, exact resource/prompt/tool operations, separately approved prompt-to-model, one model-proposed schema-valid tool call, and bounded remote Streamable HTTP discovery/tool calls with OAuth PKCE are implemented. Agent/workflow-driven MCP use, remembered permissions, tasks, remote resource/prompt operations, roots, templates, subscriptions, sampling, and elicitation are not enabled.
+
+## Remote transport boundary
+
+Remote connections use the same normalized capability and exact tool-call contracts as local stdio, but never reuse its launch or credential adapter. Only credential-free HTTPS URLs are accepted. Electron main and the AI utility resolve every request and redirect destination and require every returned address to be public; private, loopback, link-local, reserved, multicast and credential-bearing targets fail closed. Redirects are manual and bounded, and a POST may not be rewritten into a read request.
+
+OAuth is a public-client Authorization Code flow with S256 PKCE, a main-owned ephemeral `127.0.0.1` listener, exact state/redirect binding, a ten-minute session and one-use completion. Token exchange and bounded refresh run only in main. Encrypted access and refresh tokens never enter renderer state, logs, audits or the repository. Local revoke removes stored tokens; no provider-side revocation is claimed without an explicit endpoint.
+
+Remote inspection and remote tool execution have separate one-use approvals. Inspection only lists capabilities. Tool execution re-resolves the profile, rechecks DNS, re-discovers the exact schema, validates the complete reviewed JSON and invokes one tool once. Results remain local untrusted data and do not gain model, Agent, workflow or follow-up authority. The append-only remote audit records value-free fingerprints and terminal evidence, not secrets, input values or returned content.
 
 ## Host and process boundary
 
@@ -10,7 +18,7 @@ The production dependency is the pinned official `@modelcontextprotocol/sdk` v1.
 
 ## Configuration and secrets
 
-Each public profile contains only an opaque ID, display name, stdio transport, user-entered absolute executable path, ordered argument array, and environment key names. Each connection is an atomic `0600` private record under a `0700` directory. Environment values are one encrypted bundle using Electron operating-system storage; the renderer can submit a replacement but cannot read a saved value.
+Each public profile contains only an opaque ID, display name, stdio transport, user-selected or entered absolute executable path, ordered argument array, and environment key names. The native file picker returns only the explicit file the user selected; the same direct-executable contract rejects shells, privilege escalators, package runners, relative paths, and malformed results before the path reaches the renderer. Each connection is an atomic `0600` private record under a `0700` directory. Environment values are one encrypted bundle using Electron operating-system storage; the renderer can submit a replacement but cannot read a saved value.
 
 BuBu does not pass its process environment to MCP. `BUBU_*` and Electron control keys are rejected, so the local RPC credential, provider credentials, debug flags, and unrelated shell secrets never enter the server environment. The user must explicitly supply every required environment entry.
 
@@ -48,7 +56,7 @@ The user can choose only a prompt shown by the current bounded inspection UI. It
 
 After approval, the utility starts a fresh connection, re-lists at most five pages and 100 prompts, requires the exact prompt and its current declared arguments, rejects unknown or missing required values, and calls `prompts/get` once. It accepts at most 20 messages, 256 KiB decoded content, and 384 KiB serialized result within 30 seconds. Text and embedded text cross as escaped local-only text. Image, audio, and embedded blobs are decoded and hashed inside the utility; only type, URI where applicable, MIME, size, and SHA-256 cross the boundary. Resource links remain bounded metadata. SDK objects, `_meta`, annotations, stderr, and binary bodies do not cross.
 
-The prompt result is displayed locally as untrusted data and is never inserted into a model request, conversation, Agent, workflow, or persisted result store. Its append-only audit contains the prompt name, ordered argument keys, combined argument byte count, value-free request fingerprint, timestamps, terminal code, message count, and decoded byte count—never argument values or returned content.
+The prompt result is displayed locally as untrusted data. It is never inserted automatically into a model request, conversation, Agent, workflow, or persisted result store. The user may start the separate prompt-to-model disclosure flow below. Its append-only MCP audit contains the prompt name, ordered argument keys, combined argument byte count, value-free request fingerprint, timestamps, terminal code, message count, and decoded byte count—never argument values or returned content.
 
 ## Approved local tool call
 
@@ -56,8 +64,16 @@ The user can choose only a tool from the current bounded inspection and enter a 
 
 The one-use approval binds the connection, canonical launch, decrypted environment values, tool, exact schema, task state, exact arguments, and budgets without retaining plaintext input in the pending capability. After approval, the utility starts a fresh connection, re-lists at most five pages and 100 tools, requires exact name/schema/task equality, validates the input against the discovered JSON Schema using pinned no-network validators, and calls `tools/call` exactly once within 30 seconds. There is no retry, remembered permission, parallel call, task polling, or resource-link follow.
 
-Text and embedded text cross as escaped local-only content. Image, audio, and embedded binary become only type/URI/MIME/size/SHA-256 metadata. Structured content is canonicalized and, when an output schema exists, validated before it crosses. `_meta`, annotations, stderr, SDK objects, raw binary, and over-budget content are discarded or rejected. `isError` remains untrusted server status rather than host policy. Neither input nor result content is persisted, inserted into a conversation, disclosed to a provider, or registered as Agent/workflow authority.
+Text and embedded text cross as escaped local-only content. Image, audio, and embedded binary become only type/URI/MIME/size/SHA-256 metadata. Structured content is canonicalized and, when an output schema exists, validated before it crosses. `_meta`, annotations, stderr, SDK objects, raw binary, and over-budget content are discarded or rejected. `isError` remains untrusted server status rather than host policy. Neither input nor result content is persisted, inserted into a conversation, automatically disclosed to a provider, or registered as Agent/workflow authority.
+
+## Separately approved model use
+
+Prompt-to-model requires a new ten-minute, one-use disclosure token after the local prompt result exists. The review binds the exact untrusted prompt result, user purpose, provider/model/origin, serialized byte count, and SHA-256. Electron re-resolves both records, reapplies DLP and strict-private policy, recomputes the digest, and writes an append-only `mcp-prompt-response` / `mcp-prompt-content` disclosure event before provider I/O. Strict-private mode rejects remote endpoints and permits an explicitly reviewed loopback model. The model receives no tool authority and must return one strict versioned JSON response.
+
+For model-proposed tool use, the first token binds one goal, one destination, and at most 20 currently disclosed schema-fixed tools; task-required tools are excluded. Tool metadata is untrusted data. The model has no executable tools and may only return one disclosed name plus arguments. Strict parsing and the pinned no-network JSON Schema validator reject hidden, multiple, malformed, or schema-invalid calls. The model disclosure is recorded separately as `mcp-tool-proposal` / `mcp-tool-schemas`.
+
+A valid suggestion still cannot execute. Electron creates a fresh normal MCP tool proposal, and the renderer shows the exact server, tool, schema hash, complete arguments, task state, expiry, and side-effect warning. A second user action consumes that separate token and performs exactly one existing audited tool call. The untrusted result stays local and is never automatically returned to the model, so there is no autonomous loop, implicit retry, remembered permission, or model-controlled continuation.
 
 ## Deliberately unavailable authority
 
-No MCP capability is registered with the aggregate Agent, model providers, conversations, or workflows. A completed resource read, prompt get, or manually approved tool call remains local display data and does not authorize later disclosure or invocation. Discovery alone never authorizes execution, data disclosure, file access, network access, or side effects. Future model/Agent/workflow registration must add a separate typed policy and disclosure contract; the current manual approval cannot be reused.
+No MCP capability is registered with the aggregate Agent, conversations, or workflows. A completed resource read, prompt get, model response, or tool call does not authorize a later disclosure or invocation. Discovery alone never authorizes execution, data disclosure, file access, network access, or side effects. Resource-to-model and Agent/workflow registration remain unavailable and must add their own typed policy; none can reuse the implemented manual or model-disclosure approvals.

@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dataCoreBinaryName, goTarget } from "./platform-paths.mjs";
+import { dataCoreBinaryName, goTarget, mcpDemoBinaryName } from "./platform-paths.mjs";
 
 test("uses a PE executable name only on Windows", () => {
   assert.equal(dataCoreBinaryName("win32"), "bubu-data-core.exe");
   assert.equal(dataCoreBinaryName("darwin"), "bubu-data-core");
   assert.equal(dataCoreBinaryName("linux"), "bubu-data-core");
+  assert.equal(mcpDemoBinaryName("win32"), "bubu-mcp-demo.exe");
+  assert.equal(mcpDemoBinaryName("darwin"), "bubu-mcp-demo");
 });
 
 test("maps Electron platform and architecture names to Go targets", () => {

@@ -38,6 +38,14 @@ func TestBackupAndRestoreRoundTripPrivateLocalState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	knowledgePath := filepath.Join(root, "policy.md")
+	if err := os.WriteFile(knowledgePath, []byte("# Policy\nRefunds require a receipt."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	knowledge, err := service.ImportKnowledgeSource(context.Background(), KnowledgeSourceImportInput{SourcePath: knowledgePath, DisplayName: "Policy"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	backupPath := filepath.Join(root, "local-data.bubu-backup")
 	if err := os.WriteFile(backupPath, []byte("stale backup"), 0o600); err != nil {
 		t.Fatal(err)
@@ -82,6 +90,10 @@ func TestBackupAndRestoreRoundTripPrivateLocalState(t *testing.T) {
 	groups, err := service.ListGroups(context.Background())
 	if err != nil || len(groups) != 1 || groups[0].ID != group.ID || len(groups[0].Members) != 2 {
 		t.Fatalf("restored group is incomplete: %#v err=%v", groups, err)
+	}
+	knowledgeResults, err := service.SearchKnowledge(context.Background(), KnowledgeSearchInput{Query: "refund receipt", SourceIDs: []string{knowledge.ID}, Limit: 3})
+	if err != nil || len(knowledgeResults.Citations) != 1 || knowledgeResults.Citations[0].VersionID != knowledge.VersionID {
+		t.Fatalf("restored local knowledge is incomplete: %#v err=%v", knowledgeResults, err)
 	}
 }
 

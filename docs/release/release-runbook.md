@@ -4,7 +4,7 @@ This is the operator contract for macOS and Windows releases. It intentionally s
 
 ## 1. One-time GitHub configuration
 
-The repository-owned GitHub Actions environment `release` is restricted to the `v*` release-tag pattern. If the repository plan supports reviewer protection, require at least one independent reviewer before adding publisher credentials. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
+The repository-owned GitHub Actions environment `release` has exactly one deployment rule: the `v*` tag pattern. Do not add a branch rule with the same text; GitHub treats branch and tag policies separately. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
 
 `npm run verify:github:remote` treats a missing environment or missing tag restriction as a release failure. This public repository has Secret Scanning and Push Protection enabled; local secret verification and the human draft-review checklist remain independent controls. Never bypass unavailable environment protection by moving release secrets to repository scope.
 
@@ -32,15 +32,33 @@ Configure these environment variables for the Windows x64 job. BuBu chooses Azur
 
 | Variable | Value |
 | --- | --- |
+| `BUBU_WINDOWS_SIGN_BACKEND` | `azure-action` for the protected GitHub release workflow |
 | `BUBU_AZURE_CLIENT_ID` | Federated application/client ID |
 | `BUBU_AZURE_TENANT_ID` | Microsoft Entra tenant ID |
 | `BUBU_AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `BUBU_AZURE_SIGNING_ENDPOINT` | Regional Artifact Signing endpoint |
 | `BUBU_AZURE_SIGNING_ACCOUNT` | Signing account name |
 | `BUBU_AZURE_SIGNING_PROFILE` | Public-trust certificate profile name |
-| `BUBU_ENABLE_ARTIFACT_ATTESTATIONS` | `true` only after artifact attestations are enabled and proven for this public repository; otherwise `false` |
+| `BUBU_ENABLE_ARTIFACT_ATTESTATIONS` | Optional. Set `true` only after artifact attestations are enabled and proven for this public repository; omitted or `false` records attestations as disabled. |
 
 Grant the federated identity only the Artifact Signing certificate-profile signer role at the narrowest resource scope. The `release` environment and tag protections are part of the credential boundary, not optional administration.
+
+Before creating a release tag, an operator can map the protected values into a trusted local environment and run `npm run release:preflight -- --platform=darwin` or `npm run release:preflight -- --platform=win32`. The preflight validates the complete selected backend, including the Azure subscription ID and either supported DLib authentication mechanism; it never prints secret values or writes them to disk. It deliberately does not require post-build evidence. After downloading the signed artifacts and clean-device reports, run `BUBU_PUBLIC_BETA_EVIDENCE_PATH=/absolute/path/evidence.json npm run release:verify-evidence`.
+
+After loading all twelve `BUBU_*` values into the trusted publisher workstation's process environment, validate their shape and exact remote target without making any GitHub change:
+
+```bash
+npm run release:configure-environment -- --repository=sudotty/bubu
+```
+
+Only after reviewing that dry run, configure the protected environment explicitly:
+
+```bash
+npm run release:configure-environment -- --repository=sudotty/bubu --apply
+npm run verify:github:remote
+```
+
+The configurator refuses partial input, malformed certificate/key encodings, non-Developer-ID identities, malformed UUIDs, and endpoints outside HTTPS Azure Artifact Signing before contacting GitHub. It removes all twelve release values from every GitHub CLI child-process environment, sends only the current value over standard input, never places values in command arguments, and prints names only. Do not persist the twelve values in a repository file, shell-history assignment, or chat message. `BUBU_ENABLE_ARTIFACT_ATTESTATIONS=true` additionally requires `--enable-attestations`; omit it until provenance has been enabled and independently proven.
 
 ## 2. Prepare the exact product version
 
@@ -107,7 +125,7 @@ Do not publish until a reviewer has:
 4. verified Windows Authenticode publisher identity, SmartScreen behavior, install/uninstall, and application signature on clean Windows 10 22H2 and Windows 11 devices;
 5. checked upgrade, backup, restore, and rollback evidence against the previous stable version;
 6. confirmed the release manifest reports the real attestation state and every automated smoke report passed;
-7. confirmed `PRODUCT_MANIFEST.yaml` and release notes do not claim updates, sync, Hub, or other planned behavior.
+7. confirmed `PRODUCT_MANIFEST.yaml` and release notes do not equate the bounded transactional PostgreSQL adapter with normalized/horizontal Hub scale, and do not claim updates, raw-row sync, unattended remote application, or other unavailable behavior.
 
 CI runner success is necessary but does not replace physical/VM clean-device acceptance or publisher-account review.
 

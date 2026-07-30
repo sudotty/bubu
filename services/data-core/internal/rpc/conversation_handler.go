@@ -32,6 +32,18 @@ func handleConversationMethod(ctx context.Context, request Request, datasets Dat
 			return failure(request.ID, "CONVERSATION_ACCESS_FAILED", err.Error(), false), true
 		}
 		return success(request.ID, result), true
+	case "conversation.entries.page":
+		threadID, threadOK := stringParam(request.Params, "threadId")
+		beforeOrdinal, beforeOK := integerParam(request.Params, "beforeOrdinal")
+		limit, limitOK := integerParam(request.Params, "limit")
+		if !threadOK || !beforeOK || !limitOK {
+			return failure(request.ID, "INVALID_ARGUMENT", "threadId, beforeOrdinal, and limit are required", false), true
+		}
+		result, err := datasets.PageConversationEntries(ctx, threadID, beforeOrdinal, limit)
+		if err != nil {
+			return failure(request.ID, "CONVERSATION_PAGE_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
 	case "conversation.list":
 		target, ok := objectParam[data.ConversationTarget](request.Params, "target")
 		archived, archivedOK := objectParam[bool](request.Params, "archived")
@@ -72,6 +84,26 @@ func handleConversationMethod(ctx context.Context, request Request, datasets Dat
 			return failure(request.ID, "CONVERSATION_ARCHIVE_FAILED", err.Error(), false), true
 		}
 		return success(request.ID, map[string]bool{"archived": input.Archived}), true
+	case "conversation.delete":
+		input, ok := objectParam[data.ConversationDeleteInput](request.Params, "input")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "input must be a strict conversation deletion", false), true
+		}
+		result, err := datasets.DeleteConversation(ctx, input)
+		if err != nil {
+			return failure(request.ID, "CONVERSATION_DELETE_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
+	case "conversation.retention.apply":
+		retentionDays, ok := objectParam[int](request.Params, "retentionDays")
+		if !ok {
+			return failure(request.ID, "INVALID_ARGUMENT", "retentionDays must be an integer", false), true
+		}
+		result, err := datasets.ApplyConversationRetention(ctx, retentionDays)
+		if err != nil {
+			return failure(request.ID, "CONVERSATION_RETENTION_FAILED", err.Error(), false), true
+		}
+		return success(request.ID, result), true
 	case "conversation.append":
 		input, ok := objectParam[data.ConversationAppendInput](request.Params, "input")
 		if !ok {

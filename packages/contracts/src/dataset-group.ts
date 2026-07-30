@@ -33,7 +33,7 @@ export const datasetGroupSaveInputSchema = z
       context.addIssue({
         code: "custom",
         path: ["datasetIds"],
-        message: "Group dataset contacts must be unique",
+        message: "Group dataset members must be unique",
       });
     }
   });

@@ -54,6 +54,17 @@ type DatasetRenameInput struct {
 	DisplayName string `json:"displayName"`
 }
 
+type SourceInspection struct {
+	SourceKind string                  `json:"sourceKind"`
+	Tables     []SourceTableInspection `json:"tables"`
+}
+
+type SourceTableInspection struct {
+	SheetName string   `json:"sheetName"`
+	Columns   []string `json:"columns"`
+	RowCount  int      `json:"rowCount"`
+}
+
 type DatasetGroup struct {
 	ID          string           `json:"id"`
 	Name        string           `json:"name"`
@@ -128,4 +139,18 @@ type PreviewResult struct {
 	Offset    int             `json:"offset"`
 	Limit     int             `json:"limit"`
 	TotalRows int64           `json:"totalRows"`
+}
+
+type DatasetStructureColumn struct {
+	Ordinal      int        `json:"ordinal"`
+	Name         string     `json:"name"`
+	InferredType ColumnType `json:"inferredType"`
+	Nullable     bool       `json:"nullable"`
+	NullCount    int64      `json:"nullCount"`
+}
+
+type DatasetStructure struct {
+	DatasetID string                   `json:"datasetId"`
+	VersionID string                   `json:"versionId"`
+	Columns   []DatasetStructureColumn `json:"columns"`
 }

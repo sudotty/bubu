@@ -160,7 +160,29 @@ try {
   ) {
     throw new Error(`MCP smoke violated approved local tool policy: ${JSON.stringify(tool)}`);
   }
-  console.log("MCP smoke passed: discovery invoked nothing; separately approved exact resource, prompt, and tool requests each invoked one primitive, returned bounded local-only normalized content, exposed no binary body, and cleaned up every child tree.");
+
+  const demoLaunch = {
+    connectionId: "b".repeat(32),
+    command: resolve("services/data-core/bin", process.platform === "win32" ? "bubu-mcp-demo.exe" : "bubu-mcp-demo"),
+    args: [],
+    environment: {},
+    workingDirectory: root,
+  };
+  const demoSnapshot = parseMcpInspectionSnapshot(await requestRuntime("mcp.inspect", { ...demoLaunch, budget: mcpInspectionBudget }));
+  if (demoSnapshot.server.name !== "bubu-demo-mcp" || demoSnapshot.tools.length !== 1 || demoSnapshot.prompts.length !== 1 || demoSnapshot.resources.length !== 0) {
+    throw new Error(`Bundled MCP demo discovery failed: ${JSON.stringify(demoSnapshot)}`);
+  }
+  const demoPrompt = parseMcpPromptGetResult(await requestRuntime("mcp.prompt.get", { ...demoLaunch, promptName: "explain_term", arguments: [{ name: "term", value: "gross_margin" }], budget: mcpPromptGetBudget }));
+  if (demoPrompt.messages[0]?.content.kind !== "text" || !demoPrompt.messages[0].content.text.includes("gross_margin")) {
+    throw new Error(`Bundled MCP demo prompt failed: ${JSON.stringify(demoPrompt)}`);
+  }
+  const demoSchema = demoSnapshot.tools[0]?.inputSchemaJson;
+  if (!demoSchema) throw new Error("Bundled MCP demo did not expose a tool schema");
+  const demoTool = parseMcpToolCallResult(await requestRuntime("mcp.tool.call", { ...demoLaunch, toolName: "lookup_term", inputSchemaSha256: createHash("sha256").update(demoSchema).digest("hex"), taskSupport: "forbidden", arguments: { term: "gross_margin" }, budget: mcpToolCallBudget }));
+  if (demoTool.isError || demoTool.contents[0]?.kind !== "text" || !demoTool.contents[0].text.includes("synthetic business definition")) {
+    throw new Error(`Bundled MCP demo tool failed: ${JSON.stringify(demoTool)}`);
+  }
+  console.log("MCP smoke passed: discovery invoked nothing; separately approved exact resource, prompt, and tool requests each invoked one primitive; the packaged read-only demo completed discovery, prompt, and tool-call journeys; every child tree was cleaned up.");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

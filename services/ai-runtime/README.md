@@ -8,6 +8,7 @@ The AI runtime is a supervised Node utility process. It adapts configured model 
 - Provider adapters receive only the disclosure already authorized by Go and the desktop approval flow.
 - MCP discovery invokes no primitives. Resource reads, prompt gets, and tool calls re-discover the server and verify the exact URI/name, schema, task support, arguments, and budget before one invocation.
 - MCP content remains local and untrusted. Binary bodies are reduced to safe metadata before reaching the renderer; no MCP result is automatically inserted into a model, Agent, or workflow.
+- The provider integration test uses a real loopback TCP server and the production request/response adapter. It proves network serialization and parsing without sending user content, credentials, or billable requests to an external provider.
 
 ```bash
 npm test -w @bubu/ai-runtime

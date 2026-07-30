@@ -19,6 +19,23 @@ type replacementTarget struct {
 	columns          []string
 }
 
+func (service *Service) InspectSource(ctx context.Context, sourcePath string) (SourceInspection, error) {
+	prepared, err := prepareSource(sourcePath)
+	if err != nil {
+		return SourceInspection{}, err
+	}
+	defer prepared.close()
+	tables := make([]SourceTableInspection, 0, len(prepared.source.tables))
+	for _, table := range prepared.source.tables {
+		rowCount := 0
+		if err := table.walkRows(ctx, func([]string) error { rowCount++; return nil }); err != nil {
+			return SourceInspection{}, fmt.Errorf("inspect source rows: %w", err)
+		}
+		tables = append(tables, SourceTableInspection{SheetName: table.sheetName, Columns: NormalizeHeaders(table.header), RowCount: rowCount})
+	}
+	return SourceInspection{SourceKind: prepared.source.kind, Tables: tables}, nil
+}
+
 func (service *Service) ReplaceFile(
 	ctx context.Context,
 	datasetID string,

@@ -2,6 +2,8 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { parseProductMetricInput, type ProductMetricInput } from "@bubu/contracts";
 
+export type ProductMetricsStore = ReturnType<typeof createProductMetricsStore>;
+
 export function createProductMetricsStore(directory: string, now: () => Date = () => new Date()) {
   return {
     async record(value: unknown): Promise<void> {

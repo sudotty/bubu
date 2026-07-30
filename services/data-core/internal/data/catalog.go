@@ -187,3 +187,30 @@ WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&versionID, &tableName, 
 		TotalRows: totalRows,
 	}, nil
 }
+
+func (service *Service) DatasetStructure(ctx context.Context, datasetID string) (DatasetStructure, error) {
+	if strings.TrimSpace(datasetID) == "" {
+		return DatasetStructure{}, errors.New("dataset id is required")
+	}
+	var versionID string
+	err := service.database.QueryRowContext(ctx, `
+SELECT v.id
+FROM datasets d
+JOIN dataset_versions v ON v.id = d.current_version_id
+WHERE d.id = ? AND v.status = 'ready'`, datasetID).Scan(&versionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DatasetStructure{}, errors.New("dataset not found")
+	}
+	if err != nil {
+		return DatasetStructure{}, fmt.Errorf("load dataset structure metadata: %w", err)
+	}
+	profiles, _, err := service.loadColumns(ctx, versionID)
+	if err != nil {
+		return DatasetStructure{}, err
+	}
+	columns := make([]DatasetStructureColumn, 0, len(profiles))
+	for _, profile := range profiles {
+		columns = append(columns, DatasetStructureColumn{Ordinal: profile.Ordinal, Name: profile.Name, InferredType: profile.InferredType, Nullable: profile.Nullable, NullCount: profile.NullCount})
+	}
+	return DatasetStructure{DatasetID: datasetID, VersionID: versionID, Columns: columns}, nil
+}

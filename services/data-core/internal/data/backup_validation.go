@@ -85,6 +85,7 @@ FROM schema_migrations`).Scan(&count, &minimum, &maximum); err != nil {
 
 func validateBackupSchemaObjects(ctx context.Context, database *sql.DB, schemaVersion int) error {
 	allowedTables, allowedIndexes := backupSchemaObjects(schemaVersion)
+	allowedTriggers := backupSchemaTriggers(schemaVersion)
 	expectedDynamic, err := backupVersionTables(ctx, database)
 	if err != nil {
 		return err
@@ -116,6 +117,10 @@ ORDER BY type, name`)
 		case "index":
 			if !allowedIndexes[name] {
 				return fmt.Errorf("backup contains an unexpected index: %s", name)
+			}
+		case "trigger":
+			if !allowedTriggers[name] {
+				return fmt.Errorf("backup contains an unexpected trigger: %s", name)
 			}
 		default:
 			return fmt.Errorf("backup contains forbidden %s object: %s", objectType, name)
@@ -188,34 +193,53 @@ func backupSchemaObjects(schemaVersion int) (map[string]bool, map[string]bool) {
 	if schemaVersion >= 12 {
 		tables["model_disclosure_purposes"] = true
 	}
+	if schemaVersion >= 18 {
+		tables["derived_dataset_lineages"] = true
+		tables["derived_dataset_lineage_parents"] = true
+		indexes["derived_dataset_lineages_dataset_idx"] = true
+	}
+	if schemaVersion >= 21 {
+		tables["data_clean_quality_attempts"] = true
+		indexes["data_clean_quality_attempts_created_idx"] = true
+	}
+	if schemaVersion >= 22 {
+		tables["derived_recompute_events"] = true
+		indexes["derived_recompute_events_status_idx"] = true
+		indexes["derived_recompute_events_target_idx"] = true
+	}
+	if schemaVersion >= 26 {
+		tables["workflow_approval_requests"] = true
+		indexes["workflow_approval_requests_status_idx"] = true
+	}
+	if schemaVersion >= 23 {
+		tables["reconciliation_artifacts"] = true
+		indexes["reconciliation_artifacts_created_idx"] = true
+	}
+	if schemaVersion >= 24 {
+		tables["reconciliation_definitions"] = true
+		tables["reconciliation_replay_events"] = true
+		indexes["reconciliation_definitions_active_plan_idx"] = true
+		indexes["reconciliation_replay_events_status_idx"] = true
+		indexes["reconciliation_replay_events_definition_idx"] = true
+	}
+	if schemaVersion >= 27 {
+		for _, name := range []string{"knowledge_sources", "knowledge_source_versions", "knowledge_chunks", "knowledge_chunks_fts", "knowledge_chunks_fts_data", "knowledge_chunks_fts_idx", "knowledge_chunks_fts_content", "knowledge_chunks_fts_docsize", "knowledge_chunks_fts_config"} {
+			tables[name] = true
+		}
+		indexes["knowledge_source_versions_source_idx"] = true
+		indexes["knowledge_chunks_version_idx"] = true
+	}
 	return tables, indexes
 }
 
-func backupVersionTables(ctx context.Context, database *sql.DB) (map[string]bool, error) {
-	rows, err := database.QueryContext(ctx, "SELECT table_name FROM dataset_versions WHERE status = 'ready'")
-	if err != nil {
-		return nil, fmt.Errorf("read backup version tables: %w", err)
+func backupSchemaTriggers(schemaVersion int) map[string]bool {
+	triggers := make(map[string]bool)
+	if schemaVersion >= 27 {
+		triggers["knowledge_chunks_after_insert"] = true
+		triggers["knowledge_chunks_after_delete"] = true
+		triggers["knowledge_chunks_after_update"] = true
 	}
-	defer rows.Close()
-	result := make(map[string]bool)
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, fmt.Errorf("scan backup version table: %w", err)
-		}
-		if !internalTableName.MatchString(name) || result[name] {
-			return nil, errors.New("backup contains invalid or duplicate physical table metadata")
-		}
-		result[name] = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate backup version tables: %w", err)
-	}
-	var nonReady int
-	if err := database.QueryRowContext(ctx, "SELECT COUNT(*) FROM dataset_versions WHERE status <> 'ready'").Scan(&nonReady); err != nil || nonReady != 0 {
-		return nil, errors.New("backup contains incomplete dataset versions")
-	}
-	return result, nil
+	return triggers
 }
 
 func validateBackupDataInvariants(ctx context.Context, database *sql.DB, manifest backupManifest) error {
@@ -296,11 +320,28 @@ WHERE length(resolved_input_json) > ? OR length(COALESCE(result_json, '')) > ?`,
 			return err
 		}
 	}
+	if manifest.SchemaVersion >= 20 {
+		if err := validateBackupDerivedExecutionEvidence(ctx, database, manifest.SchemaVersion); err != nil {
+			return err
+		}
+	}
+	if manifest.SchemaVersion >= 23 {
+		if err := validateBackupReconciliationArtifacts(ctx, database); err != nil {
+			return err
+		}
+	}
+	if manifest.SchemaVersion >= 24 {
+		if err := validateBackupReconciliationReplay(ctx, database); err != nil {
+			return err
+		}
+	}
+	if manifest.SchemaVersion >= 26 {
+		if err := validateBackupWorkflowApprovals(ctx, database); err != nil {
+			return err
+		}
+	}
+	if manifest.SchemaVersion >= 27 {
+		return validateBackupKnowledgeSources(ctx, database)
+	}
 	return nil
 }
-
-func validBackupDigest(value string) bool {
-	return len(value) == sha256HexLength && strings.Trim(value, "0123456789abcdef") == ""
-}
-
-const sha256HexLength = 64

@@ -10,12 +10,14 @@ export const modelAuditTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("system") }).strict(),
   z.object({ kind: z.literal("dataset"), id: datasetIdSchema }).strict(),
   z.object({ kind: z.literal("group"), id: datasetIdSchema }).strict(),
+  z.object({ kind: z.literal("knowledge-source"), id: datasetIdSchema }).strict(),
+  z.object({ kind: z.literal("mcp-connection"), id: datasetIdSchema }).strict(),
 ]);
 
 export const modelAuditStartInputSchema = z.object({
-  purpose: z.enum(["provider-connection-test", "query-plan", "group-query-plan", "aggregate-explanation", "aggregate-agent"]),
+  purpose: z.enum(["provider-connection-test", "query-plan", "group-query-plan", "aggregate-explanation", "aggregate-agent", "explicit-row-explanation", "knowledge-answer", "mcp-prompt-response", "mcp-tool-proposal"]),
   target: modelAuditTargetSchema,
-  disclosure: z.union([z.literal("none"), modelDisclosureLevelSchema]),
+  disclosure: z.union([z.literal("none"), modelDisclosureLevelSchema, z.literal("retrieved-chunks"), z.literal("mcp-prompt-content"), z.literal("mcp-tool-schemas")]),
   providerId: providerIdSchema,
   providerKind: providerKindSchema,
   providerName: z.string().trim().min(1).max(100),
@@ -25,30 +27,69 @@ export const modelAuditStartInputSchema = z.object({
   columnCount: z.number().int().min(0).max(2_048),
   syntheticRowCount: z.number().int().min(0).max(40),
   aggregateRowCount: z.number().int().min(0).max(50),
+  rawRowCount: z.number().int().min(0).max(20),
+  retrievedChunkCount: z.number().int().min(0).max(12),
   relationshipCount: z.number().int().min(0).max(500),
   payloadBytes: z.number().int().min(1).max(250_000),
   estimatedInputTokens: z.number().int().min(1).max(250_000),
   maxOutputTokens: z.number().int().min(1).max(32_768),
   payloadSha256: sha256Schema,
-  containsRawRows: z.literal(false),
+  containsRawRows: z.boolean(),
 }).strict().superRefine((input, context) => {
   if (input.target.kind === "system") {
     if (
       input.purpose !== "provider-connection-test" || input.disclosure !== "none" ||
       input.datasetCount !== 0 || input.columnCount !== 0 ||
-      input.syntheticRowCount !== 0 || input.aggregateRowCount !== 0 || input.relationshipCount !== 0
+      input.syntheticRowCount !== 0 || input.aggregateRowCount !== 0 || input.rawRowCount !== 0 || input.retrievedChunkCount !== 0 || input.relationshipCount !== 0 || input.containsRawRows
     ) {
       context.addIssue({ code: "custom", message: "System model audits cannot disclose dataset context" });
     }
     return;
   }
+  if (input.purpose === "knowledge-answer") {
+    if (
+      input.target.kind !== "knowledge-source" || input.disclosure !== "retrieved-chunks" || input.datasetCount !== 0 ||
+      input.columnCount !== 0 || input.syntheticRowCount !== 0 || input.aggregateRowCount !== 0 || input.rawRowCount !== 0 ||
+      input.retrievedChunkCount < 1 || input.relationshipCount !== 0 || input.containsRawRows
+    ) context.addIssue({ code: "custom", message: "Local knowledge model audit scope is inconsistent" });
+    return;
+  }
+  if (input.purpose === "mcp-prompt-response" || input.purpose === "mcp-tool-proposal") {
+    const expectedDisclosure = input.purpose === "mcp-prompt-response" ? "mcp-prompt-content" : "mcp-tool-schemas";
+    if (input.target.kind !== "mcp-connection" || input.disclosure !== expectedDisclosure || input.datasetCount !== 0 || input.columnCount !== 0 || input.syntheticRowCount !== 0 || input.aggregateRowCount !== 0 || input.rawRowCount !== 0 || input.retrievedChunkCount !== 0 || input.relationshipCount !== 0 || input.containsRawRows) {
+      context.addIssue({ code: "custom", message: "MCP model audit scope is inconsistent" });
+    }
+    return;
+  }
+  if (input.target.kind === "mcp-connection" || input.disclosure === "mcp-prompt-content" || input.disclosure === "mcp-tool-schemas") {
+    context.addIssue({ code: "custom", message: "MCP model authority cannot be reused by another purpose" });
+    return;
+  }
+  if (input.target.kind === "knowledge-source" || input.disclosure === "retrieved-chunks" || input.retrievedChunkCount !== 0) {
+    context.addIssue({ code: "custom", message: "Retrieved knowledge authority cannot be reused by another model purpose" });
+    return;
+  }
   const validDatasetCount = input.target.kind === "dataset"
     ? input.datasetCount === 1
     : input.datasetCount >= 2;
+  if (input.purpose !== "explicit-row-explanation" && (input.disclosure === "explicit-rows" || input.rawRowCount > 0 || input.containsRawRows)) {
+    context.addIssue({ code: "custom", message: "Explicit raw-row authority cannot be reused by another model purpose" });
+    return;
+  }
+  if (input.purpose === "explicit-row-explanation") {
+    if (
+      input.target.kind !== "dataset" || input.disclosure !== "explicit-rows" || input.datasetCount !== 1 ||
+      input.columnCount < 1 || input.columnCount > 16 || input.syntheticRowCount !== 0 ||
+      input.aggregateRowCount !== 0 || input.rawRowCount < 1 || input.retrievedChunkCount !== 0 || input.relationshipCount !== 0 || !input.containsRawRows
+    ) {
+      context.addIssue({ code: "custom", message: "Explicit raw-row model audit scope is inconsistent" });
+    }
+    return;
+  }
   if (input.purpose === "aggregate-explanation" || input.purpose === "aggregate-agent") {
     if (
       input.disclosure !== "aggregates" || !validDatasetCount || input.columnCount < 2 ||
-      input.syntheticRowCount !== 0 || input.aggregateRowCount < 1 || input.relationshipCount !== 0
+      input.syntheticRowCount !== 0 || input.aggregateRowCount < 1 || input.rawRowCount !== 0 || input.retrievedChunkCount !== 0 || input.relationshipCount !== 0 || input.containsRawRows
     ) {
       context.addIssue({ code: "custom", message: "Aggregate model audit scope is inconsistent" });
     }
@@ -58,7 +99,7 @@ export const modelAuditStartInputSchema = z.object({
   if (
     input.purpose !== expectedPurpose ||
     (input.disclosure !== "schema-only" && input.disclosure !== "schema-synthetic") ||
-    !validDatasetCount || input.columnCount < 1 || input.aggregateRowCount !== 0
+    !validDatasetCount || input.columnCount < 1 || input.aggregateRowCount !== 0 || input.rawRowCount !== 0 || input.containsRawRows
   ) {
     context.addIssue({ code: "custom", message: "Data model audit scope is inconsistent" });
   }

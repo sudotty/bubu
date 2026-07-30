@@ -10,15 +10,23 @@ The interaction model is conversation-first: imported Excel/CSV files become loc
 
 ![BuBu dynamic local workflow graph](docs/assets/product/05-workflow.png)
 
+Reviewed Data Clean templates turn recurring local files into immutable derived objects. Source-version changes enqueue deterministic replay in Go; quality or schema drift pauses the affected branch with a visible remediation task, while a corrected source produces the next version without calling a model.
+
+![BuBu recurring Clean remediation evidence](docs/assets/product/13-recurring-remediated.png)
+
 ## What works now
 
+Current release posture: **private beta** on the **preview** channel. The compact [product capability status](docs/product/capability-status.md) separates local outcomes, optional configured capabilities, external evidence still required, and future scope.
+
 - Atomic CSV, TSV, and XLSX import; custom local object names; immutable replacement/version history; schema-drift mapping; bounded preview, profiles, quality rules, and column distributions.
+- Five editable Data Clean templates, complete typed transformation grammar, one-use impact review, pre-activation quality gates, immutable lineage proof, idempotent downstream replay, restart recovery, retry/cancel, and privacy-safe completion notices.
+- A direct Merge task imports three bounded same-schema weekly exports, opens the append template, requires an explicit second source and impact review, and creates a new immutable derived object without mutating either input.
 - Single-dataset and multi-table lookup analysis through typed plans. Conversations can be created, named by their first question, renamed, archived, restored, and resumed locally; the user sees the exact disclosure and approves before Go executes a bounded query; model-authored SQL never runs directly.
 - Deterministic local bar and time-series charts, persisted task state, recoverable execution errors, and an expandable Artifact workspace for summaries, sortable/filterable data, visualization, evidence, and thread-bound automation. Interval/version triggers, cancellation, audit, backup, restore, hardened CSV export, and confirmed permanent deletion are implemented.
-- OS-encrypted provider and stdio MCP configuration. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
+- OS-encrypted provider and stdio MCP configuration. A main-owned strict-private mode limits remote planning to Schema only, while non-bypassable local DLP blocks likely credentials, PII, and pasted tables before every user-authored model request. MCP discovery invokes nothing; exact resource reads, prompt materialization, and one tool call each require a separate one-use review and remain local, untrusted, and outside model, Agent, and workflow authority.
 - A packaged Electron desktop with a sandboxed React renderer, typed preload, supervised Node AI runtime, authoritative Go data core, native macOS/Windows sidecars and installers, synthetic UI smoke capture, and a 100 MiB reference performance gate. Pull requests exercise unsigned native packages; protected tags can assemble signed draft releases once owner credentials exist.
 
-Still planned or incomplete: explicit-row disclosure, reusable Agent definitions, richer reports, remote MCP/OAuth, model-driven MCP use, Hub/RBAC/sync, signed installers, and updates. [PRODUCT_MANIFEST.yaml](PRODUCT_MANIFEST.yaml) is the machine-readable status authority; UI and documentation must never present `planned` or `in-progress` behavior as shipped.
+Still planned or incomplete: signed installers and trusted automatic updates, consented design-partner evidence, horizontal/normalized enterprise Hub scale, and unattended application of remotely received objects. Archived-task deletion and bounded optional retention, credential-free product-setting migration, lightweight structure-driven onboarding, explicit-row disclosure, workflow human approval, local RAG, bounded remote MCP Streamable HTTP/OAuth PKCE, approval-bound signed Webhook reminders, optional four-role Hub with encrypted workflow-definition Sync, reviewed digest-bound remote workflow application, the PostgreSQL adapter with real transaction evidence, MCP prompt-to-model, and separately approved single tool calls are implemented. Remote MCP resource/prompt/model use, raw-row sync, and arbitrary connector delivery remain unavailable. [PRODUCT_MANIFEST.yaml](PRODUCT_MANIFEST.yaml) is the machine-readable status authority; UI and documentation must never present `planned` behavior or uncollected external evidence as shipped.
 
 ## Product flow and privacy
 
@@ -50,7 +58,7 @@ flowchart LR
     DATA --> DB["Local SQLite"]
     AI --> MODEL["Configured model provider"]
     AI --> MCP["Approved local stdio MCP"]
-    DATA -. "future explicit sync" .-> HUB["Optional Hub"]
+    DATA -. "explicit encrypted object sync" .-> HUB["Optional Hub"]
 ```
 
 The renderer has no Node, filesystem, credential, provider, sidecar, or generic IPC access. Electron main owns lifecycle and OS integration, not business policy. Go is the final authority for raw-data disclosure and database execution. The optional Hub must never be required for local mode.
@@ -62,11 +70,13 @@ The renderer has no Node, filesystem, credential, provider, sidecar, or generic 
 | `apps/desktop` | Electron lifecycle, secure preload, React product UI | [desktop README](apps/desktop/README.md) |
 | `services/data-core` | Go file, SQLite, privacy, SQL, workflow, and audit authority | [data-core README](services/data-core/README.md) |
 | `services/ai-runtime` | Provider, streaming, MCP, and bounded model adapters | [AI runtime README](services/ai-runtime/README.md) |
+| `services/hub` | Optional tenant, RBAC, encrypted object sync, conflict, and signed-audit authority | [Hub README](services/hub/README.md) |
 | `packages/contracts` | Versioned process-boundary schemas and parsers | [contracts README](packages/contracts/README.md) |
-| `docs` | Architecture decisions, product guides, plans, and evidence | [documentation index](docs/README.md) |
+| `packages/product-core` | Pure cross-host product policy and presets | [product-core README](packages/product-core/README.md) |
+| `docs` | Current guides, architecture decisions, strategy proposals, and historical evidence | [documentation index](docs/README.md) |
 | `scripts` | Executable repository, architecture, smoke, and performance contracts | [scripts README](scripts/README.md) |
 
-`packages/product-core`, `services/hub`, and remote sync are architectural destinations, not current directories. New code must not create placeholder implementations or imply they already exist. The retired Wails prototype remains only in Git history and the documented retirement record.
+`services/hub` is an optional, independently started service; local desktop mode never waits for or depends on it. The V1 Hub stores only explicit end-to-end encrypted product objects and signed control-plane evidence. The retired Wails prototype remains only in Git history and the documented retirement record.
 
 ## Desktop targets and release status
 
@@ -105,11 +115,11 @@ The root verification contract checks secrets and repository hygiene, documentat
 
 ## Documentation
 
-- [Conversation workbench](docs/product/conversation-workbench.md) and [product/UI/UX constraints](docs/product/ui-ux-guidelines.md)
+- [Product capability status](docs/product/capability-status.md), [conversation workbench](docs/product/conversation-workbench.md), and [product/UI/UX constraints](docs/product/ui-ux-guidelines.md)
 - [Importing data](docs/product/importing-data.md), [data quality](docs/product/data-quality-and-validation.md), and [groups/relationships](docs/product/dataset-groups-and-relationships.md)
-- [Querying and visualization](docs/product/querying-and-visualizations.md), [repeatable workflows](docs/product/repeatable-workflows.md), and [backup/recovery](docs/product/backup-and-recovery.md)
+- [Querying and visualization](docs/product/querying-and-visualizations.md), [local business knowledge](docs/product/local-knowledge.md), [repeatable workflows](docs/product/repeatable-workflows.md), and [backup/recovery](docs/product/backup-and-recovery.md)
 - [Local data kernel](docs/architecture/local-data-kernel.md), [privacy/provider boundary](docs/architecture/privacy-and-model-providers.md), and [MCP host security](docs/architecture/mcp-host-security.md)
-- [Accepted product platform design](docs/plans/2026-07-17-bubu-product-platform-design.md) and [Electron migration plan](docs/plans/2026-07-17-electron-migration-implementation.md)
+- [Strategy proposals](docs/strategy/README.md) and [historical implementation evidence](docs/history/README.md)
 - [Platform support](docs/release/platform-support.md), [signed release runbook](docs/release/release-runbook.md), and [public-beta readiness](docs/release/public-beta-readiness.md)
 - [Contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md)
 

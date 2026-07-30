@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { columnTypeSchema, datasetIdSchema } from "./dataset.js";
 import { modelContextSchema } from "./privacy.js";
+import { promptTemplateSchema } from "./prompt-template.js";
 
 const columnNameSchema = z.string().trim().min(1).max(500);
 
@@ -96,11 +97,15 @@ export const safeQueryResultSchema = z
 export const queryPlanProposalSchema = z
   .object({
     question: z.string().trim().min(1).max(20_000),
+    promptTemplate: promptTemplateSchema.optional(),
     disclosedContext: modelContextSchema,
     plan: safeQueryPlanSchema,
   })
   .strict()
   .superRefine((proposal, context) => {
+    if (proposal.promptTemplate && proposal.promptTemplate.scope !== "dataset-query") {
+      context.addIssue({ code: "custom", path: ["promptTemplate", "scope"], message: "Dataset proposals require a dataset-query prompt template" });
+    }
     if (
       proposal.plan.datasetId !== proposal.disclosedContext.datasetId ||
       proposal.plan.versionId !== proposal.disclosedContext.versionId
@@ -118,8 +123,14 @@ export const queryPlanRequestSchema = z
     datasetId: datasetIdSchema,
     threadId: z.string().regex(/^[0-9a-f]{32}$/u).optional(),
     question: z.string().trim().min(1).max(20_000),
+    promptTemplate: promptTemplateSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.promptTemplate && value.promptTemplate.scope !== "dataset-query") {
+      context.addIssue({ code: "custom", path: ["promptTemplate", "scope"], message: "Dataset queries require a dataset-query prompt template" });
+    }
+  });
 
 export const queryPlanExecutionRequestSchema = z.object({
   plan: safeQueryPlanSchema,

@@ -9,6 +9,23 @@ export const modelDisclosureLevelSchema = z.enum([
   "explicit-rows",
 ]);
 
+export const privacyPolicySchema = z.object({
+  schemaVersion: z.literal(1),
+  mode: z.enum(["local-private", "strict-private"]),
+  localDlpEnabled: z.literal(true),
+}).strict();
+
+export const privacyDlpFindingSchema = z.object({
+  kind: z.enum(["credential", "email", "phone", "government-id", "pasted-table"]),
+  severity: z.enum(["high", "medium"]),
+  label: z.string().trim().min(1).max(100),
+}).strict();
+
+export const privacyTextInspectionSchema = z.object({
+  decision: z.enum(["allow", "block"]),
+  findings: z.array(privacyDlpFindingSchema).max(8),
+}).strict();
+
 const modelContextColumnSchema = z
   .object({
     name: z.string().min(1).max(500),
@@ -51,6 +68,9 @@ export const modelContextSchema = z
 export type DisclosureLevel = z.infer<typeof disclosureLevelSchema>;
 export type ModelDisclosureLevel = z.infer<typeof modelDisclosureLevelSchema>;
 export type ModelContext = z.infer<typeof modelContextSchema>;
+export type PrivacyPolicy = z.infer<typeof privacyPolicySchema>;
+export type PrivacyDlpFinding = z.infer<typeof privacyDlpFindingSchema>;
+export type PrivacyTextInspection = z.infer<typeof privacyTextInspectionSchema>;
 
 export function parseDisclosureLevel(value: unknown): DisclosureLevel {
   return disclosureLevelSchema.parse(value);
@@ -58,4 +78,12 @@ export function parseDisclosureLevel(value: unknown): DisclosureLevel {
 
 export function parseModelContext(value: unknown): ModelContext {
   return modelContextSchema.parse(value);
+}
+
+export function parsePrivacyPolicy(value: unknown): PrivacyPolicy {
+  return privacyPolicySchema.parse(value);
+}
+
+export function parsePrivacyTextInspection(value: unknown): PrivacyTextInspection {
+  return privacyTextInspectionSchema.parse(value);
 }

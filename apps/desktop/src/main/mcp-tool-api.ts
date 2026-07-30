@@ -18,7 +18,7 @@ import type { McpToolApprovalSessionStore } from "./mcp-tool-approval-sessions.j
 import { prepareMcpInspectionInvocation } from "./mcp-api.js";
 import type { OperationRegistry } from "./operation-registry.js";
 import { RpcRemoteError } from "./rpc-broker.js";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { LocalMcpToolPort } from "./sidecar-ports.js";
 
 interface McpToolExecutionDependencies {
   readonly connections: Pick<McpConnectionStore, "resolve">;
@@ -108,7 +108,7 @@ export async function executeApprovedMcpToolCall(
 }
 
 interface McpToolApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: LocalMcpToolPort;
   readonly connections: McpConnectionStore;
   readonly approvals: McpToolApprovalSessionStore;
   readonly audits: McpAuditStore;

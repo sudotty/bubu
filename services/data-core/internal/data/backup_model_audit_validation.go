@@ -9,7 +9,7 @@ import (
 
 func validateBackupModelAudits(ctx context.Context, database *sql.DB, schemaVersion int) error {
 	if schemaVersion >= 12 {
-		if err := validateBackupModelAuditPurposes(ctx, database); err != nil {
+		if err := validateBackupModelAuditPurposes(ctx, database, schemaVersion); err != nil {
 			return err
 		}
 	}
@@ -36,7 +36,7 @@ func validateBackupModelAudits(ctx context.Context, database *sql.DB, schemaVers
 	return nil
 }
 
-func validateBackupModelAuditPurposes(ctx context.Context, database *sql.DB) error {
+func validateBackupModelAuditPurposes(ctx context.Context, database *sql.DB, schemaVersion int) error {
 	rows, err := database.QueryContext(ctx, "SELECT purpose FROM model_disclosure_purposes ORDER BY purpose")
 	if err != nil {
 		return fmt.Errorf("inspect backup model audit purposes: %w", err)
@@ -45,6 +45,24 @@ func validateBackupModelAuditPurposes(ctx context.Context, database *sql.DB) err
 	expected := []string{
 		"aggregate-agent", "aggregate-explanation", "group-query-plan",
 		"provider-connection-test", "query-plan",
+	}
+	if schemaVersion >= 25 {
+		expected = []string{
+			"aggregate-agent", "aggregate-explanation", "explicit-row-explanation", "group-query-plan",
+			"provider-connection-test", "query-plan",
+		}
+	}
+	if schemaVersion >= 28 {
+		expected = []string{
+			"aggregate-agent", "aggregate-explanation", "explicit-row-explanation", "group-query-plan", "knowledge-answer",
+			"provider-connection-test", "query-plan",
+		}
+	}
+	if schemaVersion >= 29 {
+		expected = []string{
+			"aggregate-agent", "aggregate-explanation", "explicit-row-explanation", "group-query-plan", "knowledge-answer",
+			"mcp-prompt-response", "mcp-tool-proposal", "provider-connection-test", "query-plan",
+		}
 	}
 	index := 0
 	for rows.Next() {

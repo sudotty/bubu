@@ -20,7 +20,7 @@ Migrate the Wails shell to Electron and split the local application into five bo
 4. A Node utility process for AI provider adapters, streaming, and MCP protocol translation.
 5. A Go data-core sidecar for files, SQLite, import, profiling, validation, privacy enforcement, query execution, workflow state, and audit.
 
-Main communicates with sidecars over authenticated, versioned RPC on process pipes. Sidecars do not open local TCP ports. The optional BuBu Hub is a separate server with PostgreSQL and is added only after local collaboration contracts are stable.
+Main communicates with sidecars over authenticated, versioned RPC on process pipes. Sidecars do not open local TCP ports. The optional BuBu Hub is a separate server added only after local collaboration contracts are stable. ADR-0006 defines its bounded private-file default and optional serializable PostgreSQL snapshot adapter; normalized PostgreSQL remains the scale-up destination.
 
 ## Security invariants
 
@@ -40,7 +40,7 @@ Main communicates with sidecars over authenticated, versioned RPC on process pip
 - Preserves Go strengths for streaming ingestion and local analytical execution.
 - Keeps provider SDK churn and MCP concerns outside the data core.
 - Makes renderer compromise, AI runtime failure, and data-core authority explicit boundaries.
-- Allows full offline operation and an independently deployable PostgreSQL-backed Hub.
+- Allows full offline operation and an independently deployable Hub whose persistence can move to PostgreSQL without changing sync contracts.
 
 ### Negative
 

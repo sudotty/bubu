@@ -1,16 +1,26 @@
-export type SettingsHealthSection = "models" | "connectors" | "privacy";
+export type SettingsHealthSection = "models" | "prompts" | "connectors" | "privacy";
 
 export interface SettingsHealthFinding {
-  readonly id: "encryption" | "provider" | "active-provider" | "connectors" | "ready";
+  readonly id: "diagnostics" | "encryption" | "provider" | "active-provider" | "connectors" | "ready";
   readonly severity: "blocker" | "action" | "optional" | "ready";
   readonly title: string;
   readonly detail: string;
   readonly section?: SettingsHealthSection;
 }
 
-export function deriveSettingsHealth(input: { readonly encryptionAvailable: boolean; readonly providerCount: number; readonly hasActiveProvider: boolean; readonly connectorCount: number }): readonly SettingsHealthFinding[] {
+export interface SettingsHealthInput {
+  readonly encryptionAvailable: boolean | null;
+  readonly providerCount: number | null;
+  readonly hasActiveProvider: boolean | null;
+  readonly connectorCount: number | null;
+}
+
+export function deriveSettingsHealth(input: SettingsHealthInput): readonly SettingsHealthFinding[] {
+  if (input.encryptionAvailable === null || input.providerCount === null || input.hasActiveProvider === null || input.connectorCount === null) {
+    return [{ id: "diagnostics", severity: "blocker", title: "配置状态暂时不可用", detail: "部分本地诊断没有返回；重新检查后再根据结果处理，不会把未知状态当成缺失配置。" }];
+  }
   const findings: SettingsHealthFinding[] = [];
-  if (!input.encryptionAvailable) findings.push({ id: "encryption", severity: "blocker", title: "系统加密不可用", detail: "当前只能使用无需密钥的本地服务；先检查操作系统凭据存储。", section: "privacy" });
+  if (!input.encryptionAvailable) findings.push({ id: "encryption", severity: "blocker", title: "系统加密不可用", detail: "当前只能使用无需密钥的本地服务；在隐私与恢复中查看系统凭据存储处理步骤。", section: "privacy" });
   if (input.providerCount === 0) findings.push({ id: "provider", severity: "action", title: "尚未配置模型", detail: "添加云模型、兼容接口或本机 Ollama，才能生成分析计划。", section: "models" });
   else if (!input.hasActiveProvider) findings.push({ id: "active-provider", severity: "action", title: "需要选择当前模型", detail: "已有配置但尚未指定用于新任务的模型。", section: "models" });
   if (input.connectorCount === 0) findings.push({ id: "connectors", severity: "optional", title: "没有本地连接器", detail: "这不会阻塞数据对话；仅在需要 MCP 能力时配置。", section: "connectors" });

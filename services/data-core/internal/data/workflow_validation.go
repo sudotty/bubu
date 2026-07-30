@@ -106,6 +106,11 @@ func validateWorkflowStepTarget(target WorkflowTarget, step WorkflowStepDefiniti
 			return errors.New("group-query workflow step does not match its target")
 		}
 		return validateGroupQueryPlanShape(*step.GroupPlan)
+	case "human-approval":
+		if step.Plan != nil || step.GroupPlan != nil || step.MaximumAttempts != 1 || strings.TrimSpace(step.Title) == "" || len(step.Title) > 120 || strings.TrimSpace(step.Action) == "" || len(step.Action) > 500 || (step.Risk != "low" && step.Risk != "medium" && step.Risk != "high") || step.ExpiresAfterMinutes < 5 || step.ExpiresAfterMinutes > 24*60 {
+			return errors.New("human-approval workflow step is invalid")
+		}
+		return nil
 	default:
 		return errors.New("workflow step kind is unsupported")
 	}
@@ -151,6 +156,19 @@ func decodeWorkflowStepResult(raw string) (WorkflowStepResult, error) {
 			}
 		}
 		return WorkflowStepResult{Kind: envelope.Kind, Value: result}, nil
+	case "human-approval":
+		var result struct {
+			ApprovalID string `json:"approvalId"`
+			Decision   string `json:"decision"`
+			DecidedAt  string `json:"decidedAt"`
+		}
+		if err := decodeStrictWorkflowJSON(envelope.Value, &result); err != nil {
+			return WorkflowStepResult{}, errors.New("stored workflow approval result is invalid")
+		}
+		if _, timestampErr := time.Parse(time.RFC3339Nano, result.DecidedAt); timestampErr != nil || !objectID.MatchString(result.ApprovalID) || result.Decision != "approved" {
+			return WorkflowStepResult{}, errors.New("stored workflow approval result is invalid")
+		}
+		return WorkflowStepResult{Kind: envelope.Kind, Value: result}, nil
 	default:
 		return WorkflowStepResult{}, errors.New("stored workflow result kind is invalid")
 	}
@@ -170,6 +188,16 @@ func validateWorkflowResolvedInput(kind string, raw string) error {
 		var plan SafeGroupQueryPlan
 		if err := decodeStrictWorkflowJSON([]byte(raw), &plan); err != nil || validateGroupQueryPlanShape(plan) != nil {
 			return errors.New("stored group workflow input is invalid")
+		}
+	case "human-approval":
+		var input struct {
+			Title               string `json:"title"`
+			Action              string `json:"action"`
+			Risk                string `json:"risk"`
+			ExpiresAfterMinutes int    `json:"expiresAfterMinutes"`
+		}
+		if err := decodeStrictWorkflowJSON([]byte(raw), &input); err != nil || strings.TrimSpace(input.Title) == "" || strings.TrimSpace(input.Action) == "" || (input.Risk != "low" && input.Risk != "medium" && input.Risk != "high") || input.ExpiresAfterMinutes < 5 || input.ExpiresAfterMinutes > 24*60 {
+			return errors.New("stored workflow approval input is invalid")
 		}
 	default:
 		return errors.New("stored workflow input kind is invalid")

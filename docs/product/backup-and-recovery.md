@@ -6,7 +6,7 @@ Status: Implemented for the Go data-core workspace.
 
 Open **模型设置 → 本地备份与恢复** and choose **创建本地数据备份**. The resulting `.bubu-backup` contains a consistent snapshot of the local SQLite workspace: imported rows, immutable versions, profiles, groups, relationships, validation rules, and dataset/group conversations.
 
-Provider profiles and API credentials are not part of this artifact. Credentials remain in operating-system-backed encrypted storage and must be configured again on another device. The backup itself contains raw user data and is not encrypted by BuBu, so it must be stored only in a trusted, access-controlled location.
+Provider/MCP profiles, API credentials, privacy policy, reusable Agent definitions, prompt and chart preferences, Webhook destinations, and Hub connection state are not part of this data-core artifact. Credentials remain in operating-system-backed encrypted storage and must be configured again on another device. Portable product-setting backup is implemented as a separate `.bubu-settings` file: it carries the privacy and conversation-retention policies, reusable Agent definitions, prompt templates, and schema-bound chart preferences. Its strict versioned contract structurally excludes datasets, credentials, Provider/MCP connections, Hub tokens, and Webhook secrets; those connections must be recreated and authorized on the restored device. The settings file itself is not encrypted and may contain Agent goals or custom prompts, so it also belongs only in a trusted, access-controlled location. Restore uses a one-use two-phase transaction across main-process stores and renderer preferences: the renderer commits only after every section can be reloaded, rejects and rolls back both sides on failure, and an unfinalized transaction automatically rolls back after 30 seconds. The data backup itself contains raw user data and is not encrypted by BuBu, so it must be stored only in a trusted, access-controlled location.
 
 The renderer never sees the backup destination or source path. It receives only the base file name, creation time, raw database byte size, and dataset/group counts.
 
@@ -39,6 +39,6 @@ Only after all checks pass does the sidecar checkpoint and close the current dat
 ## Operational limits
 
 - Restore accepts at most 64 GiB of uncompressed database content to bound decompression attacks. Larger managed deployments need an enterprise backup path rather than this desktop artifact.
-- Restore replaces the complete local data-core workspace; it does not merge contacts or groups.
+- Restore replaces the complete local data-core workspace; it does not merge data objects or business topics.
 - Create a fresh backup before a planned restore when the current workspace must remain recoverable.
-- Automated schedules, retention rotation, encrypted backup envelopes, provider-setting backup, and optional Hub disaster recovery remain separate capabilities.
+- Automated data-backup schedules, encrypted backup envelopes, and optional Hub disaster recovery remain separate planned capabilities. Archived-task retention and credential-free product-setting migration are implemented independently from the raw-data snapshot.

@@ -16,6 +16,7 @@ import type {
   OperationId,
 } from "../shared/product-api.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
+import { McpModelBridgePanel } from "./McpModelBridgePanel.js";
 
 interface EnvironmentDraft {
   readonly name: string;
@@ -164,6 +165,16 @@ export function McpSettings() {
       setNotice(operationErrorMessage(error, "保存 MCP 连接失败"));
     } finally {
       setBusy(undefined);
+    }
+  }
+
+  async function selectExecutable(): Promise<void> {
+    setNotice(undefined);
+    try {
+      const selection = await window.bubu.mcp.selectExecutable();
+      if (selection.status === "selected") updateDraft({ command: selection.path });
+    } catch (error) {
+      setNotice(operationErrorMessage(error, "选择的文件不能作为 MCP 直接可执行文件"));
     }
   }
 
@@ -484,7 +495,7 @@ export function McpSettings() {
   return <section className="mcp-settings" aria-label="MCP 连接中心">
     <header className="settings-section-header">
       <div><p className="hero-kicker">MCP 连接中心</p><h3>MCP 连接</h3></div>
-      <button type="button" className="secondary-action" onClick={() => setDraft(emptyDraft)}>新增</button>
+      {(registry?.connections.length ?? 0) > 0 && <button type="button" className="secondary-action" onClick={() => setDraft(emptyDraft)}>新增</button>}
     </header>
     <div className="security-warning" role="note">
       本地 MCP 服务是未受信任代码，会以当前桌面用户权限运行。BuBu 不使用 Shell、不自动启动，也不会把发现的能力交给模型。
@@ -510,20 +521,20 @@ export function McpSettings() {
         <div><p className="hero-kicker">禁止 Shell · 凭据仅写</p><h4>{draft.id === undefined ? "添加本地 MCP" : "编辑本地 MCP"}</h4></div>
         {registry && !registry.encryptionAvailable && <div className="security-warning" role="alert">系统加密存储不可用；BuBu 将拒绝新增或修改环境秘密。</div>}
         <label><span>显示名称</span><input required maxLength={100} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} /></label>
-        <label><span>已安装服务的绝对可执行文件</span><input required value={draft.command} onChange={(event) => updateDraft({ command: event.target.value })} placeholder="/absolute/path/to/mcp-server" /></label>
+        <label><span>已安装服务的绝对可执行文件</span><span className="mcp-command-input"><input required value={draft.command} onChange={(event) => updateDraft({ command: event.target.value })} placeholder={"例如 /opt/homebrew/bin/node 或 C:\\Tools\\server.exe"} aria-describedby="mcp-command-guidance" /><button type="button" className="secondary-action" onClick={() => void selectExecutable()}>选择文件</button></span><small id="mcp-command-guidance">选择或填写实际可执行文件，不要填写 Shell 命令；参数请逐项添加到下方。</small></label>
         <fieldset className="mcp-array-editor"><legend>参数（按顺序逐项传递，不经过 Shell）</legend>
-          {draft.args.map((argument, index) => <div key={index}><input value={argument} onChange={(event) => updateArgument(index, event.target.value)} aria-label={`参数 ${index + 1}`} /><button type="button" onClick={() => updateDraft({ args: draft.args.filter((_, current) => current !== index) })}>移除</button></div>)}
+          {draft.args.map((argument, index) => <div key={index}><input value={argument} onChange={(event) => updateArgument(index, event.target.value)} aria-label={`参数 ${index + 1}`} autoFocus={index === draft.args.length - 1 && argument === ""} /><button type="button" onClick={() => updateDraft({ args: draft.args.filter((_, current) => current !== index) })}>移除</button></div>)}
           <button type="button" className="secondary-action" onClick={() => updateDraft({ args: [...draft.args, ""] })}>添加参数</button>
         </fieldset>
         <fieldset className="mcp-array-editor"><legend>加密环境值（编辑时留空保留原值）</legend>
           {draft.environment.map((entry, index) => <div key={index}>
-            <input value={entry.name} onChange={(event) => updateEnvironment(index, { name: event.target.value })} placeholder="TOKEN_NAME" aria-label={`环境变量名 ${index + 1}`} />
+            <input value={entry.name} onChange={(event) => updateEnvironment(index, { name: event.target.value })} placeholder="TOKEN_NAME" aria-label={`环境变量名 ${index + 1}`} autoFocus={index === draft.environment.length - 1 && entry.name === ""} />
             <input type="password" autoComplete="new-password" value={entry.value} onChange={(event) => updateEnvironment(index, { value: event.target.value })} placeholder="只写入" aria-label={`环境变量值 ${index + 1}`} />
             <button type="button" onClick={() => updateDraft({ environment: draft.environment.filter((_, current) => current !== index) })}>移除</button>
           </div>)}
           <button type="button" className="secondary-action" onClick={() => updateDraft({ environment: [...draft.environment, { name: "", value: "" }] })}>添加加密环境值</button>
         </fieldset>
-        <button type="submit" className="primary-action" disabled={busy !== undefined || operationId !== undefined}>{busy === "save" ? "正在安全保存…" : "只保存，不启动"}</button>
+        <button type="submit" className="primary-action" disabled={busy !== undefined || operationId !== undefined} aria-busy={busy === "save"}>{busy === "save" ? "正在安全保存…" : "只保存，不启动"}</button>
       </form>
     </div>
     {proposal && <article className="mcp-launch-review">
@@ -540,7 +551,7 @@ export function McpSettings() {
       {snapshot.untrustedMetadata && <div className="security-warning" role="note">以下名称、描述、annotations、schema、URI 和参数说明均来自 MCP 服务，只作为未受信任文本展示。</div>}
       {snapshot.instructions && <section><strong>服务说明（不可信，不会发送给模型）</strong><p>{snapshot.instructions}</p></section>}
       <div className="mcp-capability-columns">
-        <section><h5>Tools · {snapshot.tools.length}</h5>{snapshot.tools.map((tool) => <details key={tool.name} open={toolDraft?.toolName === tool.name}>
+        <section><h5>工具 · {snapshot.tools.length}</h5>{snapshot.tools.map((tool) => <details key={tool.name} open={toolDraft?.toolName === tool.name}>
           <summary>{tool.title ?? tool.name}</summary><p>{tool.description ?? "无描述"}</p>
           <small>任务支持：{tool.taskSupport} · annotations 仅展示，不作为安全事实：{JSON.stringify(tool.annotations ?? {})}</small>
           <pre>{tool.inputSchemaJson}</pre>
@@ -551,8 +562,8 @@ export function McpSettings() {
           </form>}
           {toolDraft?.toolName !== tool.name && <div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined || toolProposal !== undefined || tool.taskSupport === "required"} onClick={() => editTool(tool)}>填写 JSON 并审查</button></div>}
         </details>)}</section>
-        <section><h5>Resources · {snapshot.resources.length}</h5>{snapshot.resources.map((resource) => <details key={resource.uri}><summary>{resource.title ?? resource.name}</summary><p>{resource.description ?? "无描述"}</p><code>{resource.uri}</code><div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void prepareResourceRead(resource.uri)}>审查读取</button></div></details>)}</section>
-        <section><h5>Prompts · {snapshot.prompts.length}</h5>{snapshot.prompts.map((prompt) => <details key={prompt.name} open={promptDraft?.promptName === prompt.name}>
+        <section><h5>资源 · {snapshot.resources.length}</h5>{snapshot.resources.map((resource) => <details key={resource.uri}><summary>{resource.title ?? resource.name}</summary><p>{resource.description ?? "无描述"}</p><code>{resource.uri}</code><div className="plan-actions"><button type="button" disabled={busy !== undefined || operationId !== undefined || resourceProposal !== undefined || promptProposal !== undefined} onClick={() => void prepareResourceRead(resource.uri)}>审查读取</button></div></details>)}</section>
+        <section><h5>提示模板 · {snapshot.prompts.length}</h5>{snapshot.prompts.map((prompt) => <details key={prompt.name} open={promptDraft?.promptName === prompt.name}>
           <summary>{prompt.title ?? prompt.name}</summary><p>{prompt.description ?? "无描述"}</p>
           {prompt.arguments.length === 0 ? <small>无参数</small> : <small>{prompt.arguments.map(({ name, required }) => `${name}${required ? "*" : ""}`).join("、")}</small>}
           {promptDraft?.promptName === prompt.name && <form className="mcp-prompt-arguments" onSubmit={(event) => { event.preventDefault(); void preparePromptGet(); }}>
@@ -613,6 +624,12 @@ export function McpSettings() {
         <LocalMcpContent content={message.content} />
       </section>)}
     </article>}
+    {snapshot && inspectedConnectionId && <McpModelBridgePanel
+      connectionId={inspectedConnectionId}
+      connectionName={registry?.connections.find(({ id }) => id === inspectedConnectionId)?.name ?? "MCP"}
+      snapshot={snapshot}
+      {...(promptResult === undefined ? {} : { promptResult })}
+    />}
     {toolProposal && <article className="mcp-launch-review">
       <header><div><strong>批准前检查精确工具调用</strong><small>{toolProposal.connection.name}</small></div><span>{toolProposal.budget.maxDurationMs / 1_000} 秒上限</span></header>
       <div className="security-warning" role="alert">工具可能产生副作用。批准后会再次启动本地代码，并发送下方精确参数。返回内容不可信，只在本地显示，不会进入模型、Agent 或工作流。</div>

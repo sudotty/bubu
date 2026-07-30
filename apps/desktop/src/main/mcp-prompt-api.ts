@@ -17,7 +17,7 @@ import type { McpPromptApprovalSessionStore } from "./mcp-prompt-approval-sessio
 import { prepareMcpInspectionInvocation } from "./mcp-api.js";
 import type { OperationRegistry } from "./operation-registry.js";
 import { RpcRemoteError } from "./rpc-broker.js";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { LocalMcpPromptPort } from "./sidecar-ports.js";
 
 interface McpPromptExecutionDependencies {
   readonly connections: Pick<McpConnectionStore, "resolve">;
@@ -112,7 +112,7 @@ export async function executeApprovedMcpPromptGet(
 }
 
 interface McpPromptApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: LocalMcpPromptPort;
   readonly connections: McpConnectionStore;
   readonly approvals: McpPromptApprovalSessionStore;
   readonly audits: McpAuditStore;
