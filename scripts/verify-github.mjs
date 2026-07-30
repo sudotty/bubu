@@ -14,6 +14,7 @@ const required = [
   ".github/workflows/codeql.yml",
   ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
+  "scripts/verify-release-ref.mjs",
   "CONTRIBUTING.md",
   "SECURITY.md",
 ];
@@ -36,7 +37,7 @@ const workflowPolicy = Object.freeze({
   ".github/workflows/preview-release.yml": {
     events: ["workflow_dispatch"],
     jobs: { "validate-preview-tag": undefined, package: undefined, publish: { contents: "write" } },
-    requiredText: ["Existing preview-v<semver> tag", "verify-release-ref.mjs", "--channel=preview", "sync-release-assets.mjs", "immutable unsigned prerelease"],
+    requiredText: ["Existing preview-v<semver> tag", "Check out trusted workflow commit", "verify-release-ref.mjs", "--channel=preview", "sync-release-assets.mjs", "immutable unsigned prerelease"],
   },
   ".github/workflows/release.yml": {
     events: ["workflow_dispatch"],
@@ -48,7 +49,7 @@ const workflowPolicy = Object.freeze({
       "attest-release": { contents: "read", "id-token": "write", attestations: "write" },
       "draft-release": { contents: "write" },
     },
-    requiredText: ["environment: release", "verify-release-ref.mjs", "--channel=stable", "resolve-previous-release.mjs", "--require-signature", "xcrun notarytool submit", "steps.release-settings.outputs.attestations", "needs.assemble-release.outputs.attestations", "sync-release-assets.mjs", "attest-build-provenance@", "cancel-in-progress: false"],
+    requiredText: ["environment: release", "Check out trusted workflow commit", "Check out verified release tag", "verify-release-ref.mjs", "--channel=stable", "resolve-previous-release.mjs", "--require-signature", "xcrun notarytool submit", "steps.release-settings.outputs.attestations", "needs.assemble-release.outputs.attestations", "sync-release-assets.mjs", "attest-build-provenance@", "cancel-in-progress: false"],
     forbiddenText: ['AuthKey_${{ secrets.', 'if [[ -n "${{ steps.', "if ('${{ steps.", 'security delete-keychain "${{', 'rm -f "${{'],
   },
 });
@@ -77,6 +78,13 @@ function sameObject(left, right) {
 const failures = required.filter((path) => !existsSync(resolve(path))).map((path) => `missing GitHub contract: ${path}`);
 if (existsSync(resolve(".github/dependabot.yml"))) failures.push(".github/dependabot.yml must remain absent while automatic dependency branches are disabled");
 const usedActions = new Set();
+
+if (existsSync(resolve("scripts/verify-release-ref.mjs"))) {
+  const releaseVerifier = readFileSync(resolve("scripts/verify-release-ref.mjs"), "utf8");
+  if (!releaseVerifier.includes('process.env.GITHUB_REF !== "refs/heads/main"')) {
+    failures.push("release verifier must reject workflow dispatches outside refs/heads/main");
+  }
+}
 
 for (const [workflowPath, policy] of Object.entries(workflowPolicy)) {
   if (!existsSync(resolve(workflowPath))) continue;

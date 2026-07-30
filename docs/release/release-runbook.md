@@ -4,7 +4,7 @@ This is the operator contract for macOS and Windows releases. It intentionally s
 
 ## 1. One-time GitHub configuration
 
-The repository-owned GitHub Actions environment `release` accepts only workflow runs dispatched from protected `main` and requires an explicit owner approval. Release tags select source bytes but never select the privileged workflow definition. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
+The repository-owned GitHub Actions environment `release` accepts only workflow runs dispatched with the workflow ref set to `main` (`GITHUB_REF=refs/heads/main`) and requires an explicit owner approval. Release tags select source bytes but never select the privileged workflow definition. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
 
 `npm run verify:github:remote` treats a missing environment or missing tag restriction as a release failure. This public repository has Secret Scanning and Push Protection enabled; local secret verification and the human draft-review checklist remain independent controls. Never bypass unavailable environment protection by moving release secrets to repository scope.
 
@@ -64,7 +64,7 @@ The configurator refuses partial input, malformed certificate/key encodings, non
 
 ### Free public preview
 
-For a zero-cost public preview, push an annotated `preview-v<semver>` tag whose version exactly matches the checked-in product version, then dispatch the trusted workflow from `main`. It does not require publisher credentials and must never be relabeled as stable:
+For a zero-cost public preview, push an annotated `preview-v<semver>` tag whose version and commit exactly match current protected `main`, then dispatch that trusted `main` workflow before any later merge. It does not require publisher credentials and must never be relabeled as stable:
 
 ```bash
 git tag -a preview-v0.2.0-rc.1 -m "BuBu preview v0.2.0-rc.1"
@@ -83,7 +83,7 @@ npm run verify
 git diff -- package.json package-lock.json apps/desktop/package.json packages/contracts/package.json services/ai-runtime/package.json
 ```
 
-Review and commit that version change before creating a tag. The release tag must equal a stable `v<package.json version>`, must be annotated, and must have a signature that GitHub verifies. The workflow resolves `refs/tags/<tag>` exactly, rejects branches with a similar name, and confirms the verified tag points to the checked-out commit.
+Review and commit that version change before creating a tag. The release tag must equal a stable `v<package.json version>`, must be annotated, and must have a signature that GitHub verifies. The workflow resolves `refs/tags/<tag>` exactly and requires it to point to the same protected `main` commit that owns the dispatched workflow; a historical or off-main tag cannot run privileged release code.
 
 ## 3. Create and push a protected release tag
 
