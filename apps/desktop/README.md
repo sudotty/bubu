@@ -10,6 +10,7 @@ The desktop workspace packages the current product: Electron main supervises sid
 - `src/renderer/` is browser-only React. Parse incoming product data before it crosses into trusted execution; render MCP/model output as untrusted content.
 - `src/renderer/ConversationWorkbench.tsx`, `TaskRunStatus.tsx`, and `ArtifactInspector.tsx` implement the visible task flow. They may improve orientation and density, but cannot weaken the explicit approval, disclosure, or data-core authority boundaries.
 - `src/shared/product-api.ts` is the renderer/main capability surface and must remain narrow and typed.
+- `src/main/derived-recompute-scheduler.ts` only polls the durable Go queue and emits completion callbacks. It does not plan, execute, or advance derived work itself.
 
 Desktop security changes require an Electron integration test. UI changes must preserve visible implemented/disabled/planned states, keyboard focus, bounded layouts, and exact one-use approval reviews. See [the UI/UX contract](../../docs/product/ui-ux-guidelines.md).
 
@@ -32,3 +33,5 @@ npm run make -w @bubu/desktop -- --platform=win32 --arch=x64 --skip-package
 ```
 
 Local makes are intentionally unsigned. Pull requests run the three-target unsigned native matrix. Protected version tags use the macOS Developer ID/notary and Windows Azure Artifact Signing paths, verify the installed application, and create a draft GitHub Release. Exact variables, credentials, lifecycle evidence, and recovery rules live in [the signed release runbook](../../docs/release/release-runbook.md).
+
+The preload bundle installs a narrow compatibility adapter for the pinned Forge 7.11.2 and Vite 8.1.5 pair. Forge still emits the legacy Rolldown `inlineDynamicImports` option; `vite-forge-compat.ts` converts it to the equivalent `codeSplitting: false` after config resolution. Keep its unit test and installer verifier until a verified stable Forge release emits the Vite 8 option itself, then remove the adapter rather than carrying dead compatibility code.

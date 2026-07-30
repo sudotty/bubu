@@ -10,6 +10,8 @@ import { DatasetQualityPanel } from "./DatasetQualityPanel.js";
 import { SchemaMappingPanel } from "./SchemaMappingPanel.js";
 import { ConversationWorkbench } from "./ConversationWorkbench.js";
 import { ArtifactInspector } from "./ArtifactInspector.js";
+import { DatasetLineagePanel } from "./DatasetLineagePanel.js";
+import { emptyWorkspaceTaskStarters, type WorkspaceTaskId } from "@bubu/product-core";
 
 export type MappingRequired = Extract<DatasetReplacementSelectionResult, { readonly status: "mapping-required" }>;
 
@@ -34,12 +36,13 @@ const typeLabels = {
   text: "文本",
 } as const;
 
-function DatasetContextInspector({ dataset, preview }: { readonly dataset: DatasetSummary; readonly preview: PreviewState }) {
+function DatasetContextInspector({ dataset, preview, onDatasetMaterialized }: { readonly dataset: DatasetSummary; readonly preview: PreviewState; readonly onDatasetMaterialized: (dataset: DatasetSummary) => void }) {
   return <div className="dataset-context-inspector">
     <header className="preview-header">
       <div><p className="hero-kicker">数据上下文</p><h3>数据结构与健康</h3></div>
       <span>版本 {dataset.version}</span>
     </header>
+    {dataset.sourceKind === "derived" && <DatasetLineagePanel dataset={dataset} onRecomputed={onDatasetMaterialized} />}
     {preview.kind === "loading" && <p className="empty-copy">正在读取本地预览与列画像…</p>}
     {preview.kind === "failed" && <p className="error-text">{preview.message}</p>}
     {preview.kind === "loaded" && <section className="context-preview" aria-label="本地数据预览">
@@ -58,22 +61,53 @@ function DatasetContextInspector({ dataset, preview }: { readonly dataset: Datas
 export function EmptyWorkspace({
   readiness,
   onImport,
+  onImportDemo,
   importing,
+  demoImporting,
+  onStartTask,
 }: {
   readonly readiness: ReadinessState;
   readonly onImport: () => void;
+  readonly onImportDemo: () => void;
   readonly importing: boolean;
+  readonly demoImporting: boolean;
+  readonly onStartTask: (taskId: WorkspaceTaskId) => void;
 }) {
+  const busy = importing || demoImporting;
   return (
     <>
       <div className="hero-card">
         <p className="hero-kicker">本地优先工作区</p>
-        <h3>导入表格，把数据变成可以聊天的联系人。</h3>
+        <h3>导入表格，把数据变成可追溯的数据对象。</h3>
         <p>CSV 与 Excel 会在 Go 数据内核中事务化转换为本地表。这里只显示文件名、结构和本地画像，不会自动发送原始行。</p>
-        <button type="button" className="primary-action" onClick={onImport} disabled={importing}>
-          {importing ? "正在导入…" : "选择 Excel 或 CSV"}
-        </button>
+        <div className="hero-actions">
+          <button type="button" className="primary-action" onClick={onImport} disabled={busy}>
+            {importing ? "正在导入…" : "选择 Excel 或 CSV"}
+          </button>
+          <button type="button" className="secondary-action" onClick={onImportDemo} disabled={busy}>
+            {demoImporting ? "正在创建示例…" : "打开零售经营示例"}
+          </button>
+        </div>
+        <small className="demo-workspace-note">示例包含 3 个数据对象 · 2 条已确认关系 · 1 个每周业务主题</small>
       </div>
+      <section className="workspace-task-map" aria-label="从任务开始">
+        <header><div><p className="hero-kicker">从任务开始</p><h3>选择你要完成的工作</h3></div><small>已实现任务可以直接用本地示例开始</small></header>
+        <div>
+          {emptyWorkspaceTaskStarters.map((task) => task.status === "implemented" ? (
+            <button type="button" key={task.id} className="workspace-task-card" onClick={() => onStartTask(task.id)} disabled={busy}>
+              <span><strong>{task.label}</strong><small>已实现</small></span>
+              <p>{task.description}</p>
+              <b>{task.actionLabel}</b>
+            </button>
+          ) : (
+            <article key={task.id} className="workspace-task-card workspace-task-planned" aria-disabled="true">
+              <span><strong>{task.label}</strong><small>计划中</small></span>
+              <p>{task.description}</p>
+              <b>尚不可执行</b>
+            </article>
+          ))}
+        </div>
+      </section>
       <section className="status-panel" aria-live="polite">
         <div className="status-heading">
           <h3>本地运行状态</h3>
@@ -106,6 +140,7 @@ export function DatasetWorkspace({
   pendingMapping,
   onApplyMapping,
   onCancelMapping,
+  onDatasetMaterialized,
 }: {
   readonly dataset: DatasetSummary;
   readonly preview: PreviewState;
@@ -113,6 +148,7 @@ export function DatasetWorkspace({
   readonly pendingMapping: MappingRequired | undefined;
   readonly onApplyMapping: (input: DatasetReplacementMappingInput) => void;
   readonly onCancelMapping: () => void;
+  readonly onDatasetMaterialized: (dataset: DatasetSummary) => void;
 }) {
   return (
     <>
@@ -130,9 +166,9 @@ export function DatasetWorkspace({
         target={{ kind: "dataset", id: dataset.id }}
         title="数据对话"
         subtitle="每条对话都是一个可审查的数据任务。"
-        inspector={(threadId, view) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} initialView={view} fallback={<DatasetContextInspector dataset={dataset} preview={preview} />} />}
+        inspector={(threadId, view, closePane) => <ArtifactInspector target={{ kind: "dataset", id: dataset.id }} threadId={threadId} initialView={view} fallback={<DatasetContextInspector dataset={dataset} preview={preview} onDatasetMaterialized={onDatasetMaterialized} />} onReturnToConversation={closePane} onDatasetMaterialized={onDatasetMaterialized} />}
       >
-        {(threadId, createThread, openArtifact) => <DatasetAnalysis datasetId={dataset.id} datasetName={dataset.displayName} threadId={threadId} onCreateThread={createThread} onOpenArtifact={openArtifact} />}
+        {(threadId, createThread, openArtifact) => <DatasetAnalysis dataset={dataset} preview={preview.kind === "loaded" ? preview.value : undefined} threadId={threadId} onCreateThread={createThread} onOpenArtifact={openArtifact} />}
       </ConversationWorkbench>
     </>
   );

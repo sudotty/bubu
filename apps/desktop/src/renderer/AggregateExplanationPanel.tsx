@@ -9,6 +9,8 @@ import type {
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { AggregateExplanationCard } from "./AggregateExplanationCard.js";
 import { AggregateDisclosurePreview } from "./AggregateDisclosurePreview.js";
+import { PromptTemplateSelector } from "./PromptTemplateSelector.js";
+import { currentPromptTemplate } from "./prompt-template-preferences.js";
 
 export function AggregateExplanationPanel({
   plan,
@@ -26,7 +28,7 @@ export function AggregateExplanationPanel({
     setNotice(undefined);
     setExplanation(undefined);
     try {
-      setProposal(await window.bubu.analysis.prepareAggregateExplanation({ plan, threadId }));
+      setProposal(await window.bubu.analysis.prepareAggregateExplanation({ plan, threadId, promptTemplate: currentPromptTemplate("aggregate-explanation") }));
     } catch (error) {
       setNotice(operationErrorMessage(error, "这个结果不符合安全聚合披露条件"));
     }
@@ -68,6 +70,7 @@ export function AggregateExplanationPanel({
     <section className="aggregate-explanation-panel" aria-label="AI 聚合结果解释">
       <header><div><p className="hero-kicker">明确的聚合披露</p><h3>让 AI 解读聚合结果</h3></div>{!proposal && !operationId && <button type="button" className="secondary-action" onClick={() => void prepare()}>检查并预览发送内容</button>}</header>
       <p className="settings-copy">只有包含 COUNT(*)、每组至少 5 条、没有最小值/最大值且最多 50 行的聚合结果可以进入这个流程。原始明细仍留在本地。</p>
+      {!proposal && !operationId && <PromptTemplateSelector scope="aggregate-explanation" />}
       {notice && <div className="notice" role="status">{notice}</div>}
       {proposal && <AggregateDisclosurePreview proposal={proposal}>
         <div className="plan-actions">

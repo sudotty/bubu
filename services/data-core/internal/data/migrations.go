@@ -1,11 +1,5 @@
 package data
 
-import (
-	"context"
-	"database/sql"
-	"fmt"
-)
-
 type migration struct {
 	version int
 	sql     string
@@ -303,41 +297,32 @@ ON workflow_trigger_events(status, due_at, id);
 		version: 17,
 		sql:     workflowCalendarTriggerMigrationSQL,
 	},
-}
-
-func applyMigrations(ctx context.Context, database *sql.DB) error {
-	if _, err := database.ExecContext(ctx, `
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version INTEGER PRIMARY KEY,
-    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)`); err != nil {
-		return fmt.Errorf("create migration table: %w", err)
-	}
-
-	for _, item := range migrations {
-		var exists int
-		err := database.QueryRowContext(ctx, "SELECT 1 FROM schema_migrations WHERE version = ?", item.version).Scan(&exists)
-		if err == nil {
-			continue
-		}
-		if err != sql.ErrNoRows {
-			return fmt.Errorf("read migration %d: %w", item.version, err)
-		}
-		transaction, err := database.BeginTx(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("begin migration %d: %w", item.version, err)
-		}
-		if _, err := transaction.ExecContext(ctx, item.sql); err != nil {
-			transaction.Rollback()
-			return fmt.Errorf("apply migration %d: %w", item.version, err)
-		}
-		if _, err := transaction.ExecContext(ctx, "INSERT INTO schema_migrations(version) VALUES (?)", item.version); err != nil {
-			transaction.Rollback()
-			return fmt.Errorf("record migration %d: %w", item.version, err)
-		}
-		if err := transaction.Commit(); err != nil {
-			return fmt.Errorf("commit migration %d: %w", item.version, err)
-		}
-	}
-	return nil
+	{
+		version: 18,
+		sql:     derivedDatasetLineageMigrationSQL,
+	},
+	{version: 19, sql: dataCleanLineageMigrationSQL},
+	{version: 20, sql: derivedExecutionEvidenceMigrationSQL},
+	{version: 21, sql: dataCleanQualityMigrationSQL},
+	{version: 22, sql: derivedRecomputeMigrationSQL},
+	{version: 23, sql: `
+CREATE TABLE reconciliation_artifacts (
+    id TEXT PRIMARY KEY,
+    plan_json TEXT NOT NULL CHECK (length(plan_json) BETWEEN 2 AND 250000 AND json_valid(plan_json)),
+    plan_fingerprint TEXT NOT NULL CHECK (length(plan_fingerprint) = 64),
+    result_json TEXT NOT NULL CHECK (length(result_json) BETWEEN 2 AND 50000000 AND json_valid(result_json)),
+    left_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE RESTRICT,
+    left_version_id TEXT NOT NULL REFERENCES dataset_versions(id) ON DELETE RESTRICT,
+    right_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE RESTRICT,
+    right_version_id TEXT NOT NULL REFERENCES dataset_versions(id) ON DELETE RESTRICT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX reconciliation_artifacts_created_idx ON reconciliation_artifacts(created_at DESC, id DESC);
+`},
+	{version: 24, sql: reconciliationReplayMigration},
+	{version: 25, sql: explicitRowAuditMigrationSQL},
+	{version: 26, sql: workflowApprovalMigrationSQL},
+	{version: 27, sql: localRAGMigrationSQL},
+	{version: 28, sql: knowledgeAuditMigrationSQL},
+	{version: 29, sql: mcpModelAuditMigrationSQL},
 }

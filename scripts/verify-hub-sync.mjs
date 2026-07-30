@@ -1,0 +1,24 @@
+import { readFileSync } from "node:fs";
+import { loadProductManifest, requireManifestFacts } from "./product-manifest.mjs";
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8"); const failures = [];
+const requireText = (path, values, label) => { const source = read(path); for (const value of values) if (!source.includes(value)) failures.push(`${label} missing: ${value}`); };
+requireText("packages/contracts/src/hub-sync.ts", ["owner", "editor", "viewer", "auditor", "aes-256-gcm", "syncConflictSchema", "hubAuditEventSchema", "workflow-definition", "knowledge-metadata"], "strict Hub contracts");
+if (read("packages/contracts/src/hub-sync.ts").includes('"dataset-rows"')) failures.push("Hub contracts must not define a dataset-rows sync object");
+requireText("packages/product-core/src/hub-rbac.ts", ["tenant:manage", "sync:write", "audit:read", "assertHubPermission"], "shared RBAC policy");
+requireText("packages/product-core/src/hub-application.ts", ["CONTENT_DIGEST_CHANGED", "LOCAL_THREAD_MISMATCH", "already-applied"], "remote application policy");
+requireText("services/hub/src/authority.ts", ["tokenHash", "idempotent: true", "sync-conflict", "object-deleted", "ed25519", "verifyHubAuditPage"], "Hub authority");
+requireText("services/hub/src/server.ts", ["512 KiB", "Non-loopback Hub requires TLS", "/v1/sync/push", "/v1/audit"], "bounded HTTP/TLS adapter");
+requireText("services/hub/src/postgres-authority.ts", ["pg_advisory_lock", "pg_advisory_unlock", "BEGIN ISOLATION LEVEL SERIALIZABLE", "FOR UPDATE", "ROLLBACK", "40001", "40P01", "attempt <= 3", "Remote PostgreSQL Hub storage requires TLS", "state_json", "revision = revision + 1"], "transactional PostgreSQL adapter");
+requireText("services/hub/src/migrate-postgres.ts", ["already initialized", "refusing to overwrite", "BUBU_HUB_STATE_PATH"], "non-overwriting PostgreSQL migration");
+requireText("services/hub/package.json", ["pretest:postgres", "npm run build -w @bubu/contracts", "npm run build -w @bubu/product-core"], "clean-checkout PostgreSQL test prerequisites");
+requireText(".github/workflows/package-smoke.yml", ["Hub PostgreSQL transaction evidence", "test:postgres", "BUBU_HUB_TEST_DATABASE_URL"], "real PostgreSQL CI evidence");
+requireText("apps/desktop/src/main/hub-sync-service.ts", ["createCipheriv", "fetchResolvedPublicTarget", "outbox", "RESTART_RECOVERY", "resolveConflict", "queueDelete", "prepareWorkflowApplication", "applications.json"], "encrypted offline desktop sync");
+requireText("apps/desktop/src/main/hub-sync-service.ts", ["parseHubStoredConnection", "parseHubStoredCredentials", "parseHubStoredOutbox", "parseHubStoredInbox", "parseHubSyncCatalog", "parseHubSyncCursor"], "strict private Hub persistence boundary");
+requireText("apps/desktop/src/main/hub-application-service.ts", ["parseHubApplyRemoteObjectInput", "decideRemoteWorkflowApplication", "recordWorkflowApplication"], "reviewed application coordinator");
+requireText("apps/desktop/src/renderer/HubSettings.tsx", ["AES-256-GCM", "保留远端版本", "创建删除墓碑", "不做 last-write-wins", "仅新增或确认相同版本", "明确替换同 ID 本地工作流"], "truthful Hub UI");
+requireText("apps/desktop/src/renderer/WorkflowPanel.tsx", ["加入加密 Sync"], "explicit sync selection UI");
+requireText("apps/desktop/src/main/packaged-smoke.ts", ["BUBU_PACKAGED_HUB_SYNC_OK", "BUBU_PACKAGED_HUB_APPLICATION_ENTRY_OK"], "packaged Hub configuration and reviewed-application entry journey");
+requireText("docs/product/optional-hub-encrypted-sync.md", ["加入加密 Sync", "Ed25519", "ADR-0006", "BUBU_PACKAGED_HUB_SYNC_OK"], "current Hub guide");
+requireManifestFacts(loadProductManifest(new URL("..", import.meta.url)), ["hub: implemented", "rbac: implemented", "sync: implemented", "packaged-hub-sync-configuration-journey: implemented", "postgresql-hub-storage: implemented", "postgresql-hub-integration-evidence: implemented", "approval-bound-remote-object-application: implemented", "signed-installers: planned"], failures, "manifest Hub truth");
+if (failures.length) { console.error(`Hub sync verification failed:\n\n- ${failures.join("\n- ")}`); process.exit(1); }
+console.log("Hub sync verified: optional local independence, four-role dual RBAC, encrypted explicit objects, reviewed idempotent application, private-file/PostgreSQL persistence, immutable conflict/tombstone semantics, signed audit, and packaged UI evidence.");

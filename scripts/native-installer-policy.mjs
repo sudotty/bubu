@@ -19,7 +19,12 @@ export function lifecycleSteps(hasPreviousArtifact) {
 export function packagedSmokeTimeoutMs(targetPlatform) {
   // A cold Squirrel launch on a hosted Windows runner includes first-run
   // extraction and process startup before the full product smoke can begin.
-  return targetPlatform === "win32" ? 60_000 : 30_000;
+  // The smoke also exercises every completed packaged journey, including the
+  // exact-row disclosure approval, audited model round trip, remote-profile
+  // review, external-delivery binding, optional encrypted Hub setup, demo
+  // import, merge, and reconciliation. Each journey keeps its own tighter
+  // deadline; this outer budget only accommodates slower hosted cold starts.
+  return targetPlatform === "win32" ? 120_000 : 60_000;
 }
 
 export function assertDistinctUpgrade(currentPath, previousPath, currentDigest, previousDigest) {

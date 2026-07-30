@@ -1,0 +1,28 @@
+{
+  "name": "@bubu/hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "migrate:postgres": "npm run build && node dist/migrate-postgres.js",
+    "pretest": "npm run build -w @bubu/contracts && npm run build -w @bubu/product-core",
+    "test": "vitest run",
+    "pretest:postgres": "npm run build -w @bubu/contracts && npm run build -w @bubu/product-core",
+    "test:postgres": "node scripts/run-postgres-test.mjs",
+    "prelint": "npm run build -w @bubu/contracts && npm run build -w @bubu/product-core",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bubu/contracts": "0.1.0",
+    "@bubu/product-core": "0.1.0",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "8.15.5",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

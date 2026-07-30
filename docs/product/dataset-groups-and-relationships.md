@@ -1,6 +1,6 @@
 # Dataset groups and reusable relationships
 
-A dataset group contains 2–8 stable dataset contacts in an explicit order. It stores membership only; it does not copy rows. Every read resolves each contact's current immutable version.
+A business topic contains 2–8 stable data objects in an explicit order. It stores membership only; it does not copy rows. Every read resolves each object's current immutable version.
 
 ## Lookup relationship direction
 
@@ -14,7 +14,7 @@ BuBu discovers bounded candidates locally when an earlier group member and a lat
 
 ## Replacement behavior
 
-Relationships belong to stable dataset contacts and logical column names. They survive compatible or explicitly mapped replacements. Every group read reassesses both current versions:
+Relationships belong to stable data objects and logical column names. They survive compatible or explicitly mapped replacements. Every topic read reassesses both current versions:
 
 - `missing-column` when a current logical column is unavailable;
 - `type-mismatch` when current inferred types no longer match;

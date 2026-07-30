@@ -7,6 +7,7 @@ import {
   parseDatasetReplacementMappingInput,
   parseDatasetReplacementSelectionResult,
   parseDatasetSummary,
+  parseDatasetStructure,
   parseDatasetVersionList,
 } from "./dataset.js";
 
@@ -58,6 +59,16 @@ describe("dataset boundary", () => {
     });
     expect(() => parseDatasetPreviewRequest({ datasetId: "../secrets", limit: 50 })).toThrow();
     expect(() => parseDatasetPreviewRequest({ datasetId: summary.id, limit: 501 })).toThrow();
+  });
+
+  it("parses a schema-only structure and rejects any row payload", () => {
+    const structure = {
+      datasetId: summary.id,
+      versionId: summary.versionId,
+      columns: [{ ordinal: 0, name: "Amount", inferredType: "real", nullable: false, nullCount: 0 }],
+    };
+    expect(parseDatasetStructure(structure)).toEqual(structure);
+    expect(() => parseDatasetStructure({ ...structure, rows: [[128.5]] })).toThrow();
   });
 
   it("parses replacement outcomes without accepting a source path", () => {

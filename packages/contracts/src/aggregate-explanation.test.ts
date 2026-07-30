@@ -24,6 +24,16 @@ const disclosure = {
   minimumGroupSize: 5 as const,
 };
 
+const outputTemplate = {
+  schemaVersion: 1 as const,
+  id: "builtin:explain-evidence",
+  origin: "builtin" as const,
+  scope: "aggregate-explanation" as const,
+  name: "证据优先",
+  description: "先给结论，再用已批准单元格逐项支撑",
+  instruction: "摘要先回答问题，并引用已批准证据。",
+};
+
 describe("aggregate explanation contracts", () => {
   it("accepts only rectangular, bounded aggregate disclosures", () => {
     expect(parseAggregateDisclosure(disclosure)).toEqual(disclosure);
@@ -44,6 +54,7 @@ describe("aggregate explanation contracts", () => {
         endpointOrigin: "https://api.example.com",
       },
       disclosure,
+      promptTemplate: outputTemplate,
     };
     expect(parseAggregateExplanationProposal(proposal)).toEqual(proposal);
     expect(() => parseAggregateExplanationProposal({
@@ -66,7 +77,8 @@ describe("aggregate explanation contracts", () => {
       measures: [{ operation: "count" as const, column: null }],
       filters: [], sort: [], limit: 50,
     };
-    expect(parseAggregateExplanationPreparation({ plan, threadId: "a".repeat(32) })).toEqual({ plan, threadId: "a".repeat(32) });
+    expect(parseAggregateExplanationPreparation({ plan, threadId: "a".repeat(32), promptTemplate: outputTemplate })).toEqual({ plan, threadId: "a".repeat(32), promptTemplate: outputTemplate });
+    expect(() => parseAggregateExplanationPreparation({ plan, threadId: "a".repeat(32), promptTemplate: { ...outputTemplate, scope: "dataset-query" } })).toThrow("aggregate-explanation");
     expect(() => parseAggregateExplanationPreparation({ plan, result: disclosure })).toThrow();
   });
 

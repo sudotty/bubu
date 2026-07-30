@@ -39,6 +39,9 @@ ORDER BY started_at DESC, id DESC LIMIT 50`, workflowID)
 		if err != nil {
 			return nil, err
 		}
+		if err := service.applyWorkflowApprovalState(ctx, &result[index]); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
@@ -60,7 +63,46 @@ FROM workflow_runs WHERE workflow_id = ? AND idempotency_key = ?`, workflowID, i
 		return nil, err
 	}
 	run.Steps, err = service.loadWorkflowStepRuns(ctx, run.ID)
+	if err == nil {
+		err = service.applyWorkflowApprovalState(ctx, &run)
+	}
 	return &run, err
+}
+
+func (service *Service) getWorkflowRunByID(ctx context.Context, runID string) (WorkflowRun, error) {
+	run, err := scanWorkflowRun(service.database.QueryRowContext(ctx, `
+SELECT id, workflow_id, definition_version, idempotency_key, status, started_at, finished_at, error
+FROM workflow_runs WHERE id = ?`, runID))
+	if err != nil {
+		return WorkflowRun{}, err
+	}
+	run.Steps, err = service.loadWorkflowStepRuns(ctx, run.ID)
+	if err == nil {
+		err = service.applyWorkflowApprovalState(ctx, &run)
+	}
+	return run, err
+}
+
+func (service *Service) applyWorkflowApprovalState(ctx context.Context, run *WorkflowRun) error {
+	var ordinal int
+	err := service.database.QueryRowContext(ctx, `SELECT ordinal FROM workflow_approval_requests WHERE run_id = ? AND status = 'pending'`, run.ID).Scan(&ordinal)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load workflow approval state: %w", err)
+	}
+	markRunAwaitingApproval(run, ordinal)
+	return nil
+}
+
+func markRunAwaitingApproval(run *WorkflowRun, ordinal int) {
+	run.Status = "awaiting-approval"
+	for index := range run.Steps {
+		if run.Steps[index].Ordinal == ordinal && run.Steps[index].Status == "running" {
+			run.Steps[index].Status = "awaiting-approval"
+		}
+	}
 }
 
 var errWorkflowRunNotFound = errors.New("workflow run not found")

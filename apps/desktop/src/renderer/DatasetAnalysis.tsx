@@ -4,17 +4,23 @@ import type {
   QueryPlanProposal,
   SafeQueryResult,
   OperationId,
+  DatasetPreview,
+  DatasetSummary,
 } from "../shared/product-api.js";
 import { ResultVisualization } from "./ResultVisualization.js";
 import { ConversationHistory } from "./ConversationHistory.js";
 import { createOperationId, operationErrorMessage } from "./operation.js";
 import { useConversationThread } from "./useConversationThread.js";
-import { AggregateExplanationPanel } from "./AggregateExplanationPanel.js";
-import { AggregateAgentPanel } from "./AggregateAgentPanel.js";
+import { ResultFollowups } from "./ResultFollowups.js";
+import { TaskStarters } from "./TaskStarters.js";
+import { PromptTemplateSelector } from "./PromptTemplateSelector.js";
+import { currentPromptTemplate } from "./prompt-template-preferences.js";
 import { TaskRunStatus } from "./TaskRunStatus.js";
 import { ChatAssistantMessage, ChatRecoveryMessage, ChatResultFile, ChatToolEvent, ChatUserMessage } from "./ChatMessage.js";
-import { derivePersistedTaskState, isCancellation, type TaskLifecycleState } from "./task-lifecycle.js";
+import { derivePersistedTaskState, isCancellation, latestTaskSnapshot, type TaskLifecycleState } from "./task-lifecycle.js";
 import { recordProductMetric } from "./product-metrics.js";
+import { resultTypeLabel } from "./result-type-label.js";
+import { ExplicitRowDisclosurePanel } from "./ExplicitRowDisclosurePanel.js";
 
 function messageFrom(error: unknown): string {
   return operationErrorMessage(error, "数据分析失败，请重试");
@@ -48,7 +54,9 @@ function filterLabel(filter: QueryPlanProposal["plan"]["filters"][number]): stri
     : `${filter.column} ${operators[filter.operator]}`;
 }
 
-export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThread, onOpenArtifact }: { readonly datasetId: string; readonly datasetName: string; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void>; readonly onOpenArtifact: () => void }) {
+export function DatasetAnalysis({ dataset, preview, threadId, onCreateThread, onOpenArtifact }: { readonly dataset: DatasetSummary; readonly preview: DatasetPreview | undefined; readonly threadId?: string | undefined; readonly onCreateThread: () => Promise<void>; readonly onOpenArtifact: () => void }) {
+  const datasetId = dataset.id;
+  const datasetName = dataset.displayName;
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string>();
   const [proposal, setProposal] = useState<QueryPlanProposal>();
@@ -74,19 +82,18 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
 
   useEffect(() => {
     if (!history || !threadId || operationId || submittedQuestion) return;
-    const persistedPlan = history.entries.findLast((entry) => entry.kind === "plan");
-    const persistedResult = history.entries.findLast((entry) => entry.kind === "result");
-    const persistedError = history.entries.findLast((entry) => entry.kind === "error");
-    const persistedProposal = persistedPlan?.kind === "plan" ? persistedPlan.payload.proposal : undefined;
+    const snapshot = latestTaskSnapshot(history.entries);
+    const persistedProposal = snapshot.plan?.payload.proposal;
     setProposal(persistedProposal && "disclosedContext" in persistedProposal ? persistedProposal : undefined);
-    setResult(persistedResult?.kind === "result" && "datasetId" in persistedResult.payload.result ? persistedResult.payload.result : undefined);
-    setError(persistedError?.kind === "error" && (!persistedResult || persistedError.ordinal > persistedResult.ordinal) ? persistedError.payload.message : undefined);
-    setState(derivePersistedTaskState(history.entries));
+    setResult(snapshot.result && "datasetId" in snapshot.result.payload.result ? snapshot.result.payload.result : undefined);
+    setError(snapshot.error && (!snapshot.result || snapshot.error.ordinal > snapshot.result.ordinal) ? snapshot.error.payload.message : undefined);
+    setState(derivePersistedTaskState(snapshot.entries));
   }, [history, operationId, submittedQuestion, threadId]);
 
   async function propose(questionOverride?: string): Promise<void> {
     const normalizedQuestion = (questionOverride ?? question).trim();
     if (!normalizedQuestion) return;
+    setQuestion("");
     setSubmittedQuestion(normalizedQuestion);
     setProposal(undefined);
     setResult(undefined);
@@ -100,7 +107,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
     setOperationId(nextOperationId);
     try {
       const next = await window.bubu.analysis.propose(
-        { datasetId, threadId, question: normalizedQuestion },
+        { datasetId, threadId, question: normalizedQuestion, promptTemplate: currentPromptTemplate("dataset-query") },
         nextOperationId,
       );
       setProposal(next);
@@ -143,7 +150,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
     await window.bubu.operations.cancel(operationId);
   }
 
-  const lastQuestion = history?.entries.findLast((entry) => entry.kind === "question");
+  const lastQuestion = history ? latestTaskSnapshot(history.entries).question : undefined;
   const recoverableQuestion = submittedQuestion ?? (lastQuestion?.kind === "question" ? lastQuestion.payload.question : undefined);
   const editRecoverableQuestion = () => {
     setQuestion(recoverableQuestion ?? question);
@@ -163,9 +170,10 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
         </div>
         <span className="mode-pill">计划批准后才查询</span>
       </header>
+      {preview && <details className="explicit-row-entry"><summary>需要让模型解释特定原始行？</summary><ExplicitRowDisclosurePanel dataset={dataset} preview={preview} /></details>}
       <TaskRunStatus state={state} startedAt={startedAt} completedAt={completedAt} />
 
-      <ConversationHistory thread={history} hideQuestion={submittedQuestion} hideLatestResult={result !== undefined} />
+      <ConversationHistory thread={history} hideQuestion={submittedQuestion} hideLatestPlan={proposal !== undefined} hideLatestResult={result !== undefined} />
 
       {submittedQuestion && (
         <ChatUserMessage><p>{submittedQuestion}</p></ChatUserMessage>
@@ -178,7 +186,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
         <article className="plan-card chat-approval-card">
           <header>
             <div>
-              <p className="chat-context-label">需要你的批准</p>
+              <p className="chat-context-label">{state === "completed" ? "本次执行计划" : state === "executing" ? "正在执行计划" : "需要你的批准"}</p>
               <h4>{proposal.plan.purpose}</h4>
             </div>
             <span className={state === "completed" ? "plan-state plan-complete" : "plan-state"}>
@@ -191,6 +199,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
             <div><small>筛选</small><strong>{proposal.plan.filters.map(filterLabel).join("；") || "无"}</strong></div>
             <div><small>最多返回</small><strong>{proposal.plan.limit} 行</strong></div>
           </div>
+          {proposal.promptTemplate && <p className="plan-template-note">分析模板 · <strong>{proposal.promptTemplate.name}</strong><span>{proposal.promptTemplate.description}</span></p>}
           <details className="disclosure-preview">
             <summary>查看本次发送给模型的完整内容边界</summary>
             <p>仅发送你的问题、{proposal.disclosedContext.columns.length} 个列名/类型和 3 行本地生成的合成示例；没有发送预览行、画像值、文件名或路径。</p>
@@ -221,7 +230,7 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
           </header>
           <div className="table-scroll">
             <table>
-              <thead><tr>{result.columns.map((column) => <th key={column.label}>{column.label}<small>{column.type}</small></th>)}</tr></thead>
+              <thead><tr>{result.columns.map((column) => <th key={column.label}>{column.label}<small>{resultTypeLabel(column.type)}</small></th>)}</tr></thead>
               <tbody>
                 {result.rows.slice(0, 5).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, columnIndex) => <td key={result.columns[columnIndex]?.label ?? columnIndex}>{cell === null ? <span className="null-value">—</span> : String(cell)}</td>)}</tr>)}
               </tbody>
@@ -234,13 +243,14 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
         </>
       )}
 
-      {result && proposal && threadId && <AggregateExplanationPanel plan={proposal.plan} threadId={threadId} />}
-      {result && proposal && threadId && <AggregateAgentPanel plan={proposal.plan} threadId={threadId} />}
+      {result && proposal && threadId && <ResultFollowups plan={proposal.plan} threadId={threadId} />}
 
       <form className="analysis-composer" onSubmit={(event) => { event.preventDefault(); void propose(); }}>
-        {!threadId && <div className="composer-thread-note"><span>先创建一个独立任务，再提出问题。</span><button type="button" onClick={() => void onCreateThread()}>开始新任务</button></div>}
-        <details className="composer-trust"><summary><ShieldCheck size={13} />当前上下文：结构与合成示例</summary><p>你的问题文本会原样发送给当前模型；请不要粘贴敏感原始行或值。表格内容只自动发送列结构与本地合成示例。</p></details>
-        <label className="sr-only" htmlFor={`question-${datasetId}`}>向这个数据联系人提问</label>
+        {!threadId && <div id={`question-${datasetId}-status`} className="composer-thread-note"><span>先创建一个独立任务，再提出问题。</span><button type="button" onClick={() => void onCreateThread()}>开始新任务</button></div>}
+        {threadId && state === "draft" && !submittedQuestion && !proposal && !result && question.length === 0 && (history?.entries.length ?? 0) === 0 && <TaskStarters kind="dataset" onSelect={(value) => { setQuestion(value); requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`#question-${datasetId}`)?.focus()); }} />}
+        {threadId && <PromptTemplateSelector scope="dataset-query" />}
+        <div className="composer-trust" role="note"><span><ShieldCheck size={13} />仅自动使用列结构与合成示例</span><small>问题文本会原样发送给当前模型，请勿粘贴敏感原始值。</small></div>
+        <label className="sr-only" htmlFor={`question-${datasetId}`}>向这个数据对象提问</label>
         <textarea
           id={`question-${datasetId}`}
           value={question}
@@ -250,11 +260,13 @@ export function DatasetAnalysis({ datasetId, datasetName, threadId, onCreateThre
           maxLength={20_000}
           rows={2}
           disabled={!threadId}
+          aria-describedby={`question-${datasetId}-hint${!threadId ? ` question-${datasetId}-status` : ""}`}
         />
         <button type="submit" disabled={!threadId || state === "planning" || state === "executing" || question.trim().length === 0}>
           {state === "planning" ? "生成中…" : "先生成计划"}
         </button>
         {operationId && <button type="button" className="secondary-action" onClick={() => void cancelOperation()}>取消</button>}
+        <small id={`question-${datasetId}-hint`} className="composer-keyboard-hint">Enter 发送 · Shift+Enter 换行</small>
       </form>
     </section>
   );

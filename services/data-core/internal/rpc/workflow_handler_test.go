@@ -43,6 +43,14 @@ func (fake *fakeWorkflowDatasets) FinishWorkflowTrigger(context.Context, data.Wo
 	return data.WorkflowTriggerEvent{}, nil
 }
 
+func (fake *fakeWorkflowDatasets) ListWorkflowApprovals(context.Context) ([]data.WorkflowApprovalRequest, error) {
+	return []data.WorkflowApprovalRequest{}, nil
+}
+
+func (fake *fakeWorkflowDatasets) DecideWorkflowApproval(context.Context, data.WorkflowApprovalDecisionInput) (data.WorkflowRun, error) {
+	return data.WorkflowRun{}, nil
+}
+
 func TestHandleWorkflowSaveRequiresStrictBoundedInput(t *testing.T) {
 	datasetID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	versionID := "cccccccccccccccccccccccccccccccc"

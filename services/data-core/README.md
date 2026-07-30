@@ -8,7 +8,10 @@ The Go data core is BuBu's final authority for local files, SQLite state, privac
 - Never execute model-authored SQL. Accept only typed plans and validate columns, relationships, limits, operations, and current dataset versions deterministically.
 - Raw rows stay local unless a future explicit-row flow is visibly approved. Model context is schema, synthetic examples, or approved bounded aggregates.
 - Imports, replacements, restores, workflow transitions, and audit changes must be atomic or recoverable after interruption.
+- XLSX import reads bounded ZIP/XML OOXML with the Go standard library, follows only internal worksheet/shared-string parts, and never evaluates workbook formulas.
 - Automated workflow results must be delivered only to the explicit active conversation thread that owns the reviewed plan; target-only fallback delivery is forbidden.
+- Source-version activation atomically enqueues current derived dependents. Only the Go processor may validate the active graph, reject cycles, rebind reviewed plans, enforce quality, activate immutable output, and advance downstream tasks.
+- Derived recompute records are idempotent, restart-recovered, attempt-bounded, and retained through backup/restore. Renderer polling and OS notifications never become execution authorities.
 
 ```bash
 go test ./...

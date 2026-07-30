@@ -1,0 +1,5 @@
+import { once } from "node:events";
+import { describe, expect, it } from "vitest";
+import { HubAuthority } from "./authority.js";
+import { createHubServer } from "./server.js";
+describe("Hub HTTP adapter", () => { it("parses bounded JSON and authenticates bearer requests", async () => { const server = createHubServer(new HubAuthority()); server.listen(0, "127.0.0.1"); await once(server, "listening"); const address = server.address(); if (!address || typeof address === "string") throw new Error("missing address"); const base = `http://127.0.0.1:${address.port}`; try { const bootstrapResponse = await fetch(`${base}/v1/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tenantName: "Acme", ownerName: "Owner", deviceName: "Mac" }) }); expect(bootstrapResponse.status).toBe(201); const bootstrap = await bootstrapResponse.json() as { deviceToken: string }; const audit = await fetch(`${base}/v1/audit`, { headers: { authorization: `Bearer ${bootstrap.deviceToken}` } }); expect(audit.status).toBe(200); expect((await audit.json() as { events: unknown[] }).events).toHaveLength(1); } finally { server.close(); } }); });

@@ -26,9 +26,20 @@ const groupQueryStepSchema = z.object({
   maxAttempts: z.number().int().min(1).max(3),
 }).strict();
 
+const humanApprovalStepSchema = z.object({
+  id: workflowStepIdSchema,
+  kind: z.literal("human-approval"),
+  title: z.string().trim().min(1).max(120),
+  action: z.string().trim().min(1).max(500),
+  risk: z.enum(["low", "medium", "high"]),
+  expiresAfterMinutes: z.number().int().min(5).max(24 * 60),
+  maxAttempts: z.literal(1),
+}).strict();
+
 export const workflowStepDefinitionSchema = z.discriminatedUnion("kind", [
   datasetQueryStepSchema,
   groupQueryStepSchema,
+  humanApprovalStepSchema,
 ]);
 
 export const workflowTriggerSchema = z.discriminatedUnion("kind", [
@@ -67,6 +78,7 @@ export const workflowDefinitionInputSchema = z.object({
     context.addIssue({ code: "custom", path: ["steps"], message: "Workflow step identities must be unique" });
   }
   for (const [index, step] of definition.steps.entries()) {
+    if (step.kind === "human-approval") continue;
     const expectedKind = step.kind === "dataset-query" ? "dataset" : "group";
     const targetId = step.kind === "dataset-query" ? step.plan.datasetId : step.groupPlan.groupId;
     if (definition.target.kind !== expectedKind || definition.target.id !== targetId) {
@@ -132,14 +144,22 @@ export const workflowTriggerFinishInputSchema = z.object({
 const workflowStepResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("dataset-query"), value: safeQueryResultSchema }).strict(),
   z.object({ kind: z.literal("group-query"), value: safeGroupQueryResultSchema }).strict(),
+  z.object({
+    kind: z.literal("human-approval"),
+    value: z.object({
+      approvalId: workflowIdSchema,
+      decision: z.literal("approved"),
+      decidedAt: z.string().datetime({ offset: true }),
+    }).strict(),
+  }).strict(),
 ]);
 
 const workflowStepRunSchema = z.object({
   id: workflowIdSchema,
   stepId: workflowStepIdSchema,
   ordinal: z.number().int().min(0).max(7),
-  kind: z.enum(["dataset-query", "group-query"]),
-  status: z.enum(["running", "succeeded", "failed", "cancelled"]),
+  kind: z.enum(["dataset-query", "group-query", "human-approval"]),
+  status: z.enum(["running", "awaiting-approval", "succeeded", "failed", "cancelled"]),
   attempt: z.number().int().min(1).max(3),
   startedAt: z.string().datetime({ offset: true }),
   finishedAt: z.string().datetime({ offset: true }).nullable(),
@@ -152,10 +172,10 @@ const workflowStepRunSchema = z.object({
   if (step.status === "succeeded" && step.result === null) {
     context.addIssue({ code: "custom", path: ["result"], message: "Successful workflow steps require a result" });
   }
-  if (step.status === "running" && (step.finishedAt !== null || step.error !== null || step.result !== null)) {
-    context.addIssue({ code: "custom", message: "Running workflow steps cannot contain terminal fields" });
+  if ((step.status === "running" || step.status === "awaiting-approval") && (step.finishedAt !== null || step.error !== null || step.result !== null)) {
+    context.addIssue({ code: "custom", message: "Active workflow steps cannot contain terminal fields" });
   }
-  if (step.status !== "running" && step.finishedAt === null) {
+  if (step.status !== "running" && step.status !== "awaiting-approval" && step.finishedAt === null) {
     context.addIssue({ code: "custom", path: ["finishedAt"], message: "Terminal workflow steps require a finish time" });
   }
   if (step.status === "succeeded" && step.error !== null) {
@@ -171,16 +191,16 @@ export const workflowRunSchema = z.object({
   workflowId: workflowIdSchema,
   definitionVersion: z.number().int().positive(),
   idempotencyKey: operationIdSchema,
-  status: z.enum(["running", "succeeded", "failed", "cancelled"]),
+  status: z.enum(["running", "awaiting-approval", "succeeded", "failed", "cancelled"]),
   startedAt: z.string().datetime({ offset: true }),
   finishedAt: z.string().datetime({ offset: true }).nullable(),
   error: z.string().max(2_000).nullable(),
   steps: z.array(workflowStepRunSchema).max(24),
 }).strict().superRefine((run, context) => {
-  if (run.status === "running" && (run.finishedAt !== null || run.error !== null)) {
-    context.addIssue({ code: "custom", message: "Running workflows cannot contain terminal fields" });
+  if ((run.status === "running" || run.status === "awaiting-approval") && (run.finishedAt !== null || run.error !== null)) {
+    context.addIssue({ code: "custom", message: "Active workflows cannot contain terminal fields" });
   }
-  if (run.status !== "running" && run.finishedAt === null) {
+  if (run.status !== "running" && run.status !== "awaiting-approval" && run.finishedAt === null) {
     context.addIssue({ code: "custom", path: ["finishedAt"], message: "Terminal workflows require a finish time" });
   }
   if (run.status === "succeeded" && run.error !== null) {
@@ -191,6 +211,41 @@ export const workflowRunSchema = z.object({
   }
 });
 
+export const workflowApprovalRequestSchema = z.object({
+  schemaVersion: z.literal(1),
+  id: workflowIdSchema,
+  workflowId: workflowIdSchema,
+  definitionVersion: z.number().int().positive(),
+  runId: workflowIdSchema,
+  stepId: workflowStepIdSchema,
+  ordinal: z.number().int().min(0).max(7),
+  target: workflowTargetSchema,
+  title: z.string().trim().min(1).max(120),
+  action: z.string().trim().min(1).max(500),
+  risk: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "approved", "rejected", "expired", "cancelled"]),
+  requestedAt: z.string().datetime({ offset: true }),
+  expiresAt: z.string().datetime({ offset: true }),
+  decidedAt: z.string().datetime({ offset: true }).nullable(),
+  decisionNote: z.string().trim().min(1).max(500).nullable(),
+}).strict().superRefine((approval, context) => {
+  if (Date.parse(approval.expiresAt) <= Date.parse(approval.requestedAt)) {
+    context.addIssue({ code: "custom", path: ["expiresAt"], message: "Workflow approval must expire after it is requested" });
+  }
+  if (approval.status === "pending" && (approval.decidedAt !== null || approval.decisionNote !== null)) {
+    context.addIssue({ code: "custom", message: "Pending workflow approval cannot contain a decision" });
+  }
+  if (approval.status !== "pending" && approval.decidedAt === null) {
+    context.addIssue({ code: "custom", path: ["decidedAt"], message: "Terminal workflow approval requires a decision time" });
+  }
+});
+
+export const workflowApprovalDecisionInputSchema = z.object({
+  approvalId: workflowIdSchema,
+  decision: z.enum(["approved", "rejected"]),
+  note: z.string().trim().min(1).max(500).nullable().optional(),
+}).strict();
+
 export type WorkflowTarget = z.infer<typeof workflowTargetSchema>;
 export type WorkflowTrigger = z.infer<typeof workflowTriggerSchema>;
 export type WorkflowStepDefinition = z.infer<typeof workflowStepDefinitionSchema>;
@@ -199,6 +254,8 @@ export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
 export type WorkflowRun = z.infer<typeof workflowRunSchema>;
 export type WorkflowTriggerEvent = z.infer<typeof workflowTriggerEventSchema>;
 export type WorkflowTriggerFinishInput = z.infer<typeof workflowTriggerFinishInputSchema>;
+export type WorkflowApprovalRequest = z.infer<typeof workflowApprovalRequestSchema>;
+export type WorkflowApprovalDecisionInput = z.infer<typeof workflowApprovalDecisionInputSchema>;
 
 export function parseWorkflowId(value: unknown): string {
   return workflowIdSchema.parse(value);
@@ -238,4 +295,16 @@ export function parseWorkflowTriggerEvent(value: unknown): WorkflowTriggerEvent 
 
 export function parseWorkflowTriggerFinishInput(value: unknown): WorkflowTriggerFinishInput {
   return workflowTriggerFinishInputSchema.parse(value);
+}
+
+export function parseWorkflowApprovalRequest(value: unknown): WorkflowApprovalRequest {
+  return workflowApprovalRequestSchema.parse(value);
+}
+
+export function parseWorkflowApprovalRequests(value: unknown): readonly WorkflowApprovalRequest[] {
+  return z.array(workflowApprovalRequestSchema).max(100).parse(value);
+}
+
+export function parseWorkflowApprovalDecisionInput(value: unknown): WorkflowApprovalDecisionInput {
+  return workflowApprovalDecisionInputSchema.parse(value);
 }

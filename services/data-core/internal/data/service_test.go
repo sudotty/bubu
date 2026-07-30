@@ -3,12 +3,11 @@ package data
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/xuri/excelize/v2"
 )
 
 func TestOpenUpgradesAVersionOneCatalog(t *testing.T) {
@@ -50,6 +49,10 @@ func TestOpenUpgradesAVersionOneCatalog(t *testing.T) {
 	}
 	if !strings.Contains(triggerTableSQL, "'calendar'") {
 		t.Fatal("workflow trigger migration did not enable calendar events")
+	}
+	var evidenceColumns int
+	if err := service.database.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('derived_dataset_lineages') WHERE name IN ('execution_id', 'review_kind', 'quality_gate_status', 'warnings_json', 'clean_impact_json', 'quality_policy_json', 'quality_evidence_json')`).Scan(&evidenceColumns); err != nil || evidenceColumns != 7 {
+		t.Fatalf("derived execution evidence migration is incomplete: columns=%d err=%v", evidenceColumns, err)
 	}
 }
 
@@ -103,6 +106,20 @@ func TestImportCSVListAndPreview(t *testing.T) {
 	}
 	if got := preview.Rows[0][0]; got != "001" {
 		t.Fatalf("raw identifier changed: %#v", got)
+	}
+	structure, err := service.DatasetStructure(context.Background(), dataset.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if structure.DatasetID != dataset.ID || structure.VersionID != dataset.VersionID || len(structure.Columns) != 4 {
+		t.Fatalf("unexpected schema-only structure: %#v", structure)
+	}
+	encodedStructure, err := json.Marshal(structure)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encodedStructure), "001") || strings.Contains(string(encodedStructure), "rows") {
+		t.Fatalf("schema-only response exposed row data: %s", encodedStructure)
 	}
 
 	databaseBytes, err := os.ReadFile(filepath.Join(root, "data", "bubu.db"))
@@ -186,29 +203,7 @@ func TestImportTSVDetectsDelimiterFromBoundedSample(t *testing.T) {
 func TestImportWorkbookCreatesOneDatasetPerNonEmptySheet(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "operations.xlsx")
-	book := excelize.NewFile()
-	defaultSheet := book.GetSheetName(0)
-	if err := book.SetSheetName(defaultSheet, "Sales"); err != nil {
-		t.Fatal(err)
-	}
-	if err := book.SetSheetRow("Sales", "A1", &[]any{"Order", "Amount"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := book.SetSheetRow("Sales", "A2", &[]any{"A-1", 12.5}); err != nil {
-		t.Fatal(err)
-	}
-	book.NewSheet("Targets")
-	if err := book.SetSheetRow("Targets", "A1", &[]any{"Region", "Target"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := book.SetSheetRow("Targets", "A2", &[]any{"North", 20}); err != nil {
-		t.Fatal(err)
-	}
-	book.NewSheet("Empty")
-	if err := book.SaveAs(source); err != nil {
-		t.Fatal(err)
-	}
-	if err := book.Close(); err != nil {
+	if err := writeTestWorkbook(source); err != nil {
 		t.Fatal(err)
 	}
 

@@ -9,6 +9,8 @@ import {
   parseMcpResourceReadResult,
   parseMcpToolCallInvocation,
   parseMcpToolCallResult,
+  parseRemoteMcpInspectionInvocation,
+  parseRemoteMcpToolCallInvocation,
   parseModelInvocation,
   parseRpcRequest,
   type McpInspectionInvocation,
@@ -26,7 +28,7 @@ import {
   ProviderInvocationError,
   type ProviderFetch,
 } from "./providers/invoke.js";
-import { callMcpStdioTool, getMcpStdioPrompt, inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
+import { callMcpRemoteTool, callMcpStdioTool, getMcpStdioPrompt, inspectMcpRemoteServer, inspectMcpStdioServer, readMcpStdioResource } from "./mcp/client.js";
 
 export type McpInspector = (
   invocation: McpInspectionInvocation,
@@ -60,6 +62,7 @@ const capabilities = [
   "mcp-resource-read",
   "mcp-prompt-get",
   "mcp-tool-call",
+  "mcp-streamable-http-inspection",
 ] as const;
 
 export async function handleAiRuntimeRequest(
@@ -136,6 +139,22 @@ export async function handleAiRuntimeRequest(
     }
   }
 
+  if (request.method === "mcp.remote.inspect") {
+    let invocation;
+    try {
+      invocation = parseRemoteMcpInspectionInvocation(request.params);
+    } catch {
+      return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid remote MCP inspection invocation", false);
+    }
+    try {
+      return createRpcSuccess(request.id, parseMcpInspectionSnapshot(await inspectMcpRemoteServer(invocation, signal)));
+    } catch (error) {
+      if (signal?.aborted) return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      const message = error instanceof Error ? error.message.slice(0, 2_000) : "Remote MCP inspection failed";
+      return createRpcError(request.id, "MCP_REMOTE_INSPECTION_FAILED", message || "Remote MCP inspection failed", false);
+    }
+  }
+
   if (request.method === "mcp.resource.read") {
     let invocation;
     try {
@@ -196,6 +215,18 @@ export async function handleAiRuntimeRequest(
       }
       const message = error instanceof Error ? error.message.slice(0, 2_000) : "MCP tool call failed";
       return createRpcError(request.id, "MCP_TOOL_CALL_FAILED", message || "MCP tool call failed", false);
+    }
+  }
+
+  if (request.method === "mcp.remote.tool.call") {
+    let invocation;
+    try { invocation = parseRemoteMcpToolCallInvocation(request.params); }
+    catch { return createRpcError(request.id, "INVALID_ARGUMENT", "Invalid remote MCP tool call invocation", false); }
+    try { return createRpcSuccess(request.id, parseMcpToolCallResult(await callMcpRemoteTool(invocation, signal))); }
+    catch (error) {
+      if (signal?.aborted) return createRpcError(request.id, "CANCELLED", "Operation cancelled", false);
+      const message = error instanceof Error ? error.message.slice(0, 2_000) : "Remote MCP tool call failed";
+      return createRpcError(request.id, "MCP_REMOTE_TOOL_CALL_FAILED", message || "Remote MCP tool call failed", false);
     }
   }
 

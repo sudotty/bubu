@@ -4,6 +4,7 @@ import type {
   WorkflowTriggerFinishInput,
 } from "@bubu/contracts";
 import { AUTOMATION_POLL_INTERVAL_MILLISECONDS } from "../shared/automation.js";
+import { startNonOverlappingScheduler } from "./non-overlapping-scheduler.js";
 
 export interface WorkflowTriggerRuntime {
   claimDueWorkflowTriggers(now: string): Promise<readonly WorkflowTriggerEvent[]>;
@@ -24,6 +25,7 @@ export async function processDueWorkflowTriggers(
     } catch {
       continue;
     }
+    if (run.status === "awaiting-approval") continue;
     const error = run.error ?? (run.status === "succeeded" ? null : "工作流触发运行没有返回错误说明");
     const finished = await runtime.finishWorkflowTrigger({
       id: event.id,
@@ -45,26 +47,5 @@ export function startWorkflowTriggerScheduler(
   } = {},
 ): () => void {
   const now = options.now ?? (() => new Date());
-  const onError = options.onError ?? (() => undefined);
-  let active = true;
-  let running = false;
-  const tick = async () => {
-    if (!active || running) return;
-    running = true;
-    try {
-      await processDueWorkflowTriggers(runtime, now(), options.onFinished);
-    } catch (error) {
-      onError(error);
-    } finally {
-      running = false;
-    }
-  };
-  void tick();
-  const timer = setInterval(() => {
-    void tick();
-  }, options.intervalMilliseconds ?? AUTOMATION_POLL_INTERVAL_MILLISECONDS);
-  return () => {
-    active = false;
-    clearInterval(timer);
-  };
+  return startNonOverlappingScheduler({ intervalMilliseconds: options.intervalMilliseconds ?? AUTOMATION_POLL_INTERVAL_MILLISECONDS, task: () => processDueWorkflowTriggers(runtime, now(), options.onFinished), onError: options.onError });
 }

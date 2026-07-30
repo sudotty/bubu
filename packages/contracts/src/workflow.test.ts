@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseWorkflowDefinitionInput, parseWorkflowRun } from "./workflow.js";
+import {
+  parseWorkflowApprovalDecisionInput,
+  parseWorkflowApprovalRequest,
+  parseWorkflowDefinitionInput,
+  parseWorkflowRun,
+} from "./workflow.js";
 
 const datasetId = "a".repeat(32);
 const versionId = "b".repeat(32);
@@ -93,5 +98,46 @@ describe("workflow contracts", () => {
       ...run,
       steps: [{ ...run.steps[0], result: { kind: "shell", value: { command: "rm" } } }],
     })).toThrow();
+  });
+
+  it("binds a human approval node to one definition, run, target, risk, and expiry", () => {
+    const input = {
+      name: "Reviewed weekly totals",
+      target: { kind: "dataset" as const, id: datasetId },
+      threadId: "e".repeat(32),
+      trigger: { kind: "interval" as const, everyMinutes: 7 * 24 * 60 },
+      timeoutMs: 60_000,
+      steps: [
+        { id: "regional-totals", kind: "dataset-query" as const, plan, maxAttempts: 2 },
+        { id: "publish-checkpoint", kind: "human-approval" as const, title: "确认本次结果", action: "继续交付已审查结果", risk: "medium" as const, expiresAfterMinutes: 60, maxAttempts: 1 },
+      ],
+    };
+    expect(parseWorkflowDefinitionInput(input)).toEqual(input);
+    expect(() => parseWorkflowDefinitionInput({
+      ...input,
+      steps: [...input.steps.slice(0, 1), { ...input.steps[1], maxAttempts: 2 }],
+    })).toThrow();
+
+    const approval = {
+      schemaVersion: 1,
+      id: "f".repeat(32),
+      workflowId: "1".repeat(32),
+      definitionVersion: 3,
+      runId: "2".repeat(32),
+      stepId: "publish-checkpoint",
+      ordinal: 1,
+      target: input.target,
+      title: "确认本次结果",
+      action: "继续交付已审查结果",
+      risk: "medium",
+      status: "pending",
+      requestedAt: "2026-07-29T00:00:00Z",
+      expiresAt: "2026-07-29T01:00:00Z",
+      decidedAt: null,
+      decisionNote: null,
+    };
+    expect(parseWorkflowApprovalRequest(approval)).toEqual(approval);
+    expect(() => parseWorkflowApprovalRequest({ ...approval, rawRows: [["secret"]] })).toThrow();
+    expect(parseWorkflowApprovalDecisionInput({ approvalId: approval.id, decision: "approved", note: "已核对" })).toEqual({ approvalId: approval.id, decision: "approved", note: "已核对" });
   });
 });

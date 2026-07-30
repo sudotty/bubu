@@ -4,7 +4,7 @@ BuBu treats a conversation as a durable local data task, not a disposable model 
 
 ## Primary flow
 
-1. Select a dataset contact or a 2–8 member group.
+1. Select a data object or a 2–8 member business topic.
 2. Start or resume a task. The first question becomes the default title; the title can be edited later.
 3. Ask a question. Enter submits and Shift+Enter adds a line break.
 4. Review the exact typed plan and disclosure boundary.
@@ -12,22 +12,24 @@ BuBu treats a conversation as a durable local data task, not a disposable model 
 6. Read the concise response in the chat and inspect the durable result in the Artifact workspace.
 7. Optionally save the reviewed plan as a workflow. The definition and every triggered result remain bound to the originating thread.
 
-Errors retain a recovery path: retry plan generation or return the submitted text to the composer for editing. Reopening a thread derives a typed lifecycle from its append-only history—draft, planning, awaiting approval, executing, completed, needs attention, or cancelled—so a completed task does not appear idle after restart. A persisted question without a following plan is treated as an interrupted task and offers retry/edit actions using the saved question. Cancellation is terminal for the current operation but does not claim to roll back or delete earlier records.
+Errors retain a recovery path: retry plan generation or return the submitted text to the composer for editing. Reopening a thread derives a typed lifecycle from its append-only history—draft, planning, awaiting approval, executing, completed, needs attention, or cancelled—so a completed task does not appear idle after restart. Only entries after the latest question can supply the active plan and result, so a new question never inherits a prior result and a resumed completed plan is not duplicated as both history and pending approval. A persisted question without a following plan is treated as an interrupted task and offers retry/edit actions using the saved question. Cancellation is terminal for the current operation but does not claim to roll back or delete earlier records.
+
+Each thread keeps at most 10,000 typed entries. Opening a task loads its latest 500 entries so resume stays fast; when older history exists, the history surface exposes an explicit “加载更早记录” action and prepends up to 100 locally validated entries per page. The continuation cursor is an ordinal rather than an opaque renderer offset, and no page is sent to a model or remote service.
 
 ## Workspace responsibilities
 
 - **Tasks:** create, select, rename, archive, undo archive, browse archived threads, and restore.
-- **Chat:** questions, plan review, approval, execution state, failure recovery, and a sticky composer.
+- **Chat:** questions, plan review, approval, execution state, failure recovery, and a non-overlapping bottom composer.
 - **Artifact:** summary metrics, local result data with filtering and sorting, deterministic visualization, and an event evidence timeline.
 - **Automation:** an expanded work area launched from the Artifact summary. A workflow stores the source `threadId`; target-only fallback delivery is forbidden.
 
-The workbench adapts to its own available width rather than a device label. Wide mode keeps tasks, chat, and Artifact together. Medium mode keeps tasks beside chat and opens Artifact as a supporting panel. Compact mode preserves chat as the primary pane and opens **任务** or **结果** as keyboard-accessible drawers. Empty chat states include a direct task-creation action and never refer to a possibly hidden “left side.” The product contract requires bounded internal scrolling and no page-level horizontal overflow at the packaged 920 × 640 minimum.
+The workbench adapts to its own available width rather than a device label. Wide mode keeps tasks, chat, and Artifact together. Medium mode keeps tasks beside chat and opens Artifact as a supporting panel. Compact mode preserves chat as the primary pane and opens **任务** or **结果** as keyboard-accessible drawers. Empty chat states include a direct task-creation action and never refer to a possibly hidden “left side.” If the selected task is still empty, another new-task click reuses it instead of persisting an empty duplicate. The product contract requires bounded internal scrolling and no page-level horizontal overflow at the packaged 920 × 640 minimum.
 
 The center timeline uses one stable message grammar: user prompts are right-aligned bubbles; assistant narration is a calm, unboxed response with a BuBu marker; transient system/tool activity is a compact status row; typed plans are the only warm approval cards; failures are recovery cards with the next safe actions; and local results appear as five-row previews that point to the durable Artifact workspace. English decorative kickers are not used to simulate product hierarchy.
 
 Result narration opens the Artifact workspace directly. In the data tab, copy and CSV export operate on the current filtered and sorted view rather than silently exporting the source dataset. The desktop main process parses the bounded table payload, neutralizes spreadsheet formulas, and owns clipboard/save-dialog access. Pinning is a parsed local presentation preference scoped to the task; it does not duplicate rows or alter the append-only evidence trail.
 
-Visualization is a deterministic recommendation, not model decoration. A line chart requires a parseable datetime category and is sorted chronologically; a bar chart requires unique categories paired with finite values. Duplicate categories, more than 20 categories, missing numeric values, or insufficient columns keep the table and explain why. Every chart includes an expandable data table. Artifact can also export a bounded, script-free local HTML report containing the current result table and explicit local provenance.
+Visualization is a deterministic recommendation, not model decoration. A line chart requires a parseable datetime category and is sorted chronologically; a bar chart requires unique categories paired with finite values. Duplicate categories, more than 20 categories, missing numeric values, or insufficient columns keep the table and explain why. Every chart includes an expandable data table. Artifact can also export an atomic professional bundle with offline HTML/PDF, multi-Sheet XLSX, Excel-safe CSV, and a hashed JSON manifest from one strict local report model.
 
 ## Trust model
 

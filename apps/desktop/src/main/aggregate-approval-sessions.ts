@@ -2,25 +2,23 @@ import {
   parseAggregateExplanationProposal,
   type AggregateDisclosure,
   type AggregateExplanationProposal,
+  type PromptTemplate,
 } from "@bubu/contracts";
+import { createOneUseAuthorizationStore } from "./one-use-authorization-store.js";
 
 const aggregateApprovalLifetimeMilliseconds = 10 * 60 * 1_000;
 const maximumAggregateApprovalSessions = 20;
 
 type ModelDestination = AggregateExplanationProposal["destination"];
-type ApprovedAggregate = Pick<AggregateExplanationProposal, "disclosure" | "destination"> & { readonly threadId: string };
+type ApprovedAggregate = Pick<AggregateExplanationProposal, "disclosure" | "destination" | "promptTemplate"> & { readonly threadId: string };
 
 interface AggregateApprovalSessionOptions {
   readonly now: () => number;
   readonly newToken: () => string;
 }
 
-interface PendingAggregateApproval extends ApprovedAggregate {
-  readonly expiresAt: number;
-}
-
 export interface AggregateApprovalSessionStore {
-  issue(disclosure: AggregateDisclosure, destination: ModelDestination, threadId: string): AggregateExplanationProposal;
+  issue(disclosure: AggregateDisclosure, destination: ModelDestination, threadId: string, promptTemplate: PromptTemplate): AggregateExplanationProposal;
   consume(token: string): ApprovedAggregate;
   revoke(token: string): void;
 }
@@ -28,50 +26,25 @@ export interface AggregateApprovalSessionStore {
 export function createAggregateApprovalSessionStore(
   options: AggregateApprovalSessionOptions,
 ): AggregateApprovalSessionStore {
-  const pending = new Map<string, PendingAggregateApproval>();
-
-  function removeExpired(): void {
-    const now = options.now();
-    for (const [token, session] of pending) {
-      if (session.expiresAt < now) pending.delete(token);
-    }
-  }
+  const authorizations = createOneUseAuthorizationStore<ApprovedAggregate>({ ...options, lifetimeMilliseconds: aggregateApprovalLifetimeMilliseconds, maximumSessions: maximumAggregateApprovalSessions, allocationError: "Could not allocate a unique aggregate approval", consumeError: "Aggregate approval expired or has already been used" });
 
   return {
-    issue(disclosure, destination, threadId) {
-      removeExpired();
-      while (pending.size >= maximumAggregateApprovalSessions) {
-        const oldest = pending.keys().next().value as string | undefined;
-        if (oldest === undefined) break;
-        pending.delete(oldest);
-      }
-      const approvalToken = options.newToken();
-      if (pending.has(approvalToken)) throw new Error("Could not allocate a unique aggregate approval");
-      const expiresAt = options.now() + aggregateApprovalLifetimeMilliseconds;
+    issue(disclosure, destination, threadId, promptTemplate) {
+      const authorization = authorizations.issue({ disclosure, destination, promptTemplate, threadId });
       const proposal = parseAggregateExplanationProposal({
-        approvalToken,
-        expiresAt: new Date(expiresAt).toISOString(),
+        approvalToken: authorization.token,
+        expiresAt: new Date(authorization.expiresAt).toISOString(),
         destination,
         disclosure,
-      });
-      pending.set(approvalToken, {
-        disclosure: proposal.disclosure,
-        destination: proposal.destination,
-        threadId,
-        expiresAt,
+        promptTemplate,
       });
       return proposal;
     },
     consume(token) {
-      const session = pending.get(token);
-      pending.delete(token);
-      if (!session || session.expiresAt < options.now()) {
-        throw new Error("Aggregate approval expired or has already been used");
-      }
-      return { disclosure: session.disclosure, destination: session.destination, threadId: session.threadId };
+      return authorizations.consume(token);
     },
     revoke(token) {
-      pending.delete(token);
+      authorizations.revoke(token);
     },
   };
 }

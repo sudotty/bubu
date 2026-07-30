@@ -4,11 +4,11 @@ product:
   name: BuBu
   definition: local-first AI data workspace for conversational spreadsheet analysis and automation
   defaultMode: local-private
-  releaseStage: migration
+  releaseStage: private-beta
 release:
   versionSource: package.json
   tagPattern: v<semver>
-  channel: stable
+  channel: preview
   targets:
     - darwin-arm64
     - darwin-x64
@@ -24,7 +24,8 @@ architecture:
   aiRuntime: node-utility-process
   dataCore: go-sidecar
   localDatabase: sqlite
-  enterpriseDatabase: postgresql
+  hubPersistence: private-file-or-postgresql-transactional-v1
+  enterpriseDatabase: planned-normalized-postgresql-scale
 privacy:
   defaultDisclosure: schema-synthetic
   allowedDisclosureLevels:
@@ -32,7 +33,20 @@ privacy:
     - schema-synthetic
     - aggregates
     - explicit-rows
+    - retrieved-chunks
   remoteRawRowsByDefault: false
+productCapabilities:
+  local-first-data-workspace: available-local
+  clean-merge-compare-reconcile: available-local
+  conversation-evidence-and-reports: available-local
+  recurring-work-automation: available-local
+  privacy-retention-and-recovery: available-local
+  model-assisted-analysis: available-optional
+  local-knowledge-and-mcp: available-optional
+  encrypted-hub-collaboration: available-optional
+  signed-public-distribution: external-evidence-required
+  design-partner-validation: external-evidence-required
+  enterprise-horizontal-scale: future
 capabilities:
   repository-contracts: implemented
   electron-secure-shell: implemented
@@ -42,11 +56,93 @@ capabilities:
   dataset-preview: implemented
   csv-import: implemented
   xlsx-import: implemented
+  bounded-stdlib-ooxml-import: implemented
   atomic-batch-import: implemented
+  bundled-retail-demo-workspace: implemented
+  demo-relationship-and-topic-setup: implemented
+  rollback-safe-demo-setup: implemented
+  packaged-retail-demo-journey: implemented
+  task-oriented-empty-workspace: implemented
+  zero-configuration-clean-activation: implemented
+  non-deceptive-planned-task-states: implemented
+  packaged-clean-activation-cancellation: implemented
+  task-oriented-merge-entry: implemented
+  bundled-same-schema-merge-exports: implemented
+  approval-bound-merge-materialization: implemented
+  packaged-merge-journey: implemented
+  comparison-reconciliation-core: implemented
+  versioned-comparison-reconciliation-contracts: implemented
+  bounded-normalized-exact-matching-policy: implemented
+  fail-closed-comparison-cardinality-budget: implemented
+  deterministic-go-comparison-kernel: implemented
+  bundled-reconciliation-cases: implemented
+  reconciliation-preview-product-flow: implemented
+  approval-bound-reconciliation-execution: implemented
+  atomic-versioned-reconciliation-artifacts: implemented
+  reconciliation-control-total-evidence: implemented
+  reconciliation-current-view-copy-export: implemented
+  packaged-sales-refunds-reconciliation: implemented
+  packaged-orders-payments-reconciliation: implemented
+  reviewed-reconciliation-definitions: implemented
+  idempotent-reconciliation-version-replay: implemented
+  reconciliation-schema-cardinality-control-quality-gates: implemented
+  reconciliation-replay-restart-retry-cancel: implemented
+  reconciliation-group-history-and-recovery: implemented
+  global-pending-reconciliation-entry: implemented
+  backup-validated-reconciliation-replay-state: implemented
+  packaged-reviewed-reconciliation-replay: implemented
   streaming-large-csv-import: implemented
   reference-100mib-performance-gate: implemented
   reference-100k-query-budget: implemented
+  npm-bulk-advisory-audit: implemented
+  module-aware-go-toolchain-evidence: implemented
+  imported-go-package-vulnerability-gate: implemented
+  zero-go-vulnerability-policy: implemented
   dataset-versioning: implemented
+  typed-derived-transformation-plans: implemented
+  typed-data-clean-plan-grammar: implemented
+  deterministic-data-clean-kernel: implemented
+  data-clean-immutable-recompute: implemented
+  data-clean-impact-preview: implemented
+  data-clean-product-flow: implemented
+  approval-bound-data-clean-materialization: implemented
+  versioned-data-clean-execution-evidence: implemented
+  packaged-data-clean-evidence-journey: implemented
+  approval-bound-data-clean-quality-policy: implemented
+  pre-activation-data-clean-quality-gates: implemented
+  versioned-data-clean-quality-proof: implemented
+  recoverable-blocked-data-clean-audit: implemented
+  materialized-derived-data-objects: implemented
+  immutable-derived-object-recompute: implemented
+  version-level-data-lineage: implemented
+  chained-derived-data-objects: implemented
+  packaged-derived-recompute-journey: implemented
+  chained-derived-object-regression: implemented
+  automatic-derived-object-recompute: implemented
+  fail-closed-derived-dependency-graph: implemented
+  idempotent-derived-recompute-queue: implemented
+  topological-downstream-recompute: implemented
+  restart-recovered-derived-recompute: implemented
+  derived-recompute-retry-and-cancel: implemented
+  derived-recompute-quality-and-drift-pause: implemented
+  derived-recompute-task-delivery: implemented
+  privacy-safe-derived-recompute-notifications: implemented
+  editable-data-clean-template-catalog: implemented
+  multi-source-data-clean-templates: implemented
+  packaged-recurring-clean-remediation-journey: implemented
+  unified-recurring-work-center: implemented
+  recurring-work-state-aggregation-policy: implemented
+  reason-specific-recurring-work-recovery: implemented
+  recurring-work-center-evidence-navigation: implemented
+  packaged-recurring-work-center-journey: implemented
+  approved-local-folder-file-arrivals: implemented
+  data-core-source-inspection: implemented
+  schema-profile-arrival-target-recommendation: implemented
+  privacy-safe-file-arrival-inbox: implemented
+  stable-file-arrival-deduplication: implemented
+  explicit-arrival-replacement-review: implemented
+  restart-recovered-file-arrival-state: implemented
+  packaged-file-arrival-journey: implemented
   custom-dataset-display-names: implemented
   dataset-version-history-popover: implemented
   same-schema-replacement: implemented
@@ -77,9 +173,18 @@ capabilities:
   consistent-local-backup: implemented
   verified-backup-restore: implemented
   crash-safe-database-restore: implemented
+  conversation-retention-and-deletion: implemented
+  bounded-retention-backlog-catch-up: implemented
+  packaged-conversation-retention-journey: implemented
+  configuration-backup-and-restore: implemented
+  two-phase-configuration-restore-rollback: implemented
+  packaged-configuration-backup-journey: implemented
   group-natural-language-query-planning: implemented
   group-query-approval: implemented
-  privacy-gateway: in-progress
+  privacy-gateway: implemented
+  strict-private-mode: implemented
+  local-dlp: implemented
+  explicit-raw-row-disclosure: implemented
   model-context-boundary: implemented
   synthetic-examples: implemented
   fail-closed-model-audit: implemented
@@ -103,7 +208,17 @@ capabilities:
   settings-configuration-health-overview: implemented
   guided-backup-restore-flow: implemented
   provider-connection-test: implemented
+  provider-save-and-test: implemented
+  provider-configuration-presets: implemented
+  deepseek-openai-compatible-preset: implemented
+  pure-product-core-package: implemented
+  versioned-custom-prompt-templates: implemented
+  prompt-template-task-selection: implemented
+  custom-output-prompt-templates: implemented
+  approval-bound-output-prompt-selection: implemented
+  packaged-output-template-journey: implemented
   provider-request-adapters: implemented
+  loopback-provider-transport-smoke: implemented
   openai-provider: implemented
   anthropic-provider: implemented
   gemini-provider: implemented
@@ -117,6 +232,8 @@ capabilities:
   conversation-thread-archive: implemented
   conversation-thread-restore: implemented
   append-only-local-conversation-history: implemented
+  bounded-conversation-history-pagination: implemented
+  packaged-accessibility-semantics-and-zoom-gate: implemented
   conversation-artifact-workbench: implemented
   expandable-artifact-workspace: implemented
   filterable-sortable-result-artifacts: implemented
@@ -134,6 +251,8 @@ capabilities:
   typed-conversation-task-lifecycle: implemented
   interrupted-task-recovery: implemented
   cancellation-aware-task-state: implemented
+  latest-task-turn-isolation: implemented
+  non-duplicated-task-resume: implemented
   artifact-current-view-copy: implemented
   artifact-current-view-csv-export: implemented
   chat-result-csv-export: implemented
@@ -142,25 +261,47 @@ capabilities:
   deterministic-chart-suitability: implemented
   accessible-chart-data-alternative: implemented
   bounded-local-html-report: implemented
+  deterministic-professional-report-model: implemented
+  atomic-professional-report-bundles: implemented
+  offline-html-pdf-report: implemented
+  multi-sheet-xlsx-report: implemented
+  excel-safe-report-csv: implemented
+  machine-readable-report-manifest: implemented
+  clean-professional-report-bundle: implemented
+  reconciliation-professional-report-bundle: implemented
+  packaged-professional-report-journey: implemented
   actionable-settings-health: implemented
   refreshable-settings-diagnostics: implemented
+  fail-closed-settings-diagnostics: implemented
+  settings-section-scroll-restoration: implemented
   settings-list-detail-navigation: implemented
   keyboard-managed-compact-panels: implemented
+  keyboard-complete-context-menus: implemented
   artifact-tab-keyboard-navigation: implemented
   privacy-preserving-local-product-metrics: implemented
   product-metrics-content-verifier: implemented
+  clean-activation-local-product-metrics: implemented
+  reconciliation-local-product-metrics: implemented
+  v1-cycle-local-product-metrics: implemented
   conditional-macos-signing-configuration: implemented
   release-readiness-verifier: implemented
   legacy-retirement-verifier: implemented
   compact-entity-context-bar: implemented
   direct-empty-task-actions: implemented
+  editable-task-starter-prompts: implemented
+  duplicate-empty-task-guard: implemented
   intentional-artifact-drawer: implemented
+  progressive-result-followups: implemented
+  canonical-data-object-language: implemented
   single-product-version: implemented
   explicit-platform-support-matrix: implemented
   platform-aware-data-core-sidecar: implemented
   native-application-icons: implemented
   native-installer-makers: implemented
+  vite-8-forge-preload-compatibility: implemented
   fail-closed-release-signing-config: implemented
+  complete-release-signing-preflight: implemented
+  secure-release-environment-bootstrap: implemented
   app-store-connect-api-key-notarization: implemented
   dual-backend-windows-signing-config: implemented
   packaged-backup-restore-smoke: implemented
@@ -180,12 +321,20 @@ capabilities:
   thread-bound-workflow-definitions: implemented
   deterministic-workflow-thread-delivery: implemented
   typed-conversation-artifacts: implemented
-  visualizations: in-progress
+  visualizations: implemented
+  rich-visualization-composition: implemented
+  packaged-visualization-preference-journey: implemented
   local-result-visualizations: implemented
   bar-chart: implemented
   time-series-chart: implemented
-  reports: in-progress
-  workflows: in-progress
+  reports: implemented
+  rich-report-composition: implemented
+  packaged-report-composition-journey: implemented
+  workflows: implemented
+  advanced-workflow-approval-nodes: implemented
+  definition-bound-workflow-approval-resume: implemented
+  restart-preserved-workflow-approvals: implemented
+  packaged-workflow-approval-journey: implemented
   manual-query-workflows: implemented
   versioned-workflow-definitions: implemented
   workflow-current-version-rebinding: implemented
@@ -199,14 +348,18 @@ capabilities:
   persistent-workflow-trigger-queue: implemented
   interval-workflow-triggers: implemented
   calendar-workflow-triggers: implemented
+  configurable-calendar-workflow-schedules: implemented
   dataset-version-workflow-triggers: implemented
   restart-recovered-workflow-triggers: implemented
   atomic-trigger-conversation-delivery: implemented
   in-app-automation-reminders: implemented
   os-workflow-notifications: implemented
-  bounded-agents: in-progress
-  mcp-host: in-progress
+  bounded-agents: implemented
+  reusable-bounded-agent-definitions: implemented
+  packaged-agent-definition-journey: implemented
+  mcp-host: implemented
   local-mcp-connection-registry: implemented
+  native-mcp-executable-picker: implemented
   os-encrypted-mcp-environment: implemented
   explicit-mcp-process-launch-consent: implemented
   mcp-stdio-lifecycle-negotiation: implemented
@@ -214,16 +367,70 @@ capabilities:
   mcp-resource-read: implemented
   append-only-mcp-operation-audit: implemented
   mcp-tool-call: implemented
-  model-driven-mcp-tool-execution: planned
+  model-driven-mcp-tool-execution: implemented
   mcp-prompt-get: implemented
-  mcp-prompt-to-model: planned
-  mcp-streamable-http: planned
-  mcp-oauth: planned
-  local-rag: planned
-  reminders: in-progress
-  hub: planned
-  rbac: planned
-  sync: planned
+  mcp-prompt-to-model: implemented
+  separate-mcp-model-disclosure-approval: implemented
+  strict-mcp-model-output-and-schema-validation: implemented
+  strict-private-remote-mcp-model-block: implemented
+  no-autonomous-mcp-model-loop: implemented
+  bundled-read-only-mcp-demo: implemented
+  packaged-mcp-model-journey: implemented
+  mcp-streamable-http: implemented
+  mcp-oauth: implemented
+  remote-mcp-https-ssrf-policy: implemented
+  remote-mcp-oauth-pkce-loopback: implemented
+  os-encrypted-remote-mcp-tokens: implemented
+  bounded-remote-mcp-discovery: implemented
+  approval-bound-remote-mcp-tool-call: implemented
+  append-only-remote-mcp-audit: implemented
+  packaged-remote-mcp-profile-journey: implemented
+  versioned-local-knowledge-sources: implemented
+  deterministic-local-knowledge-chunking: implemented
+  go-authoritative-local-knowledge-index: implemented
+  exact-versioned-knowledge-citations: implemented
+  local-knowledge-delete-rebuild: implemented
+  backup-validated-local-knowledge: implemented
+  approval-bound-knowledge-disclosure: implemented
+  audited-cited-knowledge-answers: implemented
+  packaged-local-rag-journey: implemented
+  local-rag: implemented
+  reminders: implemented
+  external-delivery-reminders: implemented
+  encrypted-webhook-destination-registry: implemented
+  approval-bound-webhook-delivery: implemented
+  minimal-signed-webhook-payload: implemented
+  webhook-ssrf-and-redirect-policy: implemented
+  bounded-webhook-retry-dedupe-revocation: implemented
+  external-delivery-final-failure-evidence: implemented
+  packaged-external-delivery-profile-journey: implemented
+  hub: implemented
+  rbac: implemented
+  sync: implemented
+  optional-single-writer-hub-service: implemented
+  four-role-least-privilege-rbac: implemented
+  hashed-revocable-device-credentials: implemented
+  dual-client-server-sync-permission-checks: implemented
+  explicit-encrypted-product-object-sync: implemented
+  offline-bounded-sync-outbox-inbox: implemented
+  immutable-idempotent-sync-versions: implemented
+  explicit-sync-conflict-resolution: implemented
+  sync-deletion-tombstones: implemented
+  ed25519-chained-central-audit: implemented
+  packaged-hub-sync-configuration-journey: implemented
+  postgresql-hub-storage: implemented
+  serializable-postgresql-hub-writer: implemented
+  non-overwriting-file-to-postgresql-migration: implemented
+  postgresql-hub-integration-evidence: implemented
+  approval-bound-remote-object-application: implemented
+  idempotent-remote-application-evidence: implemented
+  packaged-reviewed-remote-application-entry: implemented
+  lightweight-onboarding-checklist: implemented
+  schema-only-evidence-bound-onboarding: implemented
+  structure-driven-task-recommendation: implemented
+  packaged-onboarding-journey: implemented
+  signed-automatic-updates-and-rollback: planned
+  consented-design-partner-pilot-evidence: planned
   signed-installers: planned
 releaseGates:
   - no-secrets-or-user-data

@@ -36,6 +36,7 @@ describe("AI runtime request handler", () => {
         "mcp-resource-read",
         "mcp-prompt-get",
         "mcp-tool-call",
+        "mcp-streamable-http-inspection",
       ],
     });
   });

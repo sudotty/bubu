@@ -31,8 +31,20 @@ for (const path of rendererFiles) {
   }
 }
 
+const productCoreFiles = sourceFiles("packages/product-core/src");
+for (const path of productCoreFiles) {
+  const contents = readFileSync(path, "utf8");
+  for (const forbidden of [/from ["'](?:electron|node:)/u, /\b(?:window|document|localStorage|ipcRenderer)\b/u]) {
+    if (forbidden.test(contents)) failures.push(`product core owns host I/O: ${path.slice(root.length + 1)}`);
+  }
+}
+if (!read("apps/desktop/src/main/analysis-orchestrator.ts").includes('from "@bubu/product-core"')
+  || !read("apps/desktop/src/renderer/ProviderSettings.tsx").includes('from "@bubu/product-core"')) {
+  failures.push("product core is not shared across main and renderer hosts");
+}
+
 const resultVisualization = read("apps/desktop/src/renderer/ResultVisualization.tsx");
-if (!resultVisualization.includes("recommendVisualization(result, title)") || !resultVisualization.includes("chart-data-alternative")) {
+if (!resultVisualization.includes("composeVisualizations(result, title)") || !resultVisualization.includes("chart-data-alternative")) {
   failures.push("result visualization is not derived through the typed local contract");
 }
 if (/dangerouslySetInnerHTML|innerHTML/u.test(resultVisualization)) {
@@ -60,12 +72,17 @@ if (preload.includes("appendConversation")) {
 
 const conversations = read("services/data-core/internal/data/conversation.go");
 for (const invariant of [
-  "maximumConversationEntries = 500",
-  "maximumConversationPayload = 1024 * 1024",
+  "maximumConversationEntries        = 10000",
+  "maximumConversationEntriesPerPage = 100",
+  "maximumConversationThreadPayload  = 500",
+  "maximumConversationPayload        = 1024 * 1024",
   "a conversation must start with a user question",
   "INSERT INTO conversation_entries",
 ]) {
   if (!conversations.includes(invariant)) failures.push(`conversation invariant missing: ${invariant}`);
+}
+for (const paginationInvariant of ["PageConversationEntries", "ORDER BY ordinal DESC", "LIMIT ?"]) {
+  if (!conversations.includes(paginationInvariant)) failures.push(`conversation pagination invariant missing: ${paginationInvariant}`);
 }
 
 const security = read("apps/desktop/src/main/security.ts");
@@ -91,6 +108,19 @@ for (const invariant of [
 ]) {
   if (!main.includes(invariant)) failures.push(`main-process security gate missing: ${invariant}`);
 }
+if (main.includes("async function verifyPackaged") || main.split("\n").length > 500) failures.push("production desktop entry must not own the packaged smoke journey");
+const packagedSmoke = read("apps/desktop/src/main/packaged-smoke.ts");
+for (const invariant of ["verifySmokeRenderer", "verifyPackagedReconciliationRenderer", "stopSmokeModelServer"]) {
+  if (!packagedSmoke.includes(invariant)) failures.push(`isolated packaged smoke missing: ${invariant}`);
+}
+const sidecarPorts = read("apps/desktop/src/main/sidecar-ports.ts");
+for (const invariant of ["DatasetLifecyclePort", "AnalysisPort", "WorkflowPort", "RemoteMcpPort", "WorkflowCatalogPort", "Pick<SidecarSupervisor"]) {
+  if (!sidecarPorts.includes(invariant)) failures.push(`narrow sidecar capability port missing: ${invariant}`);
+}
+const schedulerKernel = read("apps/desktop/src/main/non-overlapping-scheduler.ts");
+for (const invariant of ["running", "options.canRun", "finally", "clearInterval(timer)"]) {
+  if (!schedulerKernel.includes(invariant)) failures.push(`shared non-overlapping scheduler invariant missing: ${invariant}`);
+}
 
 const desktopApi = read("apps/desktop/src/main/desktop-api.ts");
 if (!desktopApi.includes("isTrustedFrameUrl(frameUrl")) {
@@ -102,6 +132,104 @@ for (const invariant of [
   "randomBytes(16).toString(\"hex\")",
 ]) {
   if (!desktopApi.includes(invariant)) failures.push(`replacement path boundary missing: ${invariant}`);
+}
+
+const demoCatalog = read("apps/desktop/src/main/demo-catalog.ts");
+for (const invariant of [
+  'parseDemoWorkspaceId(value)',
+  'join(demoDirectory, fileName)',
+  'if ((await store.listDatasets()).length > 0)',
+  'for (const dataset of [...(imported?.datasets ?? [])].reverse())',
+]) {
+  if (!demoCatalog.includes(invariant)) failures.push(`demo workspace boundary missing: ${invariant}`);
+}
+
+const derivedContract = read("packages/contracts/src/derived-dataset.ts");
+for (const invariant of [
+  'z.literal("dataset-query")',
+  'z.literal("group-query")',
+  'z.literal("data-clean")',
+  'z.literal("deduplicate")',
+  'z.literal("union")',
+  "safeQueryPlanSchema",
+  "safeGroupQueryPlanSchema",
+  "planFingerprint",
+]) {
+  if (!derivedContract.includes(invariant)) failures.push(`derived object contract missing: ${invariant}`);
+}
+const derivedDataCore = read("services/data-core/internal/data/derived.go");
+const derivedMaterialization = read("services/data-core/internal/data/derived_materialization.go");
+const dataCleanValidation = read("services/data-core/internal/data/data_clean_validation.go");
+const dataCleanExecution = read("services/data-core/internal/data/data_clean_execution.go");
+const dataCleanValues = read("services/data-core/internal/data/data_clean_values.go");
+const dataCleanQuality = read("services/data-core/internal/data/data_clean_quality.go");
+for (const invariant of [
+  "ExecuteQueryPlan",
+  "ExecuteGroupQueryPlan",
+  "rebindDerivedTransformation",
+  "derivedParents",
+]) {
+  if (!derivedDataCore.includes(invariant)) failures.push(`derived data-core authority missing: ${invariant}`);
+}
+for (const invariant of ["maximumCleanRows", "maximumCleanBytes", "validateDataCleanOperation", "data-clean operation is unsupported"]) {
+  if (!dataCleanValidation.includes(invariant)) failures.push(`data-clean validation invariant missing: ${invariant}`);
+}
+for (const invariant of ["executeDataCleanPlan", "loadCleanSource", "data-clean plan targets a stale source version", "rebindDataCleanPlan"]) {
+  if (!dataCleanExecution.includes(invariant)) failures.push(`data-clean execution invariant missing: ${invariant}`);
+}
+for (const invariant of ["math.IsNaN(left)", "math.IsInf(left, 0)", "math.IsNaN(right)", "math.IsInf(right, 0)"]) {
+  if (!dataCleanValues.includes(invariant)) failures.push(`data-clean finite predicate boundary missing: ${invariant}`);
+}
+for (const invariant of ["math.IsNaN(value)", "math.IsInf(value, 0)"]) {
+  if (!dataCleanQuality.includes(invariant)) failures.push(`data-clean finite aggregate boundary missing: ${invariant}`);
+}
+const cleanProductPolicy = read("packages/product-core/src/data-clean.ts");
+for (const invariant of ["summarizeDataCleanPlan", "dataCleanPlanRisks", "canonicalDataCleanPlan"]) {
+  if (!cleanProductPolicy.includes(invariant)) failures.push(`data-clean product policy missing: ${invariant}`);
+}
+const derivedDependency = read("services/data-core/internal/data/derived_dependency.go");
+for (const invariant of ["maximumDerivedDependencyNodes", "maximumDerivedDependencyEdges", "derived dependency graph contains a cycle", "slices.Reverse(postorder)"]) {
+  if (!derivedDependency.includes(invariant)) failures.push(`derived dependency invariant missing: ${invariant}`);
+}
+const derivedRecompute = read("services/data-core/internal/data/derived_recompute_queue.go");
+for (const invariant of ["enqueueDerivedDependents", "ON CONFLICT(dedupe_key) DO NOTHING", "recoverInterruptedDerivedRecomputes", "quality-block", "deliverDerivedRecomputeConversation"]) {
+  if (!derivedRecompute.includes(invariant)) failures.push(`derived recompute invariant missing: ${invariant}`);
+}
+const derivedRecomputeMigration = read("services/data-core/internal/data/migration_derived_recompute.go");
+for (const invariant of ["derived_recompute_events", "UNIQUE", "attempt BETWEEN 0 AND 3", "status IN ('pending', 'running', 'succeeded', 'paused', 'failed', 'cancelled')"]) {
+  if (!derivedRecomputeMigration.includes(invariant)) failures.push(`derived recompute migration missing: ${invariant}`);
+}
+for (const invariant of ['kind: "data-clean"', "Typed data-clean RPC", "typed data-clean execution"]) {
+  if (!read("scripts/smoke-data-core.mjs").includes(invariant)) failures.push(`data-clean smoke evidence missing: ${invariant}`);
+}
+for (const invariant of [
+  "materializeVersion",
+  "derivedPlanEvidence",
+  "transaction.Commit()",
+  "derived_dataset_lineage_parents",
+  "execution_id",
+  "clean_impact_json",
+]) {
+  if (!derivedMaterialization.includes(invariant)) failures.push(`derived materialization invariant missing: ${invariant}`);
+}
+for (const invariant of ["one-use reviewed evidence", "reviewed plan fingerprint does not match", "10*time.Minute", "reviewed-recompute"]) {
+  if (!derivedDataCore.includes(invariant)) failures.push(`approval-bound data-clean materialization missing: ${invariant}`);
+}
+const cleanEvidenceMigration = read("services/data-core/internal/data/migration_derived_execution_evidence.go");
+for (const invariant of ["execution_id", "review_kind", "quality_gate_status", "warnings_json", "clean_impact_json"]) {
+  if (!cleanEvidenceMigration.includes(invariant)) failures.push(`versioned Clean evidence migration missing: ${invariant}`);
+}
+const cleanBackupEvidence = read("services/data-core/internal/data/backup_derived_evidence_validation.go");
+for (const invariant of ["validateBackupDerivedExecutionEvidence", "PlanFingerprint", "missing reviewed data-clean impact evidence"]) {
+  if (!cleanBackupEvidence.includes(invariant)) failures.push(`backup Clean evidence validation missing: ${invariant}`);
+}
+const artifactInspector = read("apps/desktop/src/renderer/ArtifactInspector.tsx");
+if (!artifactInspector.includes("transformation: draft") || artifactInspector.includes("transformation: result.rows")) {
+  failures.push("renderer derived-object action is not plan-only");
+}
+const backupSchema = read("services/data-core/internal/data/backup_validation.go");
+for (const table of ["derived_dataset_lineages", "derived_dataset_lineage_parents", "derived_recompute_events"]) {
+  if (!backupSchema.includes(table)) failures.push(`backup schema omits derived lineage table: ${table}`);
 }
 
 const replacementMapping = read("services/data-core/internal/data/replacement_mapping.go");
@@ -302,9 +430,10 @@ for (const invariant of [
   "runtime.generateModel(invocation, signal)",
   "runtime.finishModelAudit",
   'createHash("sha256")',
-  "containsRawRows: false",
+  'containsRawRows: disclosure === "explicit-rows"',
   'new URL(invocation.provider.baseUrl).origin',
   "aggregateRowCount: scope.aggregateRowCount ?? 0",
+  "rawRowCount: scope.rawRowCount ?? 0",
 ]) {
   if (!modelAudit.includes(invariant)) failures.push(`model audit boundary missing: ${invariant}`);
 }
@@ -360,8 +489,8 @@ const aggregateApprovals = read("apps/desktop/src/main/aggregate-approval-sessio
 for (const invariant of [
   "10 * 60 * 1_000",
   "maximumAggregateApprovalSessions = 20",
-  "pending.delete(token)",
-  "revoke(token)",
+  "createOneUseAuthorizationStore",
+  "authorizations.revoke(token)",
 ]) {
   if (!aggregateApprovals.includes(invariant)) failures.push(`aggregate approval boundary missing: ${invariant}`);
 }
@@ -402,6 +531,45 @@ const aggregateExplanationPanel = read("apps/desktop/src/renderer/AggregateExpla
 for (const invariant of ["批准发送这些聚合内容", "放弃且撤销", "AggregateDisclosurePreview"]) {
   if (!aggregateExplanationPanel.includes(invariant)) failures.push(`aggregate explanation approval UI missing: ${invariant}`);
 }
+const explicitRowContract = read("packages/contracts/src/explicit-row-disclosure.ts");
+for (const invariant of [
+  ".max(20)",
+  ".max(16)",
+  "maximumExplicitRowPayloadBytes",
+  "Preview row order must match the selection",
+  "Evidence must reference an explicitly disclosed cell",
+]) {
+  if (!explicitRowContract.includes(invariant)) failures.push(`explicit-row disclosure contract missing: ${invariant}`);
+}
+const explicitRowDataCore = read("services/data-core/internal/data/explicit_row_disclosure.go");
+for (const invariant of [
+  "maximumExplicitDisclosureRows",
+  "maximumExplicitDisclosureColumns",
+  "requires the current ready dataset version",
+  "explicit row columns must be exact and unique",
+  "sha256.Sum256(encoded)",
+]) {
+  if (!explicitRowDataCore.includes(invariant)) failures.push(`explicit-row Go authority missing: ${invariant}`);
+}
+const explicitRowApprovals = read("apps/desktop/src/main/explicit-row-approval-sessions.ts");
+for (const invariant of ["10 * 60 * 1_000", "maximumExplicitRowApprovalSessions = 20", "createOneUseAuthorizationStore"]) {
+  if (!explicitRowApprovals.includes(invariant)) failures.push(`explicit-row one-use approval missing: ${invariant}`);
+}
+const oneUseAuthorizations = read("apps/desktop/src/main/one-use-authorization-store.ts");
+for (const invariant of ["pending.delete(token)", "session.expiresAt <= options.now()", "pending.size >= options.maximumSessions", "issueWithGrant"]) {
+  if (!oneUseAuthorizations.includes(invariant)) failures.push(`shared one-use authorization invariant missing: ${invariant}`);
+}
+const explicitRowApi = read("apps/desktop/src/main/explicit-row-api.ts");
+for (const invariant of [
+  "approvals.consume",
+  "previewExplicitRowDisclosure",
+  "current.payloadSha256 !== approved.preview.payloadSha256",
+  "privacyPolicy.assertExplicitRowsAllowed",
+  'purpose: "explicit-row-explanation"',
+]) {
+  if (!explicitRowApi.includes(invariant)) failures.push(`explicit-row audited desktop boundary missing: ${invariant}`);
+}
+
 const aggregateAgentContract = read("packages/contracts/src/aggregate-agent.ts");
 for (const invariant of [
   "maxTurns: 4 as const",
@@ -497,6 +665,22 @@ for (const invariant of [
   "finishWorkflowStepRun",
 ]) {
   if (!workflowRunner.includes(invariant)) failures.push(`workflow execution invariant missing: ${invariant}`);
+}
+const workflowApprovalContract = read("packages/contracts/src/workflow.ts");
+for (const invariant of ['z.literal("human-approval")', "expiresAfterMinutes", '"awaiting-approval"', "workflowApprovalRequestSchema", "workflowApprovalDecisionInputSchema"]) {
+  if (!workflowApprovalContract.includes(invariant)) failures.push(`workflow approval contract missing: ${invariant}`);
+}
+const workflowApproval = read("services/data-core/internal/data/workflow_approval.go");
+for (const invariant of ["pauseWorkflowForApproval", "definition.Version != approval.DefinitionVersion", "terminalWorkflowApproval", "expireWorkflowApprovals", "executeWorkflowRun"] ) {
+  if (!workflowApproval.includes(invariant)) failures.push(`workflow approval authority missing: ${invariant}`);
+}
+const workflowApprovalRecovery = read("services/data-core/internal/data/workflow_recovery.go");
+for (const invariant of ["workflow_approval_requests", "approvals.status = 'pending'", "NOT EXISTS"]) {
+  if (!workflowApprovalRecovery.includes(invariant)) failures.push(`workflow approval recovery missing: ${invariant}`);
+}
+const workflowApprovalBackup = read("services/data-core/internal/data/backup_workflow_approval_validation.go");
+for (const invariant of ["definition_version <> runs.definition_version", "steps.kind <> 'human-approval'", "backup contains invalid workflow approval evidence"]) {
+  if (!workflowApprovalBackup.includes(invariant)) failures.push(`workflow approval backup validation missing: ${invariant}`);
 }
 const workflowMigration = read("services/data-core/internal/data/migrations.go");
 for (const invariant of [

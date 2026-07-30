@@ -43,6 +43,12 @@ func (service *Service) executeWorkflowRun(
 	definition WorkflowDefinition,
 ) (WorkflowRun, error) {
 	for ordinal, step := range definition.Steps {
+		if workflowOrdinalSucceeded(run.Steps, ordinal) {
+			continue
+		}
+		if step.Kind == "human-approval" {
+			return service.pauseWorkflowForApproval(persistenceContext, run, definition, ordinal, step)
+		}
 		if runContext.Err() != nil {
 			status := workflowFailureStatus(runContext.Err())
 			if err := service.recordUnresolvedWorkflowStep(
@@ -115,12 +121,29 @@ func (service *Service) executeWorkflowRun(
 	return service.finishWorkflowRun(persistenceContext, run, "succeeded", nil)
 }
 
+func workflowOrdinalSucceeded(steps []WorkflowStepRun, ordinal int) bool {
+	for _, step := range steps {
+		if step.Ordinal == ordinal && step.Status == "succeeded" {
+			return true
+		}
+	}
+	return false
+}
+
 func workflowStepInput(step WorkflowStepDefinition) any {
 	if step.Plan != nil {
 		return *step.Plan
 	}
 	if step.GroupPlan != nil {
 		return *step.GroupPlan
+	}
+	if step.Kind == "human-approval" {
+		return struct {
+			Title               string `json:"title"`
+			Action              string `json:"action"`
+			Risk                string `json:"risk"`
+			ExpiresAfterMinutes int    `json:"expiresAfterMinutes"`
+		}{step.Title, step.Action, step.Risk, step.ExpiresAfterMinutes}
 	}
 	return struct{}{}
 }

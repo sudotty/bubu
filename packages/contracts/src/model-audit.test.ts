@@ -14,6 +14,8 @@ const start = {
   columnCount: 8,
   syntheticRowCount: 3,
   aggregateRowCount: 0,
+  rawRowCount: 0,
+  retrievedChunkCount: 0,
   relationshipCount: 0,
   payloadBytes: 2_048,
   estimatedInputTokens: 683,
@@ -30,6 +32,20 @@ describe("model disclosure audit contracts", () => {
   it("rejects false disclosure counts and raw-row claims", () => {
     expect(() => parseModelAuditStartInput({ ...start, syntheticRowCount: 2 })).toThrow("Synthetic");
     expect(() => parseModelAuditStartInput({ ...start, containsRawRows: true })).toThrow();
+  });
+
+  it("accepts raw rows only for an exact explicit-row explanation scope", () => {
+    expect(parseModelAuditStartInput({
+      ...start,
+      purpose: "explicit-row-explanation",
+      disclosure: "explicit-rows",
+      syntheticRowCount: 0,
+      rawRowCount: 2,
+      columnCount: 2,
+      containsRawRows: true,
+    })).toMatchObject({ purpose: "explicit-row-explanation", disclosure: "explicit-rows", rawRowCount: 2, containsRawRows: true });
+    expect(() => parseModelAuditStartInput({ ...start, disclosure: "explicit-rows", rawRowCount: 2, containsRawRows: true })).toThrow("Explicit");
+    expect(() => parseModelAuditStartInput({ ...start, purpose: "explicit-row-explanation", disclosure: "explicit-rows", syntheticRowCount: 0, rawRowCount: 0, containsRawRows: true })).toThrow("Explicit");
   });
 
   it("accepts a bounded aggregate explanation scope without synthetic or raw rows", () => {
@@ -62,6 +78,27 @@ describe("model disclosure audit contracts", () => {
       columnCount: 3,
       maxOutputTokens: 2_048,
     })).toMatchObject({ purpose: "aggregate-agent", disclosure: "aggregates" });
+  });
+
+  it("accepts retrieved chunks only for an exact local knowledge answer scope", () => {
+    expect(parseModelAuditStartInput({
+      ...start,
+      purpose: "knowledge-answer",
+      target: { kind: "knowledge-source", id: "d".repeat(32) },
+      disclosure: "retrieved-chunks",
+      datasetCount: 0,
+      columnCount: 0,
+      syntheticRowCount: 0,
+      retrievedChunkCount: 2,
+    })).toMatchObject({ purpose: "knowledge-answer", disclosure: "retrieved-chunks", retrievedChunkCount: 2 });
+    expect(() => parseModelAuditStartInput({ ...start, disclosure: "retrieved-chunks", retrievedChunkCount: 2 })).toThrow("knowledge");
+  });
+
+  it("separates MCP prompt content and tool schemas into exact model purposes", () => {
+    for (const [purpose, disclosure] of [["mcp-prompt-response", "mcp-prompt-content"], ["mcp-tool-proposal", "mcp-tool-schemas"]] as const) {
+      expect(parseModelAuditStartInput({ ...start, purpose, target: { kind: "mcp-connection", id: "d".repeat(32) }, disclosure, datasetCount: 0, columnCount: 0, syntheticRowCount: 0 })).toMatchObject({ purpose, disclosure });
+    }
+    expect(() => parseModelAuditStartInput({ ...start, disclosure: "mcp-prompt-content" })).toThrow("MCP");
   });
 
   it("requires terminal audit consistency", () => {

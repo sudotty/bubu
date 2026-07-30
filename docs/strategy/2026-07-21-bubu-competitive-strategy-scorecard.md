@@ -1,10 +1,8 @@
 # BuBu Competitive Strategy and Scorecard
 
-Status: **Strategic analysis**
+Status: **Strategic research snapshot; non-authoritative**
 
-Baseline branch: `codex/bubu-productization`
-
-Baseline commit: `3af2e80cb21815d110028db8d8e7c6f4368ef422`
+Snapshot basis: commit `3af2e80cb21815d110028db8d8e7c6f4368ef422` from a retired delivery branch. The active repository branch is `main`; the snapshot reference is provenance, not a branch requirement.
 
 Research date: 2026-07-21
 

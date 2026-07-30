@@ -10,4 +10,10 @@ describe("deriveSettingsHealth", () => {
     expect(deriveSettingsHealth({ encryptionAvailable: true, providerCount: 1, hasActiveProvider: false, connectorCount: 1 })[0]?.id).toBe("active-provider");
     expect(deriveSettingsHealth({ encryptionAvailable: true, providerCount: 1, hasActiveProvider: true, connectorCount: 1 })).toMatchObject([{ id: "ready", severity: "ready" }]);
   });
+
+  it("reports an unavailable diagnostic instead of inventing missing configuration", () => {
+    expect(deriveSettingsHealth({ encryptionAvailable: null, providerCount: null, hasActiveProvider: null, connectorCount: null })).toEqual([
+      expect.objectContaining({ id: "diagnostics", severity: "blocker" }),
+    ]);
+  });
 });

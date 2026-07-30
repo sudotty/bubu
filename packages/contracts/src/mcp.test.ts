@@ -8,6 +8,7 @@ import {
   parseMcpAuditStart,
   parseMcpConnectionConfigurationInput,
   parseMcpConnectionRegistryState,
+  parseMcpExecutableSelection,
   parseMcpInspectionApproval,
   parseMcpInspectionInvocation,
   parseMcpInspectionProposal,
@@ -39,6 +40,12 @@ const configuration = {
 };
 
 describe("local MCP connection contracts", () => {
+  it("parses only a direct executable selected by the native picker", () => {
+    expect(parseMcpExecutableSelection({ status: "cancelled" })).toEqual({ status: "cancelled" });
+    expect(parseMcpExecutableSelection({ status: "selected", path: "/opt/bubu/server" })).toEqual({ status: "selected", path: "/opt/bubu/server" });
+    expect(() => parseMcpExecutableSelection({ status: "selected", path: "/bin/sh" })).toThrow();
+  });
+
   it("accepts only a direct absolute executable and bounded write-only environment input", () => {
     expect(parseMcpConnectionConfigurationInput(configuration)).toEqual(configuration);
     expect(parseMcpConnectionConfigurationInput({

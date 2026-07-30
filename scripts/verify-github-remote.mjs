@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { releaseSecretNames, releaseVariableNames } from "./release-environment-config.mjs";
 
 const failures = [];
 const warnings = [];
@@ -22,6 +23,12 @@ if (!/^[^/\s]+\/[^/\s]+$/u.test(repository)) throw new Error(`Unable to resolve 
 
 const repositoryMetadata = apiJson(`repos/${repository}`);
 if (repositoryMetadata.delete_branch_on_merge !== true) failures.push("merged pull-request branches must be deleted automatically");
+if (repositoryMetadata.allow_squash_merge !== true || repositoryMetadata.allow_merge_commit !== false || repositoryMetadata.allow_rebase_merge !== false) {
+  failures.push("squash must remain the only merge method");
+}
+if (repositoryMetadata.squash_merge_commit_title !== "PR_TITLE" || repositoryMetadata.squash_merge_commit_message !== "PR_BODY") {
+  failures.push("squash commits must use the pull-request title and body");
+}
 const secretScanningEnabled = repositoryMetadata.security_and_analysis?.secret_scanning?.status === "enabled";
 const pushProtectionEnabled = repositoryMetadata.security_and_analysis?.secret_scanning_push_protection?.status === "enabled";
 if (!secretScanningEnabled || !pushProtectionEnabled) {
@@ -29,6 +36,8 @@ if (!secretScanningEnabled || !pushProtectionEnabled) {
   if (repositoryMetadata.private === false) failures.push(message);
   else warnings.push(message);
 }
+const privateReporting = apiJson(`repos/${repository}/private-vulnerability-reporting`);
+if (privateReporting.enabled !== true) failures.push("private vulnerability reporting must remain enabled");
 
 const mainProtection = gh(["api", `repos/${repository}/branches/${repositoryMetadata.default_branch}/protection`], { allowFailure: true });
 if (mainProtection.status !== 0) {
@@ -38,6 +47,13 @@ if (mainProtection.status !== 0) {
   if (protection.enforce_admins?.enabled !== true) failures.push("default-branch protection must apply to administrators");
   if (protection.allow_force_pushes?.enabled !== false) failures.push("default branch must reject force-pushes");
   if (protection.allow_deletions?.enabled !== false) failures.push("default branch must reject deletion");
+  if (protection.required_pull_request_reviews === null) failures.push("default branch changes must use a pull request");
+  if (protection.required_linear_history?.enabled !== true) failures.push("default branch must keep linear history");
+  if (protection.required_conversation_resolution?.enabled !== true) failures.push("pull-request conversations must be resolved before merge");
+  const requiredChecks = protection.required_status_checks?.checks ?? [];
+  if (!requiredChecks.some(({ context, app_id: appId }) => context === "Fast product contract" && appId === 15368)) {
+    failures.push("default branch must require Fast product contract from GitHub Actions");
+  }
 }
 
 const actionPermissions = apiJson(`repos/${repository}/actions/permissions`);
@@ -76,6 +92,33 @@ if (releaseEnvironment.status !== 0) {
 } else {
   const environment = JSON.parse(releaseEnvironment.stdout);
   if (environment.deployment_branch_policy?.custom_branch_policies !== true) failures.push("release environment must restrict deployments to selected tags");
+  const releasePolicies = apiJson(`repos/${repository}/environments/release/deployment-branch-policies`).branch_policies ?? [];
+  if (releasePolicies.length !== 1 || releasePolicies[0]?.name !== "v*" || releasePolicies[0]?.type !== "tag") {
+    failures.push("release environment must have exactly one v* tag policy");
+  }
+
+  const environmentSecrets = apiJson(`repos/${repository}/environments/release/secrets`).secrets ?? [];
+  const environmentVariables = apiJson(`repos/${repository}/environments/release/variables`).variables ?? [];
+  const secretNames = new Set(environmentSecrets.map(({ name }) => name));
+  const variableNames = new Set(environmentVariables.map(({ name }) => name));
+  const missingSecrets = releaseSecretNames.filter((name) => !secretNames.has(name));
+  const missingVariables = releaseVariableNames.filter((name) => !variableNames.has(name));
+  if (missingSecrets.length > 0) warnings.push(`release environment is missing secret names: ${missingSecrets.join(", ")}`);
+  if (missingVariables.length > 0) warnings.push(`release environment is missing variable names: ${missingVariables.join(", ")}`);
+}
+
+const tagRulesetSummary = apiJson(`repos/${repository}/rulesets`).find(({ name, target, enforcement }) => (
+  name === "stable-release-tags" && target === "tag" && enforcement === "active"
+));
+if (!tagRulesetSummary) {
+  failures.push("stable release tags must have an active ruleset");
+} else {
+  const tagRuleset = apiJson(`repos/${repository}/rulesets/${tagRulesetSummary.id}`);
+  const includedRefs = tagRuleset.conditions?.ref_name?.include ?? [];
+  const ruleTypes = new Set((tagRuleset.rules ?? []).map(({ type }) => type));
+  if (includedRefs.length !== 1 || includedRefs[0] !== "refs/tags/v*" || !ruleTypes.has("deletion") || !ruleTypes.has("update")) {
+    failures.push("stable release tag ruleset must block v* updates and deletions");
+  }
 }
 
 if (failures.length > 0) {
@@ -83,5 +126,5 @@ if (failures.length > 0) {
   for (const warning of warnings) console.warn(`Warning: ${warning}`);
   process.exit(1);
 }
-console.log(`Remote GitHub settings verified for ${repository}: protected default branch, read-only tokens, immutable Action pins, vulnerability alerts, automatic merged-branch cleanup, no automatic dependency branches, no open dependency alerts, and active workflows.`);
+console.log(`Remote GitHub settings verified for ${repository}: one required CI check, linear pull requests, immutable release tags, private vulnerability reporting, read-only tokens, pinned Actions, vulnerability alerts, no automatic dependency branches, and active workflows. Required release-environment credential names were checked separately; omitted artifact-attestation configuration defaults to disabled.`);
 for (const warning of warnings) console.warn(`Warning: ${warning}`);

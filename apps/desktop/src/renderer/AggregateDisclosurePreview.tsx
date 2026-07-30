@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
 import type { AggregateExplanationProposal } from "../shared/product-api.js";
 
-type DisclosurePreview = Pick<
-  AggregateExplanationProposal,
-  "destination" | "disclosure" | "expiresAt"
->;
+type DisclosurePreview = Pick<AggregateExplanationProposal, "destination" | "disclosure" | "expiresAt">
+  & Partial<Pick<AggregateExplanationProposal, "promptTemplate">>;
 
 export function AggregateDisclosurePreview({
   proposal,
@@ -19,6 +17,7 @@ export function AggregateDisclosurePreview({
     <dl className="aggregate-disclosure-context">
       <div><dt>发送的问题</dt><dd>{proposal.disclosure.question}</dd></div>
       <div><dt>结果用途</dt><dd>{proposal.disclosure.purpose}</dd></div>
+      {proposal.promptTemplate && <div><dt>输出模板</dt><dd>{proposal.promptTemplate.name} · {proposal.promptTemplate.description}</dd></div>}
     </dl>
     <div className="table-scroll"><table>
       <thead><tr><th>引用</th>{proposal.disclosure.columns.map((column) => <th key={column.label}>{column.label}<small>{column.type}</small></th>)}</tr></thead>

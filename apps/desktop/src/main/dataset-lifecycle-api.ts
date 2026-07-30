@@ -1,11 +1,11 @@
 import { dialog, ipcMain } from "electron";
 import { parseDatasetId, parseOperationEnvelope, type DatasetSummary } from "@bubu/contracts";
 import { desktopChannels } from "../shared/product-api.js";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { DatasetLifecyclePort } from "./sidecar-ports.js";
 import type { OperationRegistry } from "./operation-registry.js";
 
 interface DatasetLifecycleApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: DatasetLifecyclePort;
   readonly assertTrustedSender: (frameUrl: string) => void;
   readonly operations: OperationRegistry;
 }
@@ -25,7 +25,7 @@ function requireDataset(
   datasetID: string,
 ): DatasetSummary {
   const dataset = datasets.find(({ id }) => id === datasetID);
-  if (!dataset) throw new Error("数据联系人不存在或已被删除");
+  if (!dataset) throw new Error("数据对象不存在或已被删除");
   return dataset;
 }
 
@@ -60,7 +60,7 @@ export function registerDatasetLifecycleApi({
       type: "warning",
       title: "永久删除本地数据",
       message: `确定永久删除“${dataset.displayName}”吗？`,
-      detail: "这会删除所有本地版本、预览、校验规则、关系和对话；成员不足的数据群组也会被删除。此操作无法撤销。",
+      detail: "这会删除所有本地版本、预览、校验规则、关系和对话；成员不足的业务主题也会被删除。此操作无法撤销。",
       buttons: ["取消", "永久删除"],
       defaultId: 0,
       cancelId: 0,

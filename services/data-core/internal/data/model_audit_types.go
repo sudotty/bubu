@@ -18,6 +18,8 @@ type ModelAuditStartInput struct {
 	ColumnCount          int              `json:"columnCount"`
 	SyntheticRowCount    int              `json:"syntheticRowCount"`
 	AggregateRowCount    int              `json:"aggregateRowCount"`
+	RawRowCount          int              `json:"rawRowCount"`
+	RetrievedChunkCount  int              `json:"retrievedChunkCount"`
 	RelationshipCount    int              `json:"relationshipCount"`
 	PayloadBytes         int              `json:"payloadBytes"`
 	EstimatedInputTokens int              `json:"estimatedInputTokens"`

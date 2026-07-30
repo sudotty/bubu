@@ -8,6 +8,14 @@ export function dataCoreBinaryPath(targetPlatform = process.platform) {
   return resolve("services", "data-core", "bin", dataCoreBinaryName(targetPlatform));
 }
 
+export function mcpDemoBinaryName(targetPlatform = process.platform) {
+  return targetPlatform === "win32" ? "bubu-mcp-demo.exe" : "bubu-mcp-demo";
+}
+
+export function mcpDemoBinaryPath(targetPlatform = process.platform) {
+  return resolve("services", "data-core", "bin", mcpDemoBinaryName(targetPlatform));
+}
+
 export function goTarget(targetPlatform = process.platform, targetArch = process.arch) {
   const goos = targetPlatform === "win32" ? "windows" : targetPlatform === "darwin" ? "darwin" : targetPlatform === "linux" ? "linux" : undefined;
   const goarch = targetArch === "x64" ? "amd64" : targetArch === "arm64" ? "arm64" : undefined;

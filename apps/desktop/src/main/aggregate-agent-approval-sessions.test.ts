@@ -22,6 +22,10 @@ const destination = {
   model: "approved-model",
   endpointOrigin: "https://api.example.com",
 };
+const outputTemplate = {
+  schemaVersion: 1 as const, id: "builtin:explain-evidence", origin: "builtin" as const,
+  scope: "aggregate-explanation" as const, name: "证据优先", description: "引用已批准证据", instruction: "先结论后证据。",
+};
 
 describe("aggregate agent approval sessions", () => {
   it("binds and consumes the exact disclosure, destination, and immutable budget once", () => {
@@ -48,7 +52,7 @@ describe("aggregate agent approval sessions", () => {
       newToken: () => "e".repeat(64),
     });
     const proposal = store.issue(disclosure, destination, "a".repeat(32));
-    const explanationProposal = explanationStore.issue(disclosure, destination, "a".repeat(32));
+    const explanationProposal = explanationStore.issue(disclosure, destination, "a".repeat(32), outputTemplate);
     expect(() => explanationStore.consume(proposal.approvalToken)).toThrow("expired or has already been used");
     expect(() => store.consume(explanationProposal.approvalToken)).toThrow("expired or has already been used");
     store.revoke(proposal.approvalToken);

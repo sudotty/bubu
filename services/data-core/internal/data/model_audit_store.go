@@ -28,8 +28,15 @@ func (service *Service) StartModelAudit(
 		return ModelAuditEvent{}, fmt.Errorf("model disclosure ledger reached its %d-event limit", maximumModelAuditEvents)
 	}
 	if input.Target.Kind != "system" {
-		if err := validateConversationTargetExists(ctx, transaction, ConversationTarget(input.Target)); err != nil {
-			return ModelAuditEvent{}, fmt.Errorf("validate model audit target: %w", err)
+		if input.Target.Kind == "knowledge-source" {
+			var exists int
+			if err := transaction.QueryRowContext(ctx, "SELECT COUNT(*) FROM knowledge_sources WHERE id = ? AND current_version_id IS NOT NULL", input.Target.ID).Scan(&exists); err != nil || exists != 1 {
+				return ModelAuditEvent{}, errors.New("model audit knowledge source does not exist")
+			}
+		} else if input.Target.Kind != "mcp-connection" {
+			if err := validateConversationTargetExists(ctx, transaction, ConversationTarget(input.Target)); err != nil {
+				return ModelAuditEvent{}, fmt.Errorf("validate model audit target: %w", err)
+			}
 		}
 	}
 	id, err := newID()
@@ -41,14 +48,14 @@ func (service *Service) StartModelAudit(
 INSERT INTO model_disclosure_events(
   id, purpose, target_kind, target_id, disclosure, provider_id, provider_kind,
   provider_name, model, endpoint_origin, dataset_count, column_count,
-  synthetic_row_count, aggregate_row_count, relationship_count, payload_bytes, estimated_input_tokens,
+  synthetic_row_count, aggregate_row_count, raw_row_count, retrieved_chunk_count, relationship_count, payload_bytes, estimated_input_tokens,
   max_output_tokens, payload_sha256, contains_raw_rows, started_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, input.Purpose, input.Target.Kind, input.Target.ID, input.Disclosure,
 		input.ProviderID, input.ProviderKind, input.ProviderName, input.Model, input.EndpointOrigin,
-		input.DatasetCount, input.ColumnCount, input.SyntheticRowCount, input.AggregateRowCount, input.RelationshipCount,
+		input.DatasetCount, input.ColumnCount, input.SyntheticRowCount, input.AggregateRowCount, input.RawRowCount, input.RetrievedChunkCount, input.RelationshipCount,
 		input.PayloadBytes, input.EstimatedInputTokens, input.MaximumOutputTokens,
-		input.PayloadSHA256, startedAt,
+		input.PayloadSHA256, input.ContainsRawRows, startedAt,
 	); err != nil {
 		return ModelAuditEvent{}, fmt.Errorf("store model audit: %w", err)
 	}
@@ -115,17 +122,25 @@ func modelAuditSelect(schemaVersion int) string {
 	if schemaVersion < 10 {
 		aggregateRows = "0"
 	}
+	rawRows := "events.raw_row_count"
+	if schemaVersion < 25 {
+		rawRows = "0"
+	}
+	retrievedChunks := "events.retrieved_chunk_count"
+	if schemaVersion < 28 {
+		retrievedChunks = "0"
+	}
 	return fmt.Sprintf(`SELECT
   events.id, events.purpose, events.target_kind, events.target_id, events.disclosure,
   events.provider_id, events.provider_kind, events.provider_name, events.model,
   events.endpoint_origin, events.dataset_count, events.column_count,
-  events.synthetic_row_count, %s, events.relationship_count, events.payload_bytes,
+  events.synthetic_row_count, %s, %s, %s, events.relationship_count, events.payload_bytes,
   events.estimated_input_tokens, events.max_output_tokens, events.payload_sha256,
   events.contains_raw_rows, COALESCE(outcomes.status, 'started'), outcomes.input_tokens,
   outcomes.output_tokens, outcomes.total_tokens, outcomes.output_bytes, outcomes.error,
   events.started_at, outcomes.finished_at
 FROM model_disclosure_events events
-LEFT JOIN model_disclosure_outcomes outcomes ON outcomes.disclosure_id = events.id`, aggregateRows)
+LEFT JOIN model_disclosure_outcomes outcomes ON outcomes.disclosure_id = events.id`, aggregateRows, rawRows, retrievedChunks)
 }
 
 func scanModelAudit(scanner workflowScanner) (ModelAuditEvent, error) {
@@ -136,7 +151,7 @@ func scanModelAudit(scanner workflowScanner) (ModelAuditEvent, error) {
 		&event.ID, &event.Purpose, &event.Target.Kind, &event.Target.ID, &event.Disclosure,
 		&event.ProviderID, &event.ProviderKind, &event.ProviderName, &event.Model,
 		&event.EndpointOrigin, &event.DatasetCount, &event.ColumnCount, &event.SyntheticRowCount,
-		&event.AggregateRowCount, &event.RelationshipCount, &event.PayloadBytes, &event.EstimatedInputTokens,
+		&event.AggregateRowCount, &event.RawRowCount, &event.RetrievedChunkCount, &event.RelationshipCount, &event.PayloadBytes, &event.EstimatedInputTokens,
 		&event.MaximumOutputTokens, &event.PayloadSHA256, &event.ContainsRawRows, &event.Status,
 		&inputTokens, &outputTokens, &totalTokens, &outputBytes, &errorText, &event.StartedAt, &finishedAt,
 	); errors.Is(err, sql.ErrNoRows) {

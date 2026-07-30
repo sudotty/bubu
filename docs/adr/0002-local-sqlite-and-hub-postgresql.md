@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded in part by [ADR-0006](0006-bounded-single-writer-hub-before-postgresql.md). The local SQLite decision remains accepted. The bounded Hub now supports an optional serializable PostgreSQL JSONB adapter; normalized relational PostgreSQL remains the required later scale-up destination.
 
 ## Context
 

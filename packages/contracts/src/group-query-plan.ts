@@ -3,6 +3,7 @@ import { datasetGroupIdSchema } from "./dataset-group.js";
 import { columnTypeSchema, datasetIdSchema } from "./dataset.js";
 import { modelContextSchema } from "./privacy.js";
 import { relationshipHintSchema } from "./relationship.js";
+import { promptTemplateSchema } from "./prompt-template.js";
 
 const columnNameSchema = z.string().trim().min(1).max(500);
 const sourceIndexSchema = z.number().int().min(0).max(7);
@@ -118,7 +119,12 @@ export const groupQueryRequestSchema = z.object({
   groupId: datasetGroupIdSchema,
   threadId: z.string().regex(/^[0-9a-f]{32}$/u).optional(),
   question: z.string().trim().min(1).max(20_000),
-}).strict();
+  promptTemplate: promptTemplateSchema.optional(),
+}).strict().superRefine((value, context) => {
+  if (value.promptTemplate && value.promptTemplate.scope !== "group-query") {
+    context.addIssue({ code: "custom", path: ["promptTemplate", "scope"], message: "Business-topic queries require a group-query prompt template" });
+  }
+});
 
 export const groupQueryPlanExecutionRequestSchema = z.object({
   plan: safeGroupQueryPlanSchema,
@@ -128,12 +134,16 @@ export const groupQueryPlanExecutionRequestSchema = z.object({
 export const groupQueryPlanProposalSchema = z
   .object({
     question: z.string().trim().min(1).max(20_000),
+    promptTemplate: promptTemplateSchema.optional(),
     disclosedContexts: z.array(modelContextSchema).min(2).max(8),
     disclosedRelationships: z.array(relationshipHintSchema).max(56).default([]),
     plan: safeGroupQueryPlanSchema,
   })
   .strict()
   .superRefine((proposal, context) => {
+    if (proposal.promptTemplate && proposal.promptTemplate.scope !== "group-query") {
+      context.addIssue({ code: "custom", path: ["promptTemplate", "scope"], message: "Business-topic proposals require a group-query prompt template" });
+    }
     const sourcesMatch = proposal.plan.sources.length === proposal.disclosedContexts.length &&
       proposal.plan.sources.every((source, index) => {
         const disclosed = proposal.disclosedContexts[index];

@@ -12,14 +12,16 @@ import {
 } from "@bubu/contracts";
 
 export interface ModelAuditScope {
-  readonly purpose: "provider-connection-test" | "query-plan" | "group-query-plan" | "aggregate-explanation" | "aggregate-agent";
+  readonly purpose: "provider-connection-test" | "query-plan" | "group-query-plan" | "aggregate-explanation" | "aggregate-agent" | "explicit-row-explanation" | "knowledge-answer" | "mcp-prompt-response" | "mcp-tool-proposal";
   readonly target: ModelAuditTarget;
   readonly contexts: readonly ModelContext[];
   readonly relationshipCount: number;
-  readonly disclosure?: "aggregates";
+  readonly disclosure?: "aggregates" | "explicit-rows" | "retrieved-chunks" | "mcp-prompt-content" | "mcp-tool-schemas";
   readonly datasetCount?: number;
   readonly columnCount?: number;
   readonly aggregateRowCount?: number;
+  readonly rawRowCount?: number;
+  readonly retrievedChunkCount?: number;
 }
 
 export interface AuditedModelRuntime {
@@ -51,12 +53,14 @@ export function buildModelAuditStart(
     columnCount: scope.columnCount ?? scope.contexts.reduce((total, context) => total + context.columns.length, 0),
     syntheticRowCount: scope.contexts.reduce((total, context) => total + context.syntheticRows.length, 0),
     aggregateRowCount: scope.aggregateRowCount ?? 0,
+    rawRowCount: scope.rawRowCount ?? 0,
+    retrievedChunkCount: scope.retrievedChunkCount ?? 0,
     relationshipCount: scope.relationshipCount,
     payloadBytes,
     estimatedInputTokens: Math.max(1, Math.ceil(payloadBytes / 3)),
     maxOutputTokens: invocation.maxOutputTokens,
     payloadSha256: createHash("sha256").update(payload).digest("hex"),
-    containsRawRows: false,
+    containsRawRows: disclosure === "explicit-rows",
   });
 }
 

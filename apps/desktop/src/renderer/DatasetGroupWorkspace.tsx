@@ -1,27 +1,33 @@
-import { CalendarClock, Settings2 } from "lucide-react";
+import { CalendarClock, Scale, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { DatasetGroup, DatasetSummary } from "../shared/product-api.js";
 import { DatasetGroupAnalysis } from "./DatasetGroupAnalysis.js";
 import { DatasetRelationshipPanel } from "./DatasetRelationshipPanel.js";
 import { ConversationWorkbench } from "./ConversationWorkbench.js";
 import { ArtifactInspector } from "./ArtifactInspector.js";
+import { ReconciliationDialog } from "./ReconciliationDialog.js";
+import { shouldOpenReconciliation } from "./reconciliation-open-request.js";
 
 function messageFrom(error: unknown): string {
-  return error instanceof Error ? error.message : "数据群组操作失败";
+  return error instanceof Error ? error.message : "业务主题操作失败";
 }
 
 export function DatasetGroupWorkspace({
   group,
   datasets,
   editRequest,
+  reconciliationOpenRequest,
   onSaved,
   onDeleted,
+  onDatasetMaterialized,
 }: {
   readonly group: DatasetGroup | undefined;
   readonly datasets: readonly DatasetSummary[];
   readonly editRequest: number;
+  readonly reconciliationOpenRequest: number;
   readonly onSaved: (group: DatasetGroup) => void;
   readonly onDeleted: (groups: readonly DatasetGroup[]) => void;
+  readonly onDatasetMaterialized: (dataset: DatasetSummary) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -29,7 +35,9 @@ export function DatasetGroupWorkspace({
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string>();
+  const [reconciliationOpen, setReconciliationOpen] = useState(false);
   const editorRef = useRef<HTMLDetailsElement>(null);
+  const handledReconciliationOpenRequest = useRef(0);
 
   useEffect(() => {
     setName(group?.name ?? "");
@@ -44,6 +52,12 @@ export function DatasetGroupWorkspace({
     if (editorRef.current) editorRef.current.open = true;
     requestAnimationFrame(() => editorRef.current?.querySelector<HTMLInputElement>("input")?.focus());
   }, [editRequest]);
+
+  useEffect(() => {
+    if (!shouldOpenReconciliation(reconciliationOpenRequest, handledReconciliationOpenRequest.current, group !== undefined)) return;
+    handledReconciliationOpenRequest.current = reconciliationOpenRequest;
+    setReconciliationOpen(true);
+  }, [group, reconciliationOpenRequest]);
 
   function toggleDataset(datasetId: string): void {
     setSelectedIds((current) =>
@@ -67,7 +81,7 @@ export function DatasetGroupWorkspace({
         datasetIds: [...selectedIds],
       });
       onSaved(saved);
-      setNotice("数据群组已保存在本地。 ");
+      setNotice("业务主题已保存在本地。 ");
     } catch (error) {
       setNotice(messageFrom(error));
     } finally {
@@ -76,7 +90,7 @@ export function DatasetGroupWorkspace({
   }
 
   async function remove(): Promise<void> {
-    if (!group || !window.confirm(`删除数据群组「${group.name}」？原始数据联系人不会被删除。`)) return;
+    if (!group || !window.confirm(`删除业务主题「${group.name}」？原始数据对象不会被删除。`)) return;
     setBusy(true);
     try {
       onDeleted(await window.bubu.datasetGroups.remove(group.id));
@@ -94,10 +108,10 @@ export function DatasetGroupWorkspace({
           <span className="group-topic-icon"><CalendarClock size={16} /></span>
           <span><strong>{group?.description || "把业务相关的数据对象放进同一个对话上下文"}</strong><small>{group ? `${group.members.length} 个数据对象 · ${cadenceLabel(group.cadence)}` : "选择一次性或周期性业务主题"}</small></span>
         </div>
-        {group && <button type="button" className="secondary-action compact-action" onClick={() => { if (editorRef.current) editorRef.current.open = true; }}><Settings2 size={14} />主题设置</button>}
+        {group && <div className="group-topic-actions"><button type="button" className="primary-action compact-action" onClick={() => setReconciliationOpen(true)}><Scale size={14} />Reconcile</button><button type="button" className="secondary-action compact-action" onClick={() => { if (editorRef.current) editorRef.current.open = true; }}><Settings2 size={14} />主题设置</button></div>}
       </header>
       {notice && <div className="notice" role="status">{notice}</div>}
-      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="群组对话" subtitle="关联、查询结果和工作流都保存在各自任务中。" inspector={(threadId, view) => <ArtifactInspector initialView={view} workflowCadence={group.cadence} target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">群组检查器</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} />}>
+      {group && <ConversationWorkbench target={{ kind: "group", id: group.id }} title="主题对话" subtitle="关联、查询结果和工作流都保存在各自任务中。" inspector={(threadId, view, closePane) => <ArtifactInspector initialView={view} workflowCadence={group.cadence} target={{ kind: "group", id: group.id }} threadId={threadId} fallback={<><header className="preview-header"><div><p className="hero-kicker">主题检查器</p><h3>关联与成员</h3></div><span>本地结构</span></header><DatasetRelationshipPanel group={group} /></>} onReturnToConversation={closePane} onDatasetMaterialized={onDatasetMaterialized} />}>
         {(threadId, createThread, openArtifact) => <DatasetGroupAnalysis group={group} threadId={threadId} onCreateThread={createThread} onOpenArtifact={openArtifact} />}
       </ConversationWorkbench>}
       <details ref={editorRef} className="group-editor" open={group === undefined}>
@@ -119,7 +133,7 @@ export function DatasetGroupWorkspace({
         </fieldset>
         <fieldset>
           <legend>选择数据对象（{selectedIds.length}/8）</legend>
-          {datasets.length === 0 && <p className="empty-copy">请先导入至少两个 CSV 或 Excel 数据联系人。</p>}
+          {datasets.length === 0 && <p className="empty-copy">请先导入至少两个 CSV 或 Excel 数据对象。</p>}
           <div className="group-member-picker">
             {datasets.map((dataset) => {
               const checked = selectedIds.includes(dataset.id);
@@ -135,12 +149,13 @@ export function DatasetGroupWorkspace({
         </fieldset>
         <div className="group-actions">
           <button type="button" className="primary-action" onClick={() => void save()} disabled={busy || name.trim().length === 0 || selectedIds.length < 2}>
-            {busy ? "正在保存…" : group ? "保存群组" : "创建群组"}
+            {busy ? "正在保存…" : group ? "保存主题" : "创建主题"}
           </button>
-          {group && <button type="button" className="secondary-action" onClick={() => void remove()} disabled={busy}>删除群组</button>}
+          {group && <button type="button" className="secondary-action" onClick={() => void remove()} disabled={busy}>删除主题</button>}
         </div>
         </div>
       </details>
+      {group && reconciliationOpen && <ReconciliationDialog group={group} onClose={() => setReconciliationOpen(false)} />}
     </section>
   );
 }

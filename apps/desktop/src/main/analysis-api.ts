@@ -23,7 +23,7 @@ import {
 } from "./analysis-orchestrator.js";
 import type { OperationRegistry } from "./operation-registry.js";
 import type { ProviderStore } from "./provider-store.js";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { AnalysisPort } from "./sidecar-ports.js";
 import { containsProposedPlan } from "./conversation-plan.js";
 import { findReviewedAggregateSource } from "./conversation-plan.js";
 import { generateAuditedModel } from "./model-audit.js";
@@ -35,13 +35,16 @@ import {
 import type { AggregateApprovalSessionStore } from "./aggregate-approval-sessions.js";
 import type { AggregateAgentApprovalSessionStore } from "./aggregate-agent-approval-sessions.js";
 import { runBoundedAggregateAgent } from "./aggregate-agent-runner.js";
+import { resolvePromptTemplate } from "@bubu/product-core";
+import type { PrivacyPolicyStore } from "./privacy-policy-store.js";
 
 interface AnalysisApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: AnalysisPort;
   readonly providerStore: ProviderStore;
   readonly operations: OperationRegistry;
   readonly aggregateApprovals: AggregateApprovalSessionStore;
   readonly aggregateAgentApprovals: AggregateAgentApprovalSessionStore;
+  readonly privacyPolicy: PrivacyPolicyStore;
   readonly assertTrustedSender: (frameUrl: string) => void;
 }
 
@@ -54,6 +57,7 @@ export function registerAnalysisApi({
   operations,
   aggregateApprovals,
   aggregateAgentApprovals,
+  privacyPolicy,
   assertTrustedSender,
 }: AnalysisApiDependencies): void {
   const persistError = async (
@@ -70,7 +74,8 @@ export function registerAnalysisApi({
 
   ipcMain.handle(desktopChannels.prepareAggregateExplanation, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
-    const { plan, threadId } = parseAggregateExplanationPreparation(value);
+    const { plan, threadId, promptTemplate } = parseAggregateExplanationPreparation(value);
+    if (promptTemplate) privacyPolicy.assertModelTextAllowed(promptTemplate.instruction);
     const target = "datasetId" in plan
       ? { kind: "dataset" as const, id: plan.datasetId }
       : { kind: "group" as const, id: plan.groupId };
@@ -78,13 +83,14 @@ export function registerAnalysisApi({
     const source = sourceThread?.target.kind === target.kind && sourceThread.target.id === target.id
       ? findReviewedAggregateSource(sourceThread, plan) : undefined;
     if (!source) throw new Error("只能解释已经审查、执行并保存的查询结果");
+    privacyPolicy.assertModelTextAllowed(source.question);
     const disclosure = "datasetId" in plan
       ? (() => {
           if (!("datasetId" in source.result)) throw new Error("查询计划与结果类型不匹配");
           return deriveAggregateDisclosure(source.question, plan, source.result);
         })()
       : (() => {
-          if (!("groupId" in source.result)) throw new Error("群组计划与结果类型不匹配");
+          if (!("groupId" in source.result)) throw new Error("主题计划与结果类型不匹配");
           return deriveGroupAggregateDisclosure(source.question, plan, source.result);
         })();
     const activeProviderId = providerStore.state().activeProviderId;
@@ -96,7 +102,7 @@ export function registerAnalysisApi({
       providerName: resolved.profile.name,
       model: resolved.profile.model,
       endpointOrigin: new URL(resolved.profile.baseUrl).origin,
-    }, threadId);
+    }, threadId, resolvePromptTemplate("aggregate-explanation", promptTemplate));
   });
 
   ipcMain.handle(desktopChannels.approveAggregateExplanation, async (event, value: unknown) => {
@@ -119,7 +125,7 @@ export function registerAnalysisApi({
       try {
         const completion = await generateAuditedModel(
           sidecars,
-          buildAggregateExplanationInvocation(resolved, approved.disclosure),
+          buildAggregateExplanationInvocation(resolved, approved.disclosure, approved.promptTemplate),
           {
             purpose: "aggregate-explanation",
             target: approved.disclosure.target,
@@ -154,6 +160,7 @@ export function registerAnalysisApi({
   ipcMain.handle(desktopChannels.prepareAggregateAgent, async (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     const { plan, goal, threadId } = parseAggregateAgentPreparation(value);
+    privacyPolicy.assertModelTextAllowed(goal);
     const target = "datasetId" in plan
       ? { kind: "dataset" as const, id: plan.datasetId }
       : { kind: "group" as const, id: plan.groupId };
@@ -167,7 +174,7 @@ export function registerAnalysisApi({
           return deriveAggregateDisclosure(goal, plan, source.result);
         })()
       : (() => {
-          if (!("groupId" in source.result)) throw new Error("群组计划与结果类型不匹配");
+          if (!("groupId" in source.result)) throw new Error("主题计划与结果类型不匹配");
           return deriveGroupAggregateDisclosure(goal, plan, source.result);
         })();
     const activeProviderId = providerStore.state().activeProviderId;
@@ -246,6 +253,7 @@ export function registerAnalysisApi({
     assertTrustedSender(event.senderFrame?.url ?? "");
     const envelope = parseOperationEnvelope(value);
     const request = parseQueryPlanRequest(envelope.value);
+    privacyPolicy.assertModelTextAllowed(request.question, request.promptTemplate?.instruction ?? "");
     const target = { kind: "dataset", id: request.datasetId } as const;
     return operations.run(envelope.operationId, async (signal) => {
       await sidecars.appendConversation({
@@ -256,17 +264,15 @@ export function registerAnalysisApi({
       try {
         const activeProviderId = providerStore.state().activeProviderId;
         if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
-        const [context, resolved] = await Promise.all([
-          sidecars.modelContext(request.datasetId, "schema-synthetic", signal),
-          Promise.resolve(providerStore.resolve(activeProviderId)),
-        ]);
+        const resolved = providerStore.resolve(activeProviderId);
+        const context = await sidecars.modelContext(request.datasetId, privacyPolicy.disclosureFor(resolved.profile.baseUrl), signal);
         const completion = await generateAuditedModel(
           sidecars,
-          buildQueryPlanInvocation(resolved, context, request.question),
+          buildQueryPlanInvocation(resolved, context, request.question, request.promptTemplate),
           { purpose: "query-plan", target, contexts: [context], relationshipCount: 0 },
           signal,
         );
-        const proposal = createQueryPlanProposal(request.question, context, completion);
+        const proposal = createQueryPlanProposal(request.question, context, completion, request.promptTemplate);
         await sidecars.appendConversation({
           target,
           threadId: request.threadId,
@@ -310,6 +316,7 @@ export function registerAnalysisApi({
     assertTrustedSender(event.senderFrame?.url ?? "");
     const envelope = parseOperationEnvelope(value);
     const request = parseGroupQueryRequest(envelope.value);
+    privacyPolicy.assertModelTextAllowed(request.question, request.promptTemplate?.instruction ?? "");
     const target = { kind: "group", id: request.groupId } as const;
     return operations.run(envelope.operationId, async (signal) => {
       await sidecars.appendConversation({
@@ -320,12 +327,13 @@ export function registerAnalysisApi({
       try {
         const groups = await sidecars.listGroups();
         const group = groups.find(({ id }) => id === request.groupId);
-        if (!group) throw new Error("数据群组不存在");
+        if (!group) throw new Error("业务主题不存在");
         const activeProviderId = providerStore.state().activeProviderId;
         if (activeProviderId === null) throw new Error("请先在模型设置中配置并选择一个模型");
+        const resolved = providerStore.resolve(activeProviderId);
         const [contexts, relationshipOverview] = await Promise.all([
           Promise.all(group.members.map(({ id }) =>
-            sidecars.modelContext(id, "schema-synthetic", signal))),
+            sidecars.modelContext(id, privacyPolicy.disclosureFor(resolved.profile.baseUrl), signal))),
           sidecars.getGroupRelationships(group.id),
         ]);
         const relationshipHints = relationshipHintsForGroup(
@@ -335,11 +343,12 @@ export function registerAnalysisApi({
         const completion = await generateAuditedModel(
           sidecars,
           buildGroupQueryPlanInvocation(
-            providerStore.resolve(activeProviderId),
+            resolved,
             group.id,
             contexts,
             relationshipHints,
             request.question,
+            request.promptTemplate,
           ),
           {
             purpose: "group-query-plan", target, contexts,
@@ -352,6 +361,7 @@ export function registerAnalysisApi({
           contexts,
           relationshipHints,
           completion,
+          request.promptTemplate,
         );
 		await sidecars.appendConversation({
 			target,
@@ -375,7 +385,7 @@ export function registerAnalysisApi({
     return operations.run(envelope.operationId, async (signal) => {
       const thread = await sidecars.getConversationByID(threadId);
       if (!thread || thread.target.kind !== target.kind || thread.target.id !== target.id || !containsProposedPlan(thread, plan)) {
-        throw new Error("只能执行已经生成并审查的群组计划");
+        throw new Error("只能执行已经生成并审查的主题计划");
       }
       try {
         const result = await sidecars.executeGroupQueryPlan(plan, signal);

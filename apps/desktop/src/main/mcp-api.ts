@@ -1,12 +1,13 @@
 import { realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { ipcMain } from "electron";
+import { dialog, ipcMain } from "electron";
 import {
   mcpInspectionBudget,
   parseMcpConnectionConfigurationInput,
   parseMcpConnectionId,
   parseMcpInspectionApproval,
   parseMcpInspectionInvocation,
+  parseMcpExecutableSelection,
   parseOperationEnvelope,
   type McpInspectionInvocation,
 } from "@bubu/contracts";
@@ -15,10 +16,10 @@ import type { McpConnectionStore, ResolvedMcpConnection } from "./mcp-connection
 import type { McpInspectionApprovalSessionStore } from "./mcp-inspection-approval-sessions.js";
 import type { OperationRegistry } from "./operation-registry.js";
 import { preparePrivateDirectory } from "./secure-files.js";
-import type { SidecarSupervisor } from "./sidecars.js";
+import type { LocalMcpInspectionPort } from "./sidecar-ports.js";
 
 interface McpApiDependencies {
-  readonly sidecars: SidecarSupervisor;
+  readonly sidecars: LocalMcpInspectionPort;
   readonly connections: McpConnectionStore;
   readonly approvals: McpInspectionApprovalSessionStore;
   readonly operations: OperationRegistry;
@@ -60,6 +61,16 @@ export function registerMcpApi({
   ipcMain.handle(desktopChannels.listMcpConnections, (event) => {
     assertTrustedSender(event.senderFrame?.url ?? "");
     return connections.state();
+  });
+  ipcMain.handle(desktopChannels.selectMcpExecutable, async (event) => {
+    assertTrustedSender(event.senderFrame?.url ?? "");
+    const selection = await dialog.showOpenDialog({
+      title: "选择已安装的 MCP 可执行文件",
+      buttonLabel: "选择可执行文件",
+      properties: ["openFile"],
+    });
+    const path = selection.filePaths[0];
+    return parseMcpExecutableSelection(selection.canceled || !path ? { status: "cancelled" } : { status: "selected", path });
   });
   ipcMain.handle(desktopChannels.saveMcpConnection, (event, value: unknown) => {
     assertTrustedSender(event.senderFrame?.url ?? "");

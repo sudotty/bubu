@@ -14,7 +14,7 @@ const dataset = (id: string, name: string) => ({
 });
 
 describe("dataset group boundary", () => {
-  it("requires two through eight unique data contacts", () => {
+  it("requires two through eight unique data objects", () => {
     const datasetIds = ["a".repeat(32), "b".repeat(32)];
     expect(parseDatasetGroupSaveInput({ name: "销售群", datasetIds })).toEqual({
       name: "销售群",

@@ -1,5 +1,5 @@
 import { Clock3, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DatasetSummary, DatasetVersionSummary } from "../shared/product-api.js";
 
 export function DatasetVersions({ dataset, openRequest = 0 }: { readonly dataset: DatasetSummary; readonly openRequest?: number }) {
@@ -7,6 +7,7 @@ export function DatasetVersions({ dataset, openRequest = 0 }: { readonly dataset
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const menuRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     setVersions([]);
@@ -19,6 +20,25 @@ export function DatasetVersions({ dataset, openRequest = 0 }: { readonly dataset
     setOpen(true);
     if (versions.length === 0 && !loading) void load();
   }, [openRequest]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      requestAnimationFrame(() => menuRef.current?.querySelector<HTMLElement>("summary")?.focus());
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   async function load(): Promise<void> {
     setLoading(true);
@@ -33,7 +53,7 @@ export function DatasetVersions({ dataset, openRequest = 0 }: { readonly dataset
   }
 
   return (
-    <details className="versions-menu" open={open} onToggle={(event) => {
+    <details ref={menuRef} className="versions-menu" open={open} onToggle={(event) => {
       const nextOpen = event.currentTarget.open;
       setOpen(nextOpen);
       if (nextOpen && versions.length === 0 && !loading) void load();

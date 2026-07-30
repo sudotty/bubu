@@ -213,8 +213,9 @@ jobs:
       - name: Verify Azure release environment
         env:
           BUBU_WINDOWS_SIGN_BACKEND: azure-action
-          AZURE_CLIENT_ID: ${{ vars.BUBU_AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.BUBU_AZURE_TENANT_ID }}
+          BUBU_AZURE_CLIENT_ID: ${{ vars.BUBU_AZURE_CLIENT_ID }}
+          BUBU_AZURE_TENANT_ID: ${{ vars.BUBU_AZURE_TENANT_ID }}
+          BUBU_AZURE_SUBSCRIPTION_ID: ${{ vars.BUBU_AZURE_SUBSCRIPTION_ID }}
           BUBU_AZURE_SIGNING_ENDPOINT: ${{ vars.BUBU_AZURE_SIGNING_ENDPOINT }}
           BUBU_AZURE_SIGNING_ACCOUNT: ${{ vars.BUBU_AZURE_SIGNING_ACCOUNT }}
           BUBU_AZURE_SIGNING_PROFILE: ${{ vars.BUBU_AZURE_SIGNING_PROFILE }}

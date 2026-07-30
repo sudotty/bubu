@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseQueryPlanProposal,
+  parseQueryPlanRequest,
   parseSafeQueryPlan,
   parseSafeQueryPlanText,
   parseSafeQueryResult,
@@ -72,5 +73,11 @@ describe("safe query plan boundary", () => {
         truncated: false,
       }),
     ).toThrow("row width");
+  });
+
+  it("accepts only a dataset-scoped prompt template on a request", () => {
+    const promptTemplate = { schemaVersion: 1, id: "builtin:dataset-balanced", origin: "builtin", scope: "dataset-query", name: "稳健分析", description: "平衡输出", instruction: "优先直接回答问题。" } as const;
+    expect(parseQueryPlanRequest({ datasetId, question: "统计", promptTemplate })).toMatchObject({ promptTemplate });
+    expect(() => parseQueryPlanRequest({ datasetId, question: "统计", promptTemplate: { ...promptTemplate, id: "builtin:group-lookup", scope: "group-query" } })).toThrow("dataset-query");
   });
 });

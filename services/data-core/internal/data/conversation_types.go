@@ -34,6 +34,27 @@ type ConversationArchiveInput struct {
 	Archived bool   `json:"archived"`
 }
 
+type ConversationDeleteInput struct {
+	ThreadID          string `json:"threadId"`
+	ExpectedTitle     string `json:"expectedTitle"`
+	ExpectedUpdatedAt string `json:"expectedUpdatedAt"`
+}
+
+type ConversationDeletionResult struct {
+	SchemaVersion     int    `json:"schemaVersion"`
+	ThreadID          string `json:"threadId"`
+	DeletedEntryCount int    `json:"deletedEntryCount"`
+	Reason            string `json:"reason"`
+	DeletedAt         string `json:"deletedAt"`
+}
+
+type ConversationRetentionResult struct {
+	SchemaVersion      int    `json:"schemaVersion"`
+	DeletedThreadCount int    `json:"deletedThreadCount"`
+	DeletedEntryCount  int    `json:"deletedEntryCount"`
+	AppliedAt          string `json:"appliedAt"`
+}
+
 type ConversationEntry struct {
 	ID        string          `json:"id"`
 	ThreadID  string          `json:"threadId"`
@@ -51,6 +72,13 @@ type ConversationThread struct {
 	Entries   []ConversationEntry `json:"entries"`
 	CreatedAt string              `json:"createdAt"`
 	UpdatedAt string              `json:"updatedAt"`
+}
+
+type ConversationEntryPage struct {
+	ThreadID          string              `json:"threadId"`
+	Entries           []ConversationEntry `json:"entries"`
+	NextBeforeOrdinal *int                `json:"nextBeforeOrdinal"`
+	TotalEntries      int                 `json:"totalEntries"`
 }
 
 type ConversationThreadSummary struct {

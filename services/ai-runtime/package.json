@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@bubu/contracts": "0.1.0",
+    "@bubu/product-core": "0.1.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "undici": "7.28.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

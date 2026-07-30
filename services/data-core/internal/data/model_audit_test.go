@@ -77,6 +77,66 @@ func TestModelAuditFailsClosedAndRecoversInterruptedRequests(t *testing.T) {
 	}
 }
 
+func TestModelAuditAcceptsRawRowsOnlyForExplicitOneDatasetDisclosure(t *testing.T) {
+	service, dataset := importQueryFixture(t)
+	input := datasetModelAuditInput(dataset)
+	input.Purpose = "explicit-row-explanation"
+	input.Disclosure = "explicit-rows"
+	input.SyntheticRowCount = 0
+	input.RawRowCount = 2
+	input.ContainsRawRows = true
+	event, err := service.StartModelAudit(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.RawRowCount != 2 || !event.ContainsRawRows || event.Disclosure != "explicit-rows" {
+		t.Fatalf("explicit row audit scope was not persisted: %#v", event)
+	}
+	invalid := input
+	invalid.Purpose = "query-plan"
+	if _, err := service.StartModelAudit(context.Background(), invalid); err == nil {
+		t.Fatal("query planning reused explicit raw-row authority")
+	}
+}
+
+func TestModelAuditAcceptsOnlyBoundedCurrentKnowledgeChunks(t *testing.T) {
+	root := t.TempDir()
+	service := openTestService(t, filepath.Join(root, "data"))
+	path := filepath.Join(root, "policy.md")
+	if err := os.WriteFile(path, []byte("Refunds require a receipt."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	source, err := service.ImportKnowledgeSource(context.Background(), KnowledgeSourceImportInput{SourcePath: path, DisplayName: "Policy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := ModelAuditStartInput{
+		Purpose: "knowledge-answer", Target: ModelAuditTarget{Kind: "knowledge-source", ID: source.ID}, Disclosure: "retrieved-chunks",
+		ProviderID: strings.Repeat("a", 32), ProviderKind: "openai", ProviderName: "Audited provider", Model: "model-example", EndpointOrigin: "https://api.example.com",
+		RetrievedChunkCount: 1, PayloadBytes: 512, EstimatedInputTokens: 171, MaximumOutputTokens: 2_048, PayloadSHA256: strings.Repeat("b", 64),
+	}
+	event, err := service.StartModelAudit(context.Background(), input)
+	if err != nil || event.RetrievedChunkCount != 1 {
+		t.Fatalf("knowledge audit was rejected: %#v, %v", event, err)
+	}
+	invalid := input
+	invalid.Purpose = "query-plan"
+	if _, err := service.StartModelAudit(context.Background(), invalid); err == nil {
+		t.Fatal("query planning reused retrieved knowledge chunk authority")
+	}
+}
+
+func TestModelAuditSeparatesMCPPromptAndToolProposalScopes(t *testing.T) {
+	service := openTestService(t, filepath.Join(t.TempDir(), "data"))
+	for _, scope := range []struct{ purpose, disclosure string }{{"mcp-prompt-response", "mcp-prompt-content"}, {"mcp-tool-proposal", "mcp-tool-schemas"}} {
+		input := ModelAuditStartInput{Purpose: scope.purpose, Target: ModelAuditTarget{Kind: "mcp-connection", ID: strings.Repeat("c", 32)}, Disclosure: scope.disclosure, ProviderID: strings.Repeat("a", 32), ProviderKind: "openai", ProviderName: "Audited provider", Model: "model-example", EndpointOrigin: "https://api.example.com", PayloadBytes: 512, EstimatedInputTokens: 171, MaximumOutputTokens: 2_048, PayloadSHA256: strings.Repeat("b", 64)}
+		event, err := service.StartModelAudit(context.Background(), input)
+		if err != nil || event.Purpose != scope.purpose || event.Disclosure != scope.disclosure {
+			t.Fatalf("MCP model audit scope was rejected: %#v, %v", event, err)
+		}
+	}
+}
+
 func TestModelAuditAcceptsOnlyBoundedAggregateAnalysis(t *testing.T) {
 	service, dataset := importQueryFixture(t)
 	input := datasetModelAuditInput(dataset)

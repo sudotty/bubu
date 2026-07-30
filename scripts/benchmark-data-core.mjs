@@ -16,6 +16,7 @@ import {
 import { dataCoreBinaryPath } from "./platform-paths.mjs";
 
 const MiB = 1024 * 1024;
+const dataCoreDirectory = new URL("../services/data-core/", import.meta.url);
 const options = parseOptions(process.argv.slice(2));
 const workspace = await mkdtemp(resolve(tmpdir(), "bubu-performance-"));
 const sourcePath = resolve(workspace, "reference-100mb.csv");
@@ -298,13 +299,13 @@ function deviceSummary() {
     memoryGibibytes: round(totalmem() / 1024 ** 3),
     freeMemoryGibibytesAtReport: round(freemem() / 1024 ** 3),
     node: process.version,
-    go: commandVersion("go", ["version"]),
+    go: commandVersion("go", ["version"], dataCoreDirectory),
   };
 }
 
-function commandVersion(command, arguments_) {
+function commandVersion(command, arguments_, cwd) {
   try {
-    return execFileSync(command, arguments_, { encoding: "utf8" }).trim();
+    return execFileSync(command, arguments_, { cwd, encoding: "utf8" }).trim();
   } catch {
     return "unavailable";
   }

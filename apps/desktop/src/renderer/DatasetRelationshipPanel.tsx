@@ -27,7 +27,7 @@ function messageFrom(error: unknown): string {
 }
 
 function memberName(group: DatasetGroup, datasetId: string): string {
-  return group.members.find(({ id }) => id === datasetId)?.displayName ?? "未知数据联系人";
+  return group.members.find(({ id }) => id === datasetId)?.displayName ?? "未知数据对象";
 }
 
 function endpointLabel(group: DatasetGroup, endpoint: RelationshipEndpoint): string {
@@ -77,7 +77,7 @@ export function DatasetRelationshipPanel({ group }: { readonly group: DatasetGro
     try {
       await window.bubu.datasetRelationships.save(input);
       await load();
-      setNotice("关系已保存在本地，并会在后续群组计划中作为结构提示发送给模型");
+      setNotice("关系已保存在本地，并会在后续主题计划中作为结构提示发送给模型");
     } catch (error) {
       setNotice(messageFrom(error));
     } finally {
