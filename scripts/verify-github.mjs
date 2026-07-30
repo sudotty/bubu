@@ -14,6 +14,7 @@ const required = [
   ".github/workflows/codeql.yml",
   ".github/workflows/preview-release.yml",
   ".github/workflows/release.yml",
+  "scripts/verify-release-ref.mjs",
   "CONTRIBUTING.md",
   "SECURITY.md",
 ];
@@ -77,6 +78,13 @@ function sameObject(left, right) {
 const failures = required.filter((path) => !existsSync(resolve(path))).map((path) => `missing GitHub contract: ${path}`);
 if (existsSync(resolve(".github/dependabot.yml"))) failures.push(".github/dependabot.yml must remain absent while automatic dependency branches are disabled");
 const usedActions = new Set();
+
+if (existsSync(resolve("scripts/verify-release-ref.mjs"))) {
+  const releaseVerifier = readFileSync(resolve("scripts/verify-release-ref.mjs"), "utf8");
+  if (!releaseVerifier.includes('process.env.GITHUB_REF !== "refs/heads/main"')) {
+    failures.push("release verifier must reject workflow dispatches outside refs/heads/main");
+  }
+}
 
 for (const [workflowPath, policy] of Object.entries(workflowPolicy)) {
   if (!existsSync(resolve(workflowPath))) continue;

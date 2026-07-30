@@ -21,6 +21,9 @@ if (!tag || !new Set(["stable", "preview"]).has(channel)) {
 }
 const repository = process.env.GITHUB_REPOSITORY?.trim();
 if (!repository) throw new Error("GITHUB_REPOSITORY is required");
+if (process.env.GITHUB_REF !== "refs/heads/main") {
+  throw new Error("Release verification must be dispatched from refs/heads/main");
+}
 
 const reference = JSON.parse(run("gh", ["api", `repos/${repository}/git/ref/tags/${tag}`]));
 if (reference.object?.type !== "tag") throw new Error(`${tag} must be an annotated tag`);

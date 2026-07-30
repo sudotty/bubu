@@ -4,7 +4,7 @@ This is the operator contract for macOS and Windows releases. It intentionally s
 
 ## 1. One-time GitHub configuration
 
-The repository-owned GitHub Actions environment `release` accepts only workflow runs dispatched from protected `main` and requires an explicit owner approval. Release tags select source bytes but never select the privileged workflow definition. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
+The repository-owned GitHub Actions environment `release` accepts only workflow runs dispatched with the workflow ref set to `main` (`GITHUB_REF=refs/heads/main`) and requires an explicit owner approval. Release tags select source bytes but never select the privileged workflow definition. Do not expose release credentials to pull-request workflows or repository-level shell scripts.
 
 `npm run verify:github:remote` treats a missing environment or missing tag restriction as a release failure. This public repository has Secret Scanning and Push Protection enabled; local secret verification and the human draft-review checklist remain independent controls. Never bypass unavailable environment protection by moving release secrets to repository scope.
 
