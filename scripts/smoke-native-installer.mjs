@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { assertDistinctUpgrade, assertNativeInstaller, lifecycleSteps } from "./native-installer-policy.mjs";
+import { verifyNativeInstallerSignature } from "./native-signature-verifier.mjs";
 
 function argument(name) {
   const prefix = `${name}=`;
@@ -57,6 +58,11 @@ if (previousArtifact) {
 const workspace = mkdtempSync(join(tmpdir(), "bubu-installer-smoke-"));
 const passed = [];
 const environment = { ...process.env };
+
+if (previousArtifact && requireSignature) {
+  verifyNativeInstallerSignature(process.platform, previousArtifact);
+  passed.push("previous-installer-signature");
+}
 
 function smokeExecutable(executable) {
   run(process.execPath, [resolve("scripts", "smoke-packaged-desktop.mjs"), `--executable=${executable}`], { env: environment });

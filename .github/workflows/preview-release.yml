@@ -1,8 +1,6 @@
 name: Publish unsigned preview
 
 on:
-  push:
-    tags: ["preview-v*.*.*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -14,11 +12,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: preview-release-${{ inputs.tag || github.ref_name }}
+  group: preview-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 env:
-  BUBU_PREVIEW_TAG: ${{ inputs.tag || github.ref_name }}
+  BUBU_PREVIEW_TAG: ${{ inputs.tag }}
 
 jobs:
   validate-preview-tag:
@@ -26,8 +24,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check out repository configuration
+      - name: Check out preview tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.BUBU_PREVIEW_TAG }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -36,6 +37,10 @@ jobs:
         env:
           TAG: ${{ env.BUBU_PREVIEW_TAG }}
         run: node scripts/validate-preview-tag.mjs "$TAG"
+      - name: Verify protected-main provenance and successful checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-release-ref.mjs --tag="$BUBU_PREVIEW_TAG" --channel=preview
 
   package:
     name: Unsigned ${{ matrix.target }}
@@ -84,7 +89,7 @@ jobs:
         run: node scripts/smoke-native-installer.mjs --artifact="${{ github.workspace }}/${{ matrix.installer }}" --report="${{ runner.temp }}/installer-smoke.json"
       - name: Stage preview assets
         shell: bash
-        run: node scripts/stage-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+        run: node scripts/stage-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --channel=preview --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
       - name: Upload preview target assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -117,10 +122,9 @@ jobs:
           path: ${{ runner.temp }}/release-input
       - name: Finalize checksums and manifest
         shell: bash
-        run: node scripts/finalize-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --tag="$BUBU_PREVIEW_TAG" --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=disabled
-      - name: Publish unsigned prerelease
+        run: node scripts/finalize-release-assets.mjs --version="${BUBU_PREVIEW_TAG#preview-v}" --tag="$BUBU_PREVIEW_TAG" --channel=preview --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=disabled
+      - name: Publish immutable unsigned prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: |
-          gh release create "$BUBU_PREVIEW_TAG" "$RUNNER_TEMP/release-assets/"* --repo "$GITHUB_REPOSITORY" --prerelease --generate-notes --title "BuBu $BUBU_PREVIEW_TAG (unsigned preview)" --notes "This is an unsigned community preview. macOS Gatekeeper and Windows SmartScreen may warn. Do not treat this release as a signed stable build."
+        run: node scripts/sync-release-assets.mjs --tag="$BUBU_PREVIEW_TAG" --channel=preview --directory="$RUNNER_TEMP/release-assets"

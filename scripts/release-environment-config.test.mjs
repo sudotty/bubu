@@ -4,6 +4,7 @@ import {
   buildReleaseEnvironmentPlan,
   githubSetArguments,
   releaseChildEnvironment,
+  repositoryFromRemoteUrl,
   validateRepositoryName,
 } from "./release-environment-config.mjs";
 
@@ -27,8 +28,10 @@ test("builds a complete release-environment plan without requiring optional atte
   assert.deepEqual(plan.missingNames, []);
   assert.deepEqual(plan.validationErrors, []);
   assert.equal(plan.writes.filter(({ kind }) => kind === "secret").length, 6);
-  assert.equal(plan.writes.filter(({ kind }) => kind === "variable").length, 6);
-  assert.equal(plan.writes.some(({ name }) => name === "BUBU_ENABLE_ARTIFACT_ATTESTATIONS"), false);
+  assert.equal(plan.writes.filter(({ kind }) => kind === "variable").length, 7);
+  assert.deepEqual(plan.writes.find(({ name }) => name === "BUBU_ENABLE_ARTIFACT_ATTESTATIONS"), {
+    kind: "variable", name: "BUBU_ENABLE_ARTIFACT_ATTESTATIONS", value: "false",
+  });
 });
 
 test("reports every absent or malformed value before any external write", () => {
@@ -58,6 +61,12 @@ test("requires an exact owner/repository target", () => {
   for (const value of ["", "bubu", "origin", "https://github.com/sudotty/bubu", "owner/repo/extra"]) {
     assert.throws(() => validateRepositoryName(value), /owner\/repository/u);
   }
+});
+
+test("binds publisher configuration to the current GitHub origin", () => {
+  assert.equal(repositoryFromRemoteUrl("https://github.com/sudotty/bubu.git"), "sudotty/bubu");
+  assert.equal(repositoryFromRemoteUrl("git@github.com:sudotty/bubu.git"), "sudotty/bubu");
+  assert.equal(repositoryFromRemoteUrl("https://example.com/sudotty/bubu.git"), undefined);
 });
 
 test("removes every release value from the GitHub CLI child environment", () => {

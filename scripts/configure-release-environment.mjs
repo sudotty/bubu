@@ -5,6 +5,7 @@ import {
   releaseChildEnvironment,
   releaseSecretNames,
   releaseVariableNames,
+  repositoryFromRemoteUrl,
   validateRepositoryName,
 } from "./release-environment-config.mjs";
 
@@ -35,6 +36,11 @@ if (plan.missingNames.length > 0 || plan.validationErrors.length > 0) {
   console.error("Release environment configuration is incomplete; no remote changes were made.");
   if (plan.missingNames.length > 0) console.error(`Missing values: ${plan.missingNames.join(", ")}`);
   for (const error of plan.validationErrors) console.error(`Invalid value: ${error}`);
+  process.exit(1);
+}
+const origin = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8", stdio: "pipe" });
+if (origin.status !== 0 || repositoryFromRemoteUrl(origin.stdout) !== repository) {
+  console.error(`Refusing to configure ${repository}: it does not match this worktree's GitHub origin.`);
   process.exit(1);
 }
 const attestationWrite = plan.writes.find(({ name }) => name === "BUBU_ENABLE_ARTIFACT_ATTESTATIONS");

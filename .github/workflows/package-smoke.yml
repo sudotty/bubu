@@ -2,26 +2,6 @@ name: Native package smoke
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/package-smoke.yml"
-      - ".github/workflows/preview-release.yml"
-      - ".github/workflows/release.yml"
-      - "apps/desktop/**"
-      - "packages/contracts/**"
-      - "packages/product-core/**"
-      - "services/ai-runtime/**"
-      - "services/data-core/**"
-      - "services/hub/**"
-      - "scripts/build-data-core.mjs"
-      - "scripts/native-installer-policy.mjs"
-      - "scripts/platform-paths.mjs"
-      - "scripts/prepare-electron-runtime.mjs"
-      - "scripts/release-artifacts.mjs"
-      - "scripts/smoke-native-installer.mjs"
-      - "scripts/stage-release-assets.mjs"
-      - "package.json"
-      - "package-lock.json"
-      - ".nvmrc"
   workflow_dispatch:
 
 permissions:
@@ -32,8 +12,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Resolve native package scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.scope.outputs.native || steps.manual-scope.outputs.native }}
+    steps:
+      - name: Check out complete comparison history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Resolve native package scope
+        id: scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: git diff --name-only "$BASE_SHA" "$HEAD_SHA" | node scripts/ci-policy.mjs --changed-files
+      - name: Require native package scope for manual runs
+        id: manual-scope
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: echo 'native=true' >> "$GITHUB_OUTPUT"
+
   hub-postgresql:
     name: Hub PostgreSQL transaction evidence
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -58,6 +65,8 @@ jobs:
 
   native-package:
     name: ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
@@ -110,3 +119,27 @@ jobs:
           path: ${{ runner.temp }}/installer-smoke.json
           if-no-files-found: error
           retention-days: 3
+
+  package-contract:
+    name: Native package contract
+    if: always()
+    needs: [changes, hub-postgresql, native-package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every applicable native proof
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          NATIVE_REQUIRED: ${{ needs.changes.outputs.native }}
+          HUB_RESULT: ${{ needs.hub-postgresql.result }}
+          NATIVE_RESULT: ${{ needs.native-package.result }}
+        shell: bash
+        run: |
+          test "$CHANGES_RESULT" = "success"
+          if [[ "$NATIVE_REQUIRED" == "true" ]]; then
+            test "$HUB_RESULT" = "success"
+            test "$NATIVE_RESULT" = "success"
+          else
+            test "$HUB_RESULT" = "skipped"
+            test "$NATIVE_RESULT" = "skipped"
+          fi

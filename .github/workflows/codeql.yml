@@ -40,3 +40,15 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
       - name: Analyze repository
         uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+
+  codeql-contract:
+    name: CodeQL contract
+    if: always()
+    needs: analyze
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every language analysis
+        env:
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+        run: test "$ANALYZE_RESULT" = "success"

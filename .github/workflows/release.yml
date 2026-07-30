@@ -1,8 +1,6 @@
 name: Signed desktop release
 
 on:
-  push:
-    tags: ["v*.*.*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -14,11 +12,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: signed-release-${{ inputs.tag || github.ref_name }}
+  group: signed-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 env:
-  BUBU_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  BUBU_RELEASE_TAG: ${{ inputs.tag }}
 
 jobs:
   prepare:
@@ -32,33 +30,23 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ env.BUBU_RELEASE_TAG }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts
-      - name: Validate tag and version
+      - name: Validate tag provenance and version
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if [[ ! "$BUBU_RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Release tag must be stable v<semver>: $BUBU_RELEASE_TAG" >&2
-            exit 1
-          fi
-          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$BUBU_RELEASE_TAG" --jq '.object.type + " " + .object.sha')"
-          read -r tag_type tag_sha <<< "$tag_object"
-          test "$tag_type" = "tag"
-          tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq 'select(.verification.verified == true and .object.type == "commit") | .object.sha')"
-          test -n "$tag_commit"
-          test "$(git rev-parse HEAD)" = "$tag_commit"
+          node scripts/verify-release-ref.mjs --tag="$BUBU_RELEASE_TAG" --channel=stable
           version="$(node -p "require('./package.json').version")"
-          test "$BUBU_RELEASE_TAG" = "v$version"
-          npm run version:check
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - name: Install locked dependencies and verify version contract
+        run: npm ci --ignore-scripts && npm run version:check
 
   macos:
     name: Signed ${{ matrix.target }}
@@ -166,7 +154,7 @@ jobs:
           fi
           node scripts/smoke-native-installer.mjs "${arguments[@]}"
       - name: Stage signed release assets
-        run: node scripts/stage-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --platform=darwin --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+        run: node scripts/stage-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --channel=stable --platform=darwin --arch=${{ matrix.arch }} --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
       - name: Upload signed release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -272,7 +260,7 @@ jobs:
           if ($env:PREVIOUS_ARTIFACT) { $arguments += "--previous-artifact=$env:PREVIOUS_ARTIFACT" }
           node scripts/smoke-native-installer.mjs @arguments
       - name: Stage signed release assets
-        run: node scripts/stage-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --platform=win32 --arch=x64 --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
+        run: node scripts/stage-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --channel=stable --platform=win32 --arch=x64 --smoke-report="${{ runner.temp }}/installer-smoke.json" --output="${{ runner.temp }}/release-stage"
       - name: Upload signed release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -284,16 +272,16 @@ jobs:
         if: always()
         run: az logout
 
-  draft-release:
-    name: Assemble evidence and draft release
+  assemble-release:
+    name: Assemble exact release evidence
     needs: [prepare, macos, windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: release
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
+      contents: read
+    outputs:
+      attestations: ${{ steps.release-settings.outputs.attestations }}
     steps:
       - name: Check out release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -321,14 +309,20 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/release-input/metadata"
           npm sbom --sbom-format=cyclonedx > "$RUNNER_TEMP/release-input/metadata/BuBu-${{ needs.prepare.outputs.version }}-npm-sbom.cdx.json"
-          go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0 mod -json -output "$RUNNER_TEMP/release-input/metadata/BuBu-${{ needs.prepare.outputs.version }}-go-sbom.cdx.json" services/data-core
+          node scripts/generate-go-sbom.mjs --output="$RUNNER_TEMP/release-input/metadata/BuBu-${{ needs.prepare.outputs.version }}-go-sbom.cdx.json"
+      - name: Resolve protected release settings
+        id: release-settings
+        env:
+          ATTESTATIONS_ENABLED: ${{ vars.BUBU_ENABLE_ARTIFACT_ATTESTATIONS }}
+        shell: bash
+        run: |
+          if [[ "$ATTESTATIONS_ENABLED" == "true" ]]; then
+            echo 'attestations=enabled' >> "$GITHUB_OUTPUT"
+          else
+            echo 'attestations=disabled' >> "$GITHUB_OUTPUT"
+          fi
       - name: Finalize checksums and release manifest
-        run: node scripts/finalize-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=${{ vars.BUBU_ENABLE_ARTIFACT_ATTESTATIONS == 'true' && 'enabled' || 'disabled' }}
-      - name: Attest build provenance when enabled
-        if: vars.BUBU_ENABLE_ARTIFACT_ATTESTATIONS == 'true'
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
-        with:
-          subject-path: ${{ runner.temp }}/release-assets/*
+        run: node scripts/finalize-release-assets.mjs --version=${{ needs.prepare.outputs.version }} --channel=stable --input="${{ runner.temp }}/release-input" --output="${{ runner.temp }}/release-assets" --attestations=${{ steps.release-settings.outputs.attestations }}
       - name: Upload complete release evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -336,17 +330,54 @@ jobs:
           path: ${{ runner.temp }}/release-assets
           if-no-files-found: error
           retention-days: 30
-      - name: Create or refresh draft GitHub Release
+
+  attest-release:
+    name: Attest exact release evidence
+    if: needs.assemble-release.outputs.attestations == 'enabled'
+    needs: [prepare, assemble-release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download complete release evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-${{ env.BUBU_RELEASE_TAG }}
+          path: ${{ runner.temp }}/release-assets
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: ${{ runner.temp }}/release-assets/*
+
+  draft-release:
+    name: Publish exact draft release
+    if: ${{ always() && needs.assemble-release.result == 'success' && ((needs.assemble-release.outputs.attestations == 'enabled' && needs.attest-release.result == 'success') || (needs.assemble-release.outputs.attestations == 'disabled' && needs.attest-release.result == 'skipped')) }}
+    needs: [prepare, assemble-release, attest-release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.BUBU_RELEASE_TAG }}
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download complete release evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-${{ env.BUBU_RELEASE_TAG }}
+          path: ${{ runner.temp }}/release-assets
+      - name: Create or synchronize exact draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: |
-          mapfile -t assets < <(find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -print | sort)
-          if [[ "$(gh release view "$BUBU_RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)" == "true" ]]; then
-            gh release upload "$BUBU_RELEASE_TAG" "${assets[@]}" --clobber
-          elif gh release view "$BUBU_RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Refusing to overwrite an already published release" >&2
-            exit 1
-          else
-            gh release create "$BUBU_RELEASE_TAG" "${assets[@]}" --draft --verify-tag --title "BuBu $BUBU_RELEASE_TAG" --generate-notes
-          fi
+        run: node scripts/sync-release-assets.mjs --tag="$BUBU_RELEASE_TAG" --channel=stable --directory="$RUNNER_TEMP/release-assets"
