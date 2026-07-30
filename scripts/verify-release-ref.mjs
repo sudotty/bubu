@@ -29,13 +29,15 @@ if (tagObject.object?.type !== "commit") throw new Error(`${tag} must point dire
 if (channel === "stable" && tagObject.verification?.verified !== true) throw new Error(`${tag} must have a GitHub-verified signature`);
 
 const commit = tagObject.object.sha;
-if (run("git", ["rev-parse", "HEAD"]) !== commit) throw new Error(`Checked-out commit does not match ${tag}`);
+const workflowCommit = run("git", ["rev-parse", "HEAD"]);
+if (!process.env.GITHUB_SHA || process.env.GITHUB_SHA !== workflowCommit) throw new Error("Release verification must run from the dispatched GitHub workflow commit");
 run("git", ["fetch", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"]);
-run("git", ["merge-base", "--is-ancestor", commit, "refs/remotes/origin/main"]);
+run("git", ["merge-base", "--is-ancestor", workflowCommit, "refs/remotes/origin/main"]);
+if (commit !== workflowCommit) throw new Error(`${tag} must point to the exact protected-main workflow commit`);
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 assertReleaseTagVersion({ channel, tag, version });
 const checks = JSON.parse(run("gh", ["api", `repos/${repository}/commits/${commit}/check-runs?filter=latest&per_page=100`])).check_runs;
 const { missing } = successfulRequiredChecks(checks);
 if (missing.length > 0) throw new Error(`${tag} commit is missing successful required checks: ${missing.join(", ")}`);
-console.log(`Verified ${channel} tag ${tag}: exact version, annotated tag, protected-main ancestry, and required checks agree.`);
+console.log(`Verified ${channel} tag ${tag}: exact version, annotated tag, protected-main workflow commit, and required checks agree.`);

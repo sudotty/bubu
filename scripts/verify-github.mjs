@@ -36,7 +36,7 @@ const workflowPolicy = Object.freeze({
   ".github/workflows/preview-release.yml": {
     events: ["workflow_dispatch"],
     jobs: { "validate-preview-tag": undefined, package: undefined, publish: { contents: "write" } },
-    requiredText: ["Existing preview-v<semver> tag", "verify-release-ref.mjs", "--channel=preview", "sync-release-assets.mjs", "immutable unsigned prerelease"],
+    requiredText: ["Existing preview-v<semver> tag", "Check out trusted workflow commit", "verify-release-ref.mjs", "--channel=preview", "sync-release-assets.mjs", "immutable unsigned prerelease"],
   },
   ".github/workflows/release.yml": {
     events: ["workflow_dispatch"],
@@ -48,7 +48,7 @@ const workflowPolicy = Object.freeze({
       "attest-release": { contents: "read", "id-token": "write", attestations: "write" },
       "draft-release": { contents: "write" },
     },
-    requiredText: ["environment: release", "verify-release-ref.mjs", "--channel=stable", "resolve-previous-release.mjs", "--require-signature", "xcrun notarytool submit", "steps.release-settings.outputs.attestations", "needs.assemble-release.outputs.attestations", "sync-release-assets.mjs", "attest-build-provenance@", "cancel-in-progress: false"],
+    requiredText: ["environment: release", "Check out trusted workflow commit", "Check out verified release tag", "verify-release-ref.mjs", "--channel=stable", "resolve-previous-release.mjs", "--require-signature", "xcrun notarytool submit", "steps.release-settings.outputs.attestations", "needs.assemble-release.outputs.attestations", "sync-release-assets.mjs", "attest-build-provenance@", "cancel-in-progress: false"],
     forbiddenText: ['AuthKey_${{ secrets.', 'if [[ -n "${{ steps.', "if ('${{ steps.", 'security delete-keychain "${{', 'rm -f "${{'],
   },
 });
